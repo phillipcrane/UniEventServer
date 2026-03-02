@@ -10,7 +10,7 @@ services:
       MYSQL_USER: unievent_user
       MYSQL_PASSWORD: unievent_pass
     ports:
-      - "3306:3306"
+      - "3307:3306"
     volumes:
       - mysql-data:/var/lib/mysql
     networks:
