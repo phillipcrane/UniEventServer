@@ -10,4 +10,3 @@ listener "tcp" {
 ui = true
 
 api_addr = "http://vault:8200"
-
