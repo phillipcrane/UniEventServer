@@ -46,7 +46,7 @@ services:
     image: hashicorp/vault:1.15
     container_name: unievent-vault
     # write VAULT_LOCAL_CONFIG into /vault/config/vault.hcl at container start, then run vault
-    command: sh -c 'mkdir -p /vault/config && echo "$VAULT_LOCAL_CONFIG" > /vault/config/vault.hcl && vault server -config=/vault/config/vault.hcl'
+    command: sh -c 'mkdir -p /vault/config && echo "$$VAULT_LOCAL_CONFIG" > /vault/config/vault.hcl && vault server -config=/vault/config/vault.hcl'
     environment:
       VAULT_ADDR: http://0.0.0.0:8200
       VAULT_LOCAL_CONFIG: >-
