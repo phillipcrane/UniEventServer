@@ -5,14 +5,18 @@ services:
     image: mysql:8.0
     container_name: unievent-mysql
     environment:
-      MYSQL_ROOT_PASSWORD: root
-      MYSQL_DATABASE: unievent
-      MYSQL_USER: unievent_user
-      MYSQL_PASSWORD: unievent_pass
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
     ports:
       - "3307:3306"
     volumes:
       - mysql-data:/var/lib/mysql
+      - /etc/ssl/certs/unievent/ca.pem:/etc/mysql/certs/ca.pem:ro
+      - /etc/ssl/certs/unievent/mysql-cert.pem:/etc/mysql/certs/mysql-cert.pem:ro
+      - /etc/ssl/private/unievent/mysql-key.pem:/etc/mysql/certs/mysql-key.pem:ro
+    command: --ssl-ca=/etc/mysql/certs/ca.pem --ssl-cert=/etc/mysql/certs/mysql-cert.pem --ssl-key=/etc/mysql/certs/mysql-key.pem --require-secure-transport=ON
     networks:
       - unievent-network
     healthcheck:
@@ -30,9 +34,9 @@ services:
       mysql:
         condition: service_healthy
     environment:
-      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/unievent?useSSL=false&serverTimezone=UTC
-      SPRING_DATASOURCE_USERNAME: root
-      SPRING_DATASOURCE_PASSWORD: root
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/unievent?useSSL=true&serverSslMode=REQUIRED&serverSslVerification=false&serverTimezone=UTC
+      SPRING_DATASOURCE_USERNAME: ${SPRING_DATASOURCE_USERNAME}
+      SPRING_DATASOURCE_PASSWORD: ${SPRING_DATASOURCE_PASSWORD}
     ports:
       - "8080:8080"
     networks:
