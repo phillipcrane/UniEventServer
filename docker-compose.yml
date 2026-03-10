@@ -33,8 +33,10 @@ services:
     depends_on:
       mysql:
         condition: service_healthy
+    volumes:
+      - /etc/ssl/certs/unievent/ca.pem:/app/certs/ca.pem:ro
     environment:
-      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/unievent?useSSL=true&serverSslMode=REQUIRED&serverSslVerification=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/unievent?sslMode=REQUIRED&serverSslVerification=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
       SPRING_DATASOURCE_USERNAME: ${SPRING_DATASOURCE_USERNAME}
       SPRING_DATASOURCE_PASSWORD: ${SPRING_DATASOURCE_PASSWORD}
     ports:
