@@ -38,10 +38,10 @@ public class EventDTO {
     @Valid
     private PlaceDTO place;
     
-    @Pattern(regexp = "^(https?://)?.*", message = "Cover image URL must be a valid URL")
+    @Pattern(regexp = "^https?://[\\w\\-]+(\\.[\\w\\-]+)+.*", message = "Cover image URL must be a valid URL")
     private String coverImageUrl;
     
-    @Pattern(regexp = "^(https?://)?.*", message = "Event URL must be a valid URL")
+    @Pattern(regexp = "^https?://[\\w\\-]+(\\.[\\w\\-]+)+.*", message = "Event URL must be a valid URL")
     private String eventURL;
     
     private LocalDateTime createdAt;

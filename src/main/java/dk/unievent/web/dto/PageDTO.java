@@ -26,6 +26,6 @@ public class PageDTO {
     
     private Boolean active;
     
-    @Pattern(regexp = "^(https?://)?.*", message = "Picture URL must be a valid URL")
+    @Pattern(regexp = "^https?://[\\w\\-]+(\\.[\\w\\-]+)+.*", message = "Picture URL must be a valid URL")
     private String pictureUrl;
 }
