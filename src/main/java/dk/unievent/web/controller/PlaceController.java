@@ -6,6 +6,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import jakarta.validation.Valid;
 import java.util.List;
 
 /**
@@ -150,7 +151,7 @@ public class PlaceController {
      * Returns: Created PlaceDTO (HTTP 201 Created)
      */
     @PostMapping
-    public ResponseEntity<PlaceDTO> createPlace(@RequestBody PlaceDTO placeDTO) {
+    public ResponseEntity<PlaceDTO> createPlace(@Valid @RequestBody PlaceDTO placeDTO) {
         PlaceDTO created = placeService.createPlace(placeDTO);
         return ResponseEntity.status(HttpStatus.CREATED).body(created);
     }
@@ -172,7 +173,7 @@ public class PlaceController {
     @PutMapping("/{id}")
     public ResponseEntity<PlaceDTO> updatePlace(
             @PathVariable String id,
-            @RequestBody PlaceDTO placeDTO) {
+            @Valid @RequestBody PlaceDTO placeDTO) {
         placeDTO.setId(id);  // Ensure we're updating the right place
         PlaceDTO updated = placeService.updatePlace(id, placeDTO);
         

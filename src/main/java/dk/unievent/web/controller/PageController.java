@@ -6,6 +6,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import jakarta.validation.Valid;
 import java.util.List;
 
 /**
@@ -117,7 +118,7 @@ public class PageController {
      * Note: Internal fields (tokens, refresh status) are NOT in the response
      */
     @PostMapping
-    public ResponseEntity<PageDTO> createPage(@RequestBody PageDTO pageDTO) {
+    public ResponseEntity<PageDTO> createPage(@Valid @RequestBody PageDTO pageDTO) {
         PageDTO created = pageService.savePage(pageDTO);
         return ResponseEntity.status(HttpStatus.CREATED).body(created);
     }
@@ -139,7 +140,7 @@ public class PageController {
     @PutMapping("/{id}")
     public ResponseEntity<PageDTO> updatePage(
             @PathVariable String id,
-            @RequestBody PageDTO pageDTO) {
+            @Valid @RequestBody PageDTO pageDTO) {
         pageDTO.setId(id);  // Ensure we're updating the right page
         PageDTO updated = pageService.savePage(pageDTO);
         return ResponseEntity.ok(updated);

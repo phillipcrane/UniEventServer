@@ -6,6 +6,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import jakarta.validation.Valid;
 import java.util.List;
 
 /**
@@ -144,7 +145,7 @@ public class EventController {
      * Note: Usually called by the Facebook sync service, not frontend
      */
     @PostMapping
-    public ResponseEntity<EventDTO> createEvent(@RequestBody EventDTO eventDTO) {
+    public ResponseEntity<EventDTO> createEvent(@Valid @RequestBody EventDTO eventDTO) {
         EventDTO created = eventService.createEvent(eventDTO);
         return ResponseEntity.status(HttpStatus.CREATED).body(created);
     }
@@ -166,7 +167,7 @@ public class EventController {
     @PutMapping("/{id}")
     public ResponseEntity<EventDTO> updateEvent(
             @PathVariable String id,
-            @RequestBody EventDTO eventDTO) {
+            @Valid @RequestBody EventDTO eventDTO) {
         EventDTO updated = eventService.updateEvent(id, eventDTO);
         
         if (updated == null) {
