@@ -1,4 +1,4 @@
-﻿storage "file" {
+storage "file" {
   path = "/vault/file"
 }
 
