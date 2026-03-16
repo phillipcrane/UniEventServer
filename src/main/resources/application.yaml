@@ -16,3 +16,8 @@ spring:
       hibernate:
         dialect: org.hibernate.dialect.MySQLDialect
         format_sql: true
+
+unievent:
+  media:
+    # directory relative to working directory or absolute path
+    location: ${UNIEVENT_MEDIA_LOCATION:/app/media}
