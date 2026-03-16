@@ -2,9 +2,15 @@ package dk.unievent.web.media;
 
 import jakarta.persistence.*;
 import java.time.Instant;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 @Entity
 @Table(name = "media_files")
+@Getter
+@Setter
+@NoArgsConstructor
 public class MediaFile {
 
     @Id
@@ -29,42 +35,4 @@ public class MediaFile {
         this.path = path;
         this.uploadedAt = Instant.now();
     }
-
-    // getters and setters
-
-    public Long getId() {
-        return id;
-    }
-
-    public String getFilename() {
-        return filename;
-    }
-
-    public void setFilename(String filename) {
-        this.filename = filename;
-    }
-
-    public String getContentType() {
-        return contentType;
-    }
-
-    public void setContentType(String contentType) {
-        this.contentType = contentType;
-    }
-
-    public String getPath() {
-        return path;
-    }
-
-    public void setPath(String path) {
-        this.path = path;
-    }
-
-    public Instant getUploadedAt() {
-        return uploadedAt;
-    }
-
-    public void setUploadedAt(Instant uploadedAt) {
-        this.uploadedAt = uploadedAt;
-    }
-}
+} 
