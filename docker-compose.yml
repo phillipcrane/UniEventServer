@@ -35,7 +35,7 @@ services:
       SPRING_DATASOURCE_PASSWORD: ${SPRING_DATASOURCE_PASSWORD}
       SPRING_CONFIG_IMPORT: optional:vault://
       SPRING_CLOUD_VAULT_URI: http://vault:8200
-      SPRING_CLOUD_VAULT_TOKEN: ${SPRING_CLOUD_VAULT_TOKEN:-root}
+      SPRING_CLOUD_VAULT_TOKEN: ${SPRING_CLOUD_VAULT_TOKEN}
       UNIEVENT_MEDIA_LOCATION: /app/media
 
     ports:
@@ -48,18 +48,20 @@ services:
   vault:
     image: hashicorp/vault:1.15
     container_name: unievent-vault
-    command: sh -c 'vault server -dev -dev-root-token-id=$${VAULT_DEV_ROOT_TOKEN_ID:-root} -dev-listen-address=0.0.0.0:8200'
+    command: vault server -config=/vault/config/vault.hcl
     environment:
       VAULT_ADDR: http://0.0.0.0:8200
-      VAULT_DEV_ROOT_TOKEN_ID: ${VAULT_DEV_ROOT_TOKEN_ID:-root}
     ports:
       - "127.0.0.1:8200:8200"
     cap_add:
       - IPC_LOCK
+    volumes:
+      - ./vault/config:/vault/config:ro
+      - vault-data:/vault/file
     networks:
       - unievent-network
     healthcheck:
-      test: ["CMD-SHELL", "VAULT_TOKEN=$${VAULT_DEV_ROOT_TOKEN_ID:-root} vault status -format=json > /dev/null 2>&1 || exit 1"]
+      test: ["CMD-SHELL", "vault status -format=json > /dev/null 2>&1 || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -67,6 +69,7 @@ services:
 volumes:
   mysql-data:
   media-data:
+  vault-data:
 
 networks:
   unievent-network:

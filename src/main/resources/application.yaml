@@ -8,7 +8,7 @@ spring:
     vault:
       enabled: ${SPRING_CLOUD_VAULT_ENABLED:true}
       uri: ${SPRING_CLOUD_VAULT_URI:http://localhost:8200}
-      token: ${SPRING_CLOUD_VAULT_TOKEN:root}
+      token: ${SPRING_CLOUD_VAULT_TOKEN}
       fail-fast: false
       kv:
         enabled: true
