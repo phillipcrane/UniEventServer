@@ -3,8 +3,8 @@
 Migration Strategy Checklist:
 
 Backend:
-- [ ] Define endpoints
-- [ ] DB Setup (SQL)
+- [x] Define endpoints
+- [x] DB Setup (SQL)
 - [x] Media (filesystem storage with DB metadata)
 
 ## Media handling
