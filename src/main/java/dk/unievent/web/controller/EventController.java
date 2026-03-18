@@ -37,6 +37,11 @@ public class EventController {
     @Value("${services.core.url:http://localhost:8082}")
     private String coreServiceUrl;
 
+    @Value("${services.storage.url:http://localhost:8083}")
+    private String storageServiceUrl;
+
+    private String secretManagerServiceUrl;
+
     public EventController(PageRepository pageRepository,
                           EventRepository eventRepository,
                           ObjectMapper objectMapper) {
@@ -47,13 +52,16 @@ public class EventController {
                           EventRepository eventRepository,
                           ObjectMapper objectMapper,
                           String facebookServiceUrl,
-                          String coreServiceUrl) {
+                          String coreServiceUrl,
+                          String storageServiceUrl) {
         this.pageRepository = pageRepository;
         this.eventRepository = eventRepository;
         this.restTemplate = new RestTemplate();
         this.objectMapper = objectMapper;
         this.facebookServiceUrl = facebookServiceUrl;
         this.coreServiceUrl = coreServiceUrl;
+        this.storageServiceUrl = storageServiceUrl;
+        this.secretManagerServiceUrl = coreServiceUrl;
     }
 
     @PostMapping("/callback")
