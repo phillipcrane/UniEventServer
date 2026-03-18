@@ -38,3 +38,5 @@ build/
 
 ### VAULT SECRETS ###
 vault-init.json
+.env
+vault-init.json
