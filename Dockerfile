@@ -19,6 +19,9 @@ RUN mvn package -DskipTests -B
 FROM eclipse-temurin:25-jre-alpine
 WORKDIR /app
 
+# ensure media directory exists in the runtime image
+RUN mkdir -p /app/media && chmod 755 /app/media
+
 # Copy the built jar from build stage
 COPY --from=build /app/target/*.jar app.jar
 

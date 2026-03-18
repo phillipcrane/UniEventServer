@@ -25,3 +25,8 @@ management:
   endpoint:
     health:
       show-details: always
+
+unievent:
+  media:
+    # directory relative to working directory or absolute path
+    location: ${UNIEVENT_MEDIA_LOCATION:/app/media}

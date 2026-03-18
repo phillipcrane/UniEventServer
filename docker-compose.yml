@@ -33,13 +33,18 @@ services:
       SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/unievent?useSSL=true&serverSslVerification=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
       SPRING_DATASOURCE_USERNAME: ${SPRING_DATASOURCE_USERNAME}
       SPRING_DATASOURCE_PASSWORD: ${SPRING_DATASOURCE_PASSWORD}
+      # location inside container where media will be stored
+      UNIEVENT_MEDIA_LOCATION: /app/media
     ports:
       - "8080:8080"
+    volumes:
+      - media-data:/app/media
     networks:
       - unievent-network
 
 volumes:
   mysql-data:
+  media-data:
 
 networks:
   unievent-network:
