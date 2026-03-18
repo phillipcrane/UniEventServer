@@ -5,16 +5,17 @@ Migration Strategy Checklist:
 Backend:
 - [x] Define endpoints
 - [x] DB Setup (SQL)
-- [x] Media (filesystem storage with DB metadata)
+- [ ] Media (filesystem storage with DB metadata)
 - [ ] Serverless Funtions
-- [ ] Secret Manager
-- [ ] Hosting / Debian Server
+- [x] Secret Manager
+- [x] Hosting / Debian Server
 
 Frontend:
 - [x] Security update
 - [ ] New DAL
 - [ ] Auth/User function
-- [ ] Calendar function
+- [x] Calendar function
+- [ ] Login function
 
 ##
 
