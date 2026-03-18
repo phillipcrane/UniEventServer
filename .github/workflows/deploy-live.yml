@@ -31,4 +31,23 @@ jobs:
           DEPLOY_USER: ${{ secrets.LIVE_DEPLOY_USER }}
           DEPLOY_PATH: ${{ secrets.LIVE_DEPLOY_PATH }}
         run: |
-          ssh -o StrictHostKeyChecking=yes "${DEPLOY_USER}@${DEPLOY_HOST}" "set -euo pipefail; cd '${DEPLOY_PATH}'; git fetch origin; git checkout live; git reset --hard origin/live; docker compose up -d --build --remove-orphans; docker compose ps"
+          ssh -o StrictHostKeyChecking=yes "${DEPLOY_USER}@${DEPLOY_HOST}" "DEPLOY_PATH='${DEPLOY_PATH}' bash -s" <<'EOF'
+          set -euo pipefail
+
+          cd "${DEPLOY_PATH}"
+          git fetch origin
+          git checkout live
+          git reset --hard origin/live
+
+          if docker compose version >/dev/null 2>&1; then
+            COMPOSE_CMD='docker compose'
+          elif command -v docker-compose >/dev/null 2>&1; then
+            COMPOSE_CMD='docker-compose'
+          else
+            echo 'Neither docker compose plugin nor docker-compose binary is installed on the server.'
+            exit 1
+          fi
+
+          ${COMPOSE_CMD} up -d --build --remove-orphans
+          ${COMPOSE_CMD} ps
+          EOF
