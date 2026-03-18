@@ -2,11 +2,16 @@ package dk.unievent.web.controller;
 
 import dk.unievent.web.dto.PageDTO;
 import dk.unievent.web.service.PageService;
+import dk.unievent.web.media.MediaFile;
+import dk.unievent.web.media.StorageService;
+import dk.unievent.web.media.MediaFileRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 import jakarta.validation.Valid;
+import java.io.IOException;
 import java.util.List;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -32,6 +37,12 @@ public class PageController {
     
     @Autowired
     private PageService pageService;
+    
+    @Autowired
+    private StorageService storageService;
+    
+    @Autowired
+    private MediaFileRepository mediaFileRepository;
     
     /**
      * GET /api/pages
@@ -162,6 +173,43 @@ public class PageController {
             @Valid @RequestBody PageDTO pageDTO) {
         pageDTO.setId(id);  // Ensure we're updating the right page
         PageDTO updated = pageService.savePage(pageDTO);
+        return ResponseEntity.ok(updated);
+    }
+    
+    /**
+     * POST /api/pages/{id}/picture
+     * Upload a picture for a page
+     * 
+     * Parameter: id = page ID
+     * File: multipart file (image file)
+     * Example: POST /api/pages/123456789/picture with image file
+     * 
+     * Returns: Updated PageDTO with pictureId set
+     * Returns: HTTP 200 OK
+     */
+    @PostMapping("/{id}/picture")
+    @Operation(summary = "Upload picture for page", description = "Upload a picture for a specific page")
+    @ApiResponse(responseCode = "200", description = "Picture uploaded successfully")
+    @ApiResponse(responseCode = "404", description = "Page not found")
+    public ResponseEntity<PageDTO> uploadPagePicture(
+            @PathVariable @Parameter(description = "Facebook page ID") String id,
+            @RequestParam("file") MultipartFile file) throws IOException {
+        
+        // Verify page exists
+        PageDTO pageDTO = pageService.getPageById(id);
+        if (pageDTO == null) {
+            return ResponseEntity.notFound().build();
+        }
+        
+        // Store the file
+        String storedFilename = storageService.store(file);
+        MediaFile mediaFile = new MediaFile(file.getOriginalFilename(), file.getContentType(), storedFilename);
+        MediaFile saved = mediaFileRepository.save(mediaFile);
+        
+        // Update page with picture
+        pageDTO.setPictureId(saved.getId());
+        PageDTO updated = pageService.savePage(pageDTO);
+        
         return ResponseEntity.ok(updated);
     }
     

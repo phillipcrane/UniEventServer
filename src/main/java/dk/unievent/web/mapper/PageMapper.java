@@ -2,10 +2,16 @@ package dk.unievent.web.mapper;
 
 import dk.unievent.web.dto.PageDTO;
 import dk.unievent.web.model.PageEntity;
+import dk.unievent.web.media.MediaFile;
+import dk.unievent.web.media.MediaFileRepository;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 @Component
 public class PageMapper {
+    
+    @Autowired
+    private MediaFileRepository mediaFileRepository;
     
     public PageDTO toDTO(PageEntity entity) {
         if (entity == null) {
@@ -15,7 +21,7 @@ public class PageMapper {
         PageDTO dto = new PageDTO();
         dto.setId(entity.getId());
         dto.setName(entity.getName());
-        dto.setPictureUrl(entity.getPictureUrl());
+        dto.setPictureId(entity.getPicture() != null ? entity.getPicture().getId() : null);
         
         // Computed fields
         dto.setUrl("https://facebook.com/" + entity.getId());
@@ -32,7 +38,12 @@ public class PageMapper {
         PageEntity entity = new PageEntity();
         entity.setId(dto.getId());
         entity.setName(dto.getName());
-        entity.setPictureUrl(dto.getPictureUrl());
+        
+        // Load picture if ID provided
+        if (dto.getPictureId() != null) {
+            MediaFile picture = mediaFileRepository.findById(dto.getPictureId()).orElse(null);
+            entity.setPicture(picture);
+        }
         
         return entity;
     }

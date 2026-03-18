@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import dk.unievent.web.media.MediaFile;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -19,7 +20,9 @@ public class PageEntity {
     @Column(nullable = false)
     private String name;
 
-    private String pictureUrl;
+    @OneToOne(cascade = CascadeType.PERSIST)
+    @JoinColumn(name = "pictureId")
+    private MediaFile picture;
 
     // Token management fields
     private LocalDateTime tokenRefreshedAt;

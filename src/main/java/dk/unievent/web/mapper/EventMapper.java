@@ -3,6 +3,8 @@ package dk.unievent.web.mapper;
 import dk.unievent.web.dto.EventDTO;
 import dk.unievent.web.model.EventEntity;
 import dk.unievent.web.model.PageEntity;
+import dk.unievent.web.media.MediaFile;
+import dk.unievent.web.media.MediaFileRepository;
 import dk.unievent.web.repository.PageRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
@@ -15,6 +17,9 @@ public class EventMapper {
     
     @Autowired
     private PageRepository pageRepository;
+    
+    @Autowired
+    private MediaFileRepository mediaFileRepository;
     
     public EventDTO toDTO(EventEntity entity) {
         if (entity == null) {
@@ -29,7 +34,7 @@ public class EventMapper {
         dto.setStartTime(entity.getStartTime());
         dto.setEndTime(entity.getEndTime());
         dto.setPlace(placeMapper.toDTO(entity.getPlace()));
-        dto.setCoverImageUrl(entity.getCoverImageUrl());
+        dto.setCoverImageId(entity.getCoverImage() != null ? entity.getCoverImage().getId() : null);
         dto.setEventURL(entity.getEventURL());
         dto.setCreatedAt(entity.getCreatedAt());
         dto.setUpdatedAt(entity.getUpdatedAt());
@@ -49,8 +54,13 @@ public class EventMapper {
         entity.setStartTime(dto.getStartTime());
         entity.setEndTime(dto.getEndTime());
         entity.setPlace(placeMapper.toEntity(dto.getPlace()));
-        entity.setCoverImageUrl(dto.getCoverImageUrl());
         entity.setEventURL(dto.getEventURL());
+        
+        // Load cover image if ID provided
+        if (dto.getCoverImageId() != null) {
+            MediaFile coverImage = mediaFileRepository.findById(dto.getCoverImageId()).orElse(null);
+            entity.setCoverImage(coverImage);
+        }
         
         // Look up and set the page by pageId
         if (dto.getPageId() != null) {

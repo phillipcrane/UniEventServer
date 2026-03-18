@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import dk.unievent.web.media.MediaFile;
 import java.time.LocalDateTime;
 
 @Entity
@@ -34,7 +35,10 @@ public class EventEntity {
     @JoinColumn(name = "placeId")
     private PlaceEntity place;
 
-    private String coverImageUrl;
+    @OneToOne(cascade = CascadeType.PERSIST)
+    @JoinColumn(name = "coverImageId")
+    private MediaFile coverImage;
+    
     private String eventURL;
 
     @Column(name = "createdAt", insertable = true, updatable = false)
