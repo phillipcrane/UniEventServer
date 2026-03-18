@@ -15,20 +15,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Configure SSH key
-        run: |
-          set -euo pipefail
-          mkdir -p ~/.ssh
-          # Accept both real multiline keys and single-line keys containing literal \n.
-          printf '%s' "${{ secrets.LIVE_DEPLOY_SSH_KEY }}" | perl -pe 's/\\n/\n/g' | tr -d '\r' > ~/.ssh/deploy_key
-          chmod 600 ~/.ssh/deploy_key
-          ssh-keygen -y -f ~/.ssh/deploy_key >/dev/null
-          eval "$(ssh-agent -s)"
-          ssh-add ~/.ssh/deploy_key
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.LIVE_DEPLOY_SSH_KEY }}
 
       - name: Add known hosts
         run: |
           mkdir -p ~/.ssh
-          printf '%s\n' "${{ secrets.LIVE_DEPLOY_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
+          echo "${{ secrets.LIVE_DEPLOY_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
           chmod 644 ~/.ssh/known_hosts
 
       - name: Deploy on remote host
@@ -37,37 +31,4 @@ jobs:
           DEPLOY_USER: ${{ secrets.LIVE_DEPLOY_USER }}
           DEPLOY_PATH: ${{ secrets.LIVE_DEPLOY_PATH }}
         run: |
-          ssh -o StrictHostKeyChecking=yes "${DEPLOY_USER}@${DEPLOY_HOST}" "DEPLOY_PATH='${DEPLOY_PATH}' bash -s" <<'EOF'
-          set -euo pipefail
-
-          if [ ! -d "${DEPLOY_PATH}/.git" ]; then
-            echo "Repository not found at ${DEPLOY_PATH}. Clone it there first."
-            exit 1
-          fi
-
-          cd "${DEPLOY_PATH}"
-          git fetch --prune origin
-          git checkout live || git checkout -b live origin/live
-          git reset --hard origin/live
-
-          if docker compose version >/dev/null 2>&1; then
-            DC="docker compose"
-          elif command -v docker-compose >/dev/null 2>&1; then
-            DC="docker-compose"
-          else
-            echo "Neither docker compose plugin nor docker-compose binary was found."
-            exit 1
-          fi
-
-          if docker info >/dev/null 2>&1; then
-            RUNNER=""
-          elif sudo -n docker info >/dev/null 2>&1; then
-            RUNNER="sudo -n"
-          else
-            echo "Docker is not accessible for this user. Add user to docker group or configure passwordless sudo for docker."
-            exit 1
-          fi
-
-          ${RUNNER} ${DC} up -d --build --remove-orphans
-          ${RUNNER} ${DC} ps
-          EOF
+          ssh -o StrictHostKeyChecking=yes "${DEPLOY_USER}@${DEPLOY_HOST}" "set -euo pipefail; cd '${DEPLOY_PATH}'; git fetch origin; git checkout live; git reset --hard origin/live; docker compose up -d --build --remove-orphans; docker compose ps"
