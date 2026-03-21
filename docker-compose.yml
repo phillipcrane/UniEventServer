@@ -1,6 +1,6 @@
 services:
   mysql:
-    image: mysql:8.0
+    image: mysql:8.4
     container_name: unievent-mysql
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
@@ -47,8 +47,8 @@ services:
   certbot:
     image: certbot/certbot:latest
     container_name: unievent-certbot
+    entrypoint: /bin/sh
     command:
-      - /bin/sh
       - -c
       - trap exit TERM; while :; do sleep 12h & wait $${!}; certbot renew --webroot -w /var/www/certbot --quiet; done
     volumes:
@@ -76,7 +76,7 @@ services:
       - unievent-network
 
   vault:
-    image: hashicorp/vault:1.16
+    image: hashicorp/vault:1.21
     container_name: unievent-vault
     command: vault server -config=/vault/config/vault.hcl
     environment:
