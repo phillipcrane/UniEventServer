@@ -44,22 +44,19 @@ services:
     networks:
       - unievent-network
 
-  certgen:
-    image: alpine:3.20
-    container_name: unievent-certgen
+  certbot:
+    image: certbot/certbot:latest
+    container_name: unievent-certbot
     command:
       - /bin/sh
-      - -ec
-      - |
-        apk add --no-cache openssl >/dev/null
-        if [ ! -s /certs/server.crt ] || [ ! -s /certs/server.key ] || ! openssl x509 -in /certs/server.crt -noout >/dev/null 2>&1; then
-          openssl req -x509 -nodes -newkey rsa:2048 -keyout /certs/server.key -out /certs/server.crt -days 365 -subj "/CN=unievent.local"
-        fi
+      - -c
+      - trap exit TERM; while :; do sleep 12h & wait $${!}; certbot renew --webroot -w /var/www/certbot --quiet; done
     volumes:
-      - nginx-certs:/certs
+      - letsencrypt:/etc/letsencrypt
+      - certbot-www:/var/www/certbot
     networks:
       - unievent-network
-    restart: "no"
+    restart: unless-stopped
 
   nginx:
     image: nginx:1.28.2-alpine
@@ -68,14 +65,13 @@ services:
     depends_on:
       app:
         condition: service_started
-      certgen:
-        condition: service_completed_successfully
     ports:
       - "80:80"
       - "443:443"
     volumes:
       - ./deploy/nginx.conf:/etc/nginx/conf.d/default.conf:ro
-      - nginx-certs:/etc/nginx/certs:ro
+      - letsencrypt:/etc/letsencrypt:ro
+      - certbot-www:/var/www/certbot:ro
     networks:
       - unievent-network
 
@@ -104,7 +100,8 @@ volumes:
   mysql-data:
   media-data:
   vault-data:
-  nginx-certs:
+  letsencrypt:
+  certbot-www:
 
 networks:
   unievent-network:
