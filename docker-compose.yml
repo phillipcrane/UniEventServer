@@ -79,6 +79,8 @@ services:
     cap_add:
       - CHOWN
       - NET_BIND_SERVICE
+      - SETUID
+      - SETGID
     read_only: true
     tmpfs:
       - /var/cache/nginx
