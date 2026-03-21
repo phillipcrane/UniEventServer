@@ -51,23 +51,25 @@ jobs:
             exit 1
           fi
 
+          # Enable TCP TIME_WAIT socket reuse: this allows the kernel to recycle
+          # ports immediately instead of waiting ~60 seconds (TIME_WAIT state).
+          # This is the root cause of "address already in use" when ports are bound
+          # by TIME_WAIT sockets even though containers are stopped.
+          sudo sysctl -w net.ipv4.tcp_tw_reuse=1 || true
+          
           # Full cleanup: stop services, remove containers/volumes, and reset network state
           ${COMPOSE_CMD} down --volumes --remove-orphans || true
           
           # Prune dangling networks that may hold stale bindings
           docker network prune -f || true
           
-          # Wait for kernel to release port bindings (TIME_WAIT state cleanup)
-          # TCP sockets on 0.0.0.0 need time to fully release
-          sleep 10
-          
-          # Force remove any remaining containers on the target ports
+          # Minimal wait for cleanup to settle, then force remove any stragglers
+          sleep 2
           for port in 80 443 8080 8200 3307; do
             docker ps -a --format "table {{.ID}}\t{{.Ports}}" | grep -E ":${port}->" | awk '{print $1}' | xargs -r docker rm -f || true
           done
           
-          # Additional buffer to ensure kernel fully released sockets
-          sleep 5
+          sleep 1
 
           # Build and start fresh services
           ${COMPOSE_CMD} up -d --build
