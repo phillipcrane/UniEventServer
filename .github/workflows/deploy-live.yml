@@ -74,12 +74,12 @@ jobs:
 
             echo "TLS certificate for ${TLS_DOMAIN} not found. Bootstrapping certificate issuance..."
             BOOTSTRAP_OVERRIDE="$(mktemp)"
-            cat > "${BOOTSTRAP_OVERRIDE}" <<'YAML'
-services:
-  nginx:
-    volumes:
-      - ./deploy/nginx.conf:/etc/nginx/conf.d/default.conf:ro
-YAML
+            printf '%s\n' \
+              'services:' \
+              '  nginx:' \
+              '    volumes:' \
+              '      - ./deploy/nginx.conf:/etc/nginx/conf.d/default.conf:ro' \
+              > "${BOOTSTRAP_OVERRIDE}"
 
             # Start temporary HTTP-only edge for ACME webroot challenge.
             ${COMPOSE_CMD} -f docker-compose.yml -f "${BOOTSTRAP_OVERRIDE}" up -d nginx certbot app mysql vault
