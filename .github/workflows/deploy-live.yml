@@ -51,6 +51,10 @@ jobs:
             exit 1
           fi
 
-          ${COMPOSE_CMD} up -d --build --remove-orphans
+          # Stop and remove old containers to prevent port binding conflicts
+          ${COMPOSE_CMD} down --remove-orphans || true
+
+          # Build and start fresh services
+          ${COMPOSE_CMD} up -d --build
           ${COMPOSE_CMD} ps
           EOF
