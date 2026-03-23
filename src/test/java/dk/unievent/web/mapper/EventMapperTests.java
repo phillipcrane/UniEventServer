@@ -56,7 +56,8 @@ class EventMapperTests {
         testEventEntity.setDescription("Test Description");
         testEventEntity.setStartTime(LocalDateTime.of(2026, 3, 20, 18, 0));
         testEventEntity.setEndTime(LocalDateTime.of(2026, 3, 20, 20, 0));
-        testEventEntity.setCoverImageUrl("https://example.com/image.jpg");
+        // coverImage mapping is handled through the MediaEntity relationship
+        // No direct ID setting needed as the mapper handles the conversion
         testEventEntity.setEventURL("https://example.com/event");
         testEventEntity.setPage(testPageEntity);
         testEventEntity.setPlace(testPlaceEntity);
@@ -88,7 +89,7 @@ class EventMapperTests {
         assertEquals("Test Description", result.getDescription());
         assertEquals(LocalDateTime.of(2026, 3, 20, 18, 0), result.getStartTime());
         assertEquals(LocalDateTime.of(2026, 3, 20, 20, 0), result.getEndTime());
-        assertEquals("https://example.com/image.jpg", result.getCoverImageUrl());
+        assertEquals(1L, result.getCoverImageId());
         assertEquals("https://example.com/event", result.getEventURL());
         assertEquals("page-1", result.getPageId());
         assertEquals(placeDTOResult, result.getPlace());
@@ -153,7 +154,7 @@ class EventMapperTests {
         dto.setDescription("New Description");
         dto.setStartTime(LocalDateTime.of(2026, 4, 1, 19, 0));
         dto.setEndTime(LocalDateTime.of(2026, 4, 1, 21, 0));
-        dto.setCoverImageUrl("https://example.com/cover.jpg");
+        dto.setCoverImageId(1L);
         dto.setEventURL("https://example.com/event-new");
         dto.setPageId("page-new");
         
@@ -165,7 +166,8 @@ class EventMapperTests {
         assertEquals("New Description", result.getDescription());
         assertEquals(LocalDateTime.of(2026, 4, 1, 19, 0), result.getStartTime());
         assertEquals(LocalDateTime.of(2026, 4, 1, 21, 0), result.getEndTime());
-        assertEquals("https://example.com/cover.jpg", result.getCoverImageUrl());
+        // coverImage mapping is handled through mapper
+        assertNull(result.getCoverImage());
         assertEquals("https://example.com/event-new", result.getEventURL());
     }
     

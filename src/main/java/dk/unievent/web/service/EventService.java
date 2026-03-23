@@ -3,6 +3,8 @@ package dk.unievent.web.service;
 import dk.unievent.web.dto.EventDTO;
 import dk.unievent.web.mapper.EventMapper;
 import dk.unievent.web.model.EventEntity;
+import dk.unievent.web.model.MediaEntity;
+import dk.unievent.web.repository.MediaRepository;
 import dk.unievent.web.repository.EventRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -19,6 +21,9 @@ public class EventService {
     
     @Autowired
     private EventMapper eventMapper;
+    
+    @Autowired
+    private MediaRepository mediaRepository;
     
     /**
      * Get all events ordered by start time
@@ -101,8 +106,13 @@ public class EventService {
         entity.setDescription(eventDTO.getDescription());
         entity.setStartTime(eventDTO.getStartTime());
         entity.setEndTime(eventDTO.getEndTime());
-        entity.setCoverImageUrl(eventDTO.getCoverImageUrl());
         entity.setEventURL(eventDTO.getEventURL());
+        
+        // Update cover image if provided
+        if (eventDTO.getCoverImageId() != null) {
+            MediaEntity coverImage = mediaRepository.findById(eventDTO.getCoverImageId()).orElse(null);
+            entity.setCoverImage(coverImage);
+        }
         
         EventEntity updated = eventRepository.save(entity);
         return eventMapper.toDTO(updated);

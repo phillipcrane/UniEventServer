@@ -34,7 +34,7 @@ class PageDTOValidationTests {
         pageDTO.setName("S-huset");
         pageDTO.setUrl("https://facebook.com/123456789");
         pageDTO.setActive(true);
-        pageDTO.setPictureUrl("https://example.com/picture.jpg");
+        pageDTO.setPictureId(456L);
     }
     
     // ============= Name Tests =============
@@ -144,36 +144,34 @@ class PageDTOValidationTests {
     @Test
     @DisplayName("PictureUrl can be null")
     void testPictureUrlNull() {
-        pageDTO.setPictureUrl(null);
+        pageDTO.setPictureId(null);
         Set<ConstraintViolation<PageDTO>> violations = validator.validate(pageDTO);
         
         assertTrue(violations.isEmpty());
     }
     
     @Test
-    @DisplayName("PictureUrl must be valid URL")
-    void testPictureUrlInvalid() {
-        pageDTO.setPictureUrl("not-a-valid-url");
-        Set<ConstraintViolation<PageDTO>> violations = validator.validate(pageDTO);
-        
-        assertFalse(violations.isEmpty());
-        assertTrue(violations.stream()
-            .anyMatch(v -> v.getPropertyPath().toString().equals("pictureUrl")));
-    }
-    
-    @Test
-    @DisplayName("PictureUrl with https is valid")
-    void testPictureUrlHttps() {
-        pageDTO.setPictureUrl("https://example.com/picture.jpg");
+    @DisplayName("PictureId can be negative")
+    void testPictureIdNegative() {
+        pageDTO.setPictureId(-1L);
         Set<ConstraintViolation<PageDTO>> violations = validator.validate(pageDTO);
         
         assertTrue(violations.isEmpty());
     }
     
     @Test
-    @DisplayName("PictureUrl with http is valid")
-    void testPictureUrlHttp() {
-        pageDTO.setPictureUrl("http://cdn.example.com/images/pic.jpg");
+    @DisplayName("PictureId with positive value is valid")
+    void testPictureIdHttps() {
+        pageDTO.setPictureId(1L);
+        Set<ConstraintViolation<PageDTO>> violations = validator.validate(pageDTO);
+        
+        assertTrue(violations.isEmpty());
+    }
+    
+    @Test
+    @DisplayName("PictureId with large value is valid")
+    void testPictureIdHttp() {
+        pageDTO.setPictureId(999999999L);
         Set<ConstraintViolation<PageDTO>> violations = validator.validate(pageDTO);
         
         assertTrue(violations.isEmpty());

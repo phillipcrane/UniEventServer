@@ -1,5 +1,6 @@
-package dk.unievent.web.media;
+package dk.unievent.web.service;
 
+import dk.unievent.web.config.MediaConfig;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
 import org.springframework.stereotype.Service;
@@ -13,12 +14,12 @@ import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 
 @Service
-public class FileSystemStorageService implements StorageService {
+public class MediaServiceImpl implements MediaService {
 
     private final Path rootLocation;
 
-    public FileSystemStorageService(StorageProperties properties) {
-        this.rootLocation = Paths.get(properties.getLocation());
+    public MediaServiceImpl(MediaConfig config) {
+        this.rootLocation = Paths.get(config.getLocation());
         try {
             Files.createDirectories(rootLocation);
         } catch (IOException e) {

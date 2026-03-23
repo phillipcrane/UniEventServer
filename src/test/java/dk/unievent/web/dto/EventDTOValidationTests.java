@@ -36,7 +36,7 @@ class EventDTOValidationTests {
         eventDTO.setDescription("This is a valid event description");
         eventDTO.setStartTime(LocalDateTime.of(2026, 3, 20, 18, 0));
         eventDTO.setEndTime(LocalDateTime.of(2026, 3, 20, 20, 0));
-        eventDTO.setCoverImageUrl("https://example.com/image.jpg");
+        eventDTO.setCoverImageId(1L);
         eventDTO.setEventURL("https://example.com/event");
     }
     
@@ -183,41 +183,30 @@ class EventDTOValidationTests {
             .anyMatch(v -> v.getPropertyPath().toString().equals("endTime")));
     }
     
-    // ============= URL Tests =============
+    // ============= Cover Image ID Tests =============
     
     @Test
-    @DisplayName("CoverImageUrl can be null")
-    void testCoverImageUrlNull() {
-        eventDTO.setCoverImageUrl(null);
+    @DisplayName("CoverImageId can be null")
+    void testCoverImageIdNull() {
+        eventDTO.setCoverImageId(null);
         Set<ConstraintViolation<EventDTO>> violations = validator.validate(eventDTO);
         
         assertTrue(violations.isEmpty());
     }
     
     @Test
-    @DisplayName("CoverImageUrl must be valid URL")
-    void testCoverImageUrlInvalid() {
-        eventDTO.setCoverImageUrl("not-a-valid-url");
-        Set<ConstraintViolation<EventDTO>> violations = validator.validate(eventDTO);
-        
-        assertFalse(violations.isEmpty());
-        assertTrue(violations.stream()
-            .anyMatch(v -> v.getPropertyPath().toString().equals("coverImageUrl")));
-    }
-    
-    @Test
-    @DisplayName("CoverImageUrl with https is valid")
-    void testCoverImageUrlHttps() {
-        eventDTO.setCoverImageUrl("https://example.com/image.jpg");
+    @DisplayName("CoverImageId can be a positive long")
+    void testCoverImageIdValid() {
+        eventDTO.setCoverImageId(1L);
         Set<ConstraintViolation<EventDTO>> violations = validator.validate(eventDTO);
         
         assertTrue(violations.isEmpty());
     }
     
     @Test
-    @DisplayName("CoverImageUrl with http is valid")
-    void testCoverImageUrlHttp() {
-        eventDTO.setCoverImageUrl("http://example.com/image.jpg");
+    @DisplayName("CoverImageId with large value is valid")
+    void testCoverImageIdLargeValue() {
+        eventDTO.setCoverImageId(999999999L);
         Set<ConstraintViolation<EventDTO>> violations = validator.validate(eventDTO);
         
         assertTrue(violations.isEmpty());

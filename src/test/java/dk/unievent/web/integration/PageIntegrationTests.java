@@ -38,14 +38,14 @@ class PageIntegrationTests {
         PageDTO createDTO = new PageDTO();
         createDTO.setId("page-new");
         createDTO.setName("New Organizer");
-        createDTO.setPictureUrl("https://example.com/picture.jpg");
+        createDTO.setPictureId(1L);
         
         PageDTO created = pageService.savePage(createDTO);
         
         assertNotNull(created);
         assertEquals("page-new", created.getId());
         assertEquals("New Organizer", created.getName());
-        assertEquals("https://example.com/picture.jpg", created.getPictureUrl());
+        assertEquals(1L, created.getPictureId());
     }
     
     @Test
@@ -139,7 +139,7 @@ class PageIntegrationTests {
         PageDTO updateDTO = new PageDTO();
         updateDTO.setId("page-update");
         updateDTO.setName("Updated Name");
-        updateDTO.setPictureUrl("https://example.com/new.jpg");
+        updateDTO.setPictureId(2L);
         
         PageDTO updated = pageService.savePage(updateDTO);
         

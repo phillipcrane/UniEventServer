@@ -239,7 +239,8 @@ class PageRepositoryTests {
         
         assertNull(retrieved.getTokenStatus());
         assertNull(retrieved.getLastRefreshSuccess());
-        assertNull(retrieved.getPictureUrl());
+        // Picture field is MediaEntity, not URL
+        assertNull(retrieved.getPicture());
     }
 }
 

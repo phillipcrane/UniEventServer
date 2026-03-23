@@ -17,11 +17,6 @@ spring:
         dialect: org.hibernate.dialect.MySQLDialect
         format_sql: true
 
-unievent:
-  media:
-    # directory relative to working directory or absolute path
-    location: ${UNIEVENT_MEDIA_LOCATION:/app/media}
-
 management:
   endpoints:
     web:
@@ -30,3 +25,8 @@ management:
   endpoint:
     health:
       show-details: always
+
+unievent:
+  media:
+    # directory relative to working directory or absolute path
+    location: ${UNIEVENT_MEDIA_LOCATION:/app/media}

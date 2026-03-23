@@ -19,7 +19,9 @@ public class PageEntity {
     @Column(nullable = false)
     private String name;
 
-    private String pictureUrl;
+    @OneToOne(cascade = CascadeType.PERSIST)
+    @JoinColumn(name = "pictureId")
+    private MediaEntity picture;
 
     // Token management fields
     private LocalDateTime tokenRefreshedAt;

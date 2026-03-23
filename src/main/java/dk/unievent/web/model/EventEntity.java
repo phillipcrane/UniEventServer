@@ -34,7 +34,10 @@ public class EventEntity {
     @JoinColumn(name = "placeId")
     private PlaceEntity place;
 
-    private String coverImageUrl;
+    @OneToOne(cascade = CascadeType.PERSIST)
+    @JoinColumn(name = "coverImageId")
+    private MediaEntity coverImage;
+    
     private String eventURL;
 
     @Column(name = "createdAt", insertable = true, updatable = false)

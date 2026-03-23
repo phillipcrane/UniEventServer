@@ -36,7 +36,6 @@ services:
       SPRING_DATASOURCE_USERNAME: ${MYSQL_USER}
       SPRING_DATASOURCE_PASSWORD: ${MYSQL_PASSWORD}
       UNIEVENT_MEDIA_LOCATION: /app/media
-
     expose:
       - "8080"
     volumes:

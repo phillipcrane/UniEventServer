@@ -1,15 +1,17 @@
-package dk.unievent.web.media;
+package dk.unievent.web.model;
 
 import jakarta.persistence.*;
 import java.time.Instant;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 @Entity
 @Table(name = "media_files")
 @Getter
 @Setter
-public class MediaFile {
+@NoArgsConstructor
+public class MediaEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -23,14 +25,10 @@ public class MediaFile {
 
     private Instant uploadedAt;
 
-    protected MediaFile() {
-        // JPA
-    }
-
-    public MediaFile(String filename, String contentType, String path) {
+    public MediaEntity(String filename, String contentType, String path) {
         this.filename = filename;
         this.contentType = contentType;
         this.path = path;
         this.uploadedAt = Instant.now();
     }
-} 
+}

@@ -2,11 +2,16 @@ package dk.unievent.web.controller;
 
 import dk.unievent.web.dto.EventDTO;
 import dk.unievent.web.service.EventService;
+import dk.unievent.web.model.MediaEntity;
+import dk.unievent.web.service.MediaService;
+import dk.unievent.web.repository.MediaRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 import jakarta.validation.Valid;
+import java.io.IOException;
 import java.util.List;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -33,6 +38,12 @@ public class EventController {
     
     @Autowired
     private EventService eventService;
+    
+    @Autowired
+    private MediaService mediaService;
+    
+    @Autowired
+    private MediaRepository mediaRepository;
     
     /**
      * GET /api/events
@@ -192,6 +203,43 @@ public class EventController {
         if (updated == null) {
             return ResponseEntity.notFound().build();
         }
+        
+        return ResponseEntity.ok(updated);
+    }
+    
+    /**
+     * POST /api/events/{id}/coverImage
+     * Upload a cover image for an event
+     * 
+     * Parameter: id = event ID
+     * File: multipart file (image file)
+     * Example: POST /api/events/event-123/coverImage with image file
+     * 
+     * Returns: Updated EventDTO with coverImageId set
+     * Returns: HTTP 200 OK
+     */
+    @PostMapping("/{id}/coverImage")
+    @Operation(summary = "Upload cover image for event", description = "Upload a cover image for a specific event")
+    @ApiResponse(responseCode = "200", description = "Cover image uploaded successfully")
+    @ApiResponse(responseCode = "404", description = "Event not found")
+    public ResponseEntity<EventDTO> uploadCoverImage(
+            @PathVariable @Parameter(description = "Event ID") String id,
+            @RequestParam("file") MultipartFile file) throws IOException {
+        
+        // Verify event exists
+        EventDTO eventDTO = eventService.getEventById(id);
+        if (eventDTO == null) {
+            return ResponseEntity.notFound().build();
+        }
+        
+        // Store the file
+        String storedFilename = mediaService.store(file);
+        MediaEntity mediaEntity = new MediaEntity(file.getOriginalFilename(), file.getContentType(), storedFilename);
+        MediaEntity saved = mediaRepository.save(mediaEntity);
+        
+        // Update event with cover image
+        eventDTO.setCoverImageId(saved.getId());
+        EventDTO updated = eventService.updateEvent(id, eventDTO);
         
         return ResponseEntity.ok(updated);
     }

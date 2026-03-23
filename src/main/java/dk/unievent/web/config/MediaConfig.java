@@ -1,11 +1,11 @@
-package dk.unievent.web.media;
+package dk.unievent.web.config;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
 
 @Component
 @ConfigurationProperties(prefix = "unievent.media")
-public class StorageProperties {
+public class MediaConfig {
     /**
      * Folder location for storing media files
      */
