@@ -35,10 +35,9 @@ build/
 ### ENV FILE ###
 .env
 .env.local
+!.env.example
 
 ### VAULT SECRETS ###
-vault-init.json
-.env
 vault-init.json
 
 ### LOCAL DEV ###

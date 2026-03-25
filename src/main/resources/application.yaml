@@ -1,13 +1,13 @@
 spring:
   application:
     name: web
-  
+
   datasource:
     url: ${SPRING_DATASOURCE_URL:jdbc:mysql://localhost:3307/unievent?useSSL=true&serverSslVerification=false&allowPublicKeyRetrieval=true&serverTimezone=UTC}
     username: ${SPRING_DATASOURCE_USERNAME:root}
     password: ${SPRING_DATASOURCE_PASSWORD:root}
     driver-class-name: com.mysql.cj.jdbc.Driver
-  
+
   jpa:
     hibernate:
       ddl-auto: update
@@ -32,3 +32,27 @@ unievent:
       master-url: ${UNIEVENT_MEDIA_SEAWEEDFS_MASTER_URL:localhost:9333}
       volume-url: ${UNIEVENT_MEDIA_SEAWEEDFS_VOLUME_URL:http://localhost:8080}
       replication-factor: ${SEAWEEDFS_REPLICATION_FACTOR:1}
+facebook:
+  app:
+    id: ${FACEBOOK_APP_ID}
+    secret: ${FACEBOOK_APP_SECRET}
+  api:
+    version: v23.0
+  redirect:
+    uri: ${FB_REDIRECT_URI:http://localhost:8080/callback}
+
+gcp:
+  project:
+    id: ${GCP_PROJECT_ID}
+  storage:
+    bucket: ${GCP_STORAGE_BUCKET:unievent-images}
+
+services:
+  core:
+    url: ${CORE_SERVICE_URL:http://localhost:8084}
+  facebook:
+    url: ${FACEBOOK_SERVICE_URL:http://localhost:8081}
+  secret-manager:
+    url: ${SECRET_MANAGER_SERVICE_URL:http://localhost:8082}
+  storage:
+    url: ${STORAGE_SERVICE_URL:http://localhost:8083}
