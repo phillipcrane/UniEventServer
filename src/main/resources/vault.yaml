@@ -1,0 +1,6 @@
+unievent:
+  vault:
+    enabled: ${VAULT_ENABLED:false}
+    uri: ${VAULT_URI:http://localhost:8200}
+    token: ${VAULT_TOKEN:}
+    secret-path: ${VAULT_SECRET_PATH:secret/data/unievent}

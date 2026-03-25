@@ -1,0 +1,6 @@
+unievent:
+  media:
+    seaweedfs:
+      master-url: ${UNIEVENT_MEDIA_SEAWEEDFS_MASTER_URL:localhost:9333}
+      volume-url: ${UNIEVENT_MEDIA_SEAWEEDFS_VOLUME_URL:http://localhost:8080}
+      replication-factor: ${SEAWEEDFS_REPLICATION_FACTOR:1}
