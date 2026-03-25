@@ -12,6 +12,10 @@ The application is split into five independent services:
 4. **Storage Service** (Port 8083) - GCP Cloud Storage operations
 5. **Core Service** (Port 8084) - Core metadata and service discovery
 
+Additionally, this repository now includes a Node.js serverless package in `functions/`.
+That package mirrors the UniEvent serverless API layer and can be run/tested independently
+for endpoint parity and migration support.
+
 ## Service Descriptions
 
 ### Main Service (Port 8080)
@@ -146,6 +150,22 @@ Services communicate via HTTP REST APIs:
 - Architecture details: `docs/ARCHITECTURE.md`
 - Endpoint inventory: `docs/API.md`
 - Environment template: `.env.example`
+- Node serverless package: `functions/`
+
+## Node Serverless Package (`functions/`)
+
+The `functions/` module contains a TypeScript/Express implementation of the same
+event orchestration flow with typed endpoint contracts and endpoint bindings.
+
+Useful commands:
+
+```bash
+cd functions
+npm install
+npm run build
+npm test -- --run
+npm run start
+```
 
 ## Database Setup
 
