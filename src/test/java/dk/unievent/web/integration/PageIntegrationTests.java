@@ -38,14 +38,13 @@ class PageIntegrationTests {
         PageDTO createDTO = new PageDTO();
         createDTO.setId("page-new");
         createDTO.setName("New Organizer");
-        createDTO.setPictureId(1L);
         
         PageDTO created = pageService.savePage(createDTO);
         
         assertNotNull(created);
         assertEquals("page-new", created.getId());
         assertEquals("New Organizer", created.getName());
-        assertEquals(1L, created.getPictureId());
+        assertNull(created.getPictureId()); // No picture set
     }
     
     @Test
@@ -193,11 +192,12 @@ class PageIntegrationTests {
     }
     
     private PageEntity createDatabasePage(String id, String name, String tokenStatus) {
-        PageEntity entity = new PageEntity();
-        entity.setId(id);
-        entity.setName(name);
-        entity.setTokenStatus(tokenStatus);
-        entity.setTokenExpiresAt(LocalDateTime.now().plusDays(30));
+        PageEntity entity = PageEntity.builder()
+                .id(id)
+                .name(name)
+                .tokenStatus(tokenStatus)
+                .tokenExpiresAt(LocalDateTime.now().plusDays(30))
+                .build();
         return pageRepository.save(entity);
     }
 }

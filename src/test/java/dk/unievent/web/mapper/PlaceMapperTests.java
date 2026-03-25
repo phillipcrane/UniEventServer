@@ -23,15 +23,16 @@ class PlaceMapperTests {
     void setUp() {
         placeMapper = new PlaceMapper();
         
-        testPlaceEntity = new PlaceEntity();
-        testPlaceEntity.setId("s-huset-lyngby");
-        testPlaceEntity.setName("S-huset");
-        testPlaceEntity.setStreet("Skjoldungsvej 100");
-        testPlaceEntity.setCity("Lyngby");
-        testPlaceEntity.setZip("2800");
-        testPlaceEntity.setCountry("Denmark");
-        testPlaceEntity.setLatitude(55.7842);
-        testPlaceEntity.setLongitude(12.4933);
+        testPlaceEntity = PlaceEntity.builder()
+                .id("s-huset-lyngby")
+                .name("S-huset")
+                .street("Skjoldungsvej 100")
+                .city("Lyngby")
+                .zip("2800")
+                .country("Denmark")
+                .latitude(55.7842)
+                .longitude(12.4933)
+                .build();
     }
     
     // ============= toDTO Tests =============
@@ -62,9 +63,10 @@ class PlaceMapperTests {
     
     @Test
     void testToDTOWithMinimalEntity() {
-        PlaceEntity entity = new PlaceEntity();
-        entity.setId("place-minimal");
-        entity.setName("Minimal Place");
+        PlaceEntity entity = PlaceEntity.builder()
+                .id("place-minimal")
+                .name("Minimal Place")
+                .build();
         // All location fields are null
         
         PlaceDTO result = placeMapper.toDTO(entity);

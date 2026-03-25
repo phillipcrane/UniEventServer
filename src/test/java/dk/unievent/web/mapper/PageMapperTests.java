@@ -1,35 +1,56 @@
 package dk.unievent.web.mapper;
 
 import dk.unievent.web.dto.PageDTO;
+import dk.unievent.web.model.MediaEntity;
 import dk.unievent.web.model.PageEntity;
+import dk.unievent.web.repository.MediaRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.time.Instant;
 import java.time.LocalDateTime;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.when;
 
 /**
  * Unit tests for PageMapper
  * Tests conversion between PageEntity ↔ PageDTO
  */
+@ExtendWith(MockitoExtension.class)
 class PageMapperTests {
     
+    @Mock
+    private MediaRepository mediaRepository;
+    
+    @InjectMocks
     private PageMapper pageMapper;
     
     private PageEntity testPageEntity;
+    private MediaEntity testPicture;
     
     @BeforeEach
     void setUp() {
-        pageMapper = new PageMapper();
+        testPicture = MediaEntity.builder()
+                .id(1L)
+                .filename("picture.jpg")
+                .contentType("image/jpeg")
+                .fileId("3,xyz789")
+                .uploadedAt(Instant.now())
+                .build();
         
-        testPageEntity = new PageEntity();
-        testPageEntity.setId("123456789");
-        testPageEntity.setName("S-huset");
-        // Picture is stored as MediaEntity object, not URL string
-        testPageEntity.setTokenStatus("valid");
-        testPageEntity.setTokenExpiresAt(LocalDateTime.now().plusDays(30));
-        testPageEntity.setLastRefreshAttempt(LocalDateTime.now());
+        testPageEntity = PageEntity.builder()
+                .id("123456789")
+                .name("S-huset")
+                .tokenStatus("valid")
+                .tokenExpiresAt(LocalDateTime.now().plusDays(30))
+                .lastRefreshAttempt(LocalDateTime.now())
+                .build();
     }
     
     // ============= toDTO Tests =============
@@ -127,13 +148,15 @@ class PageMapperTests {
         dto.setUrl("https://facebook.com/page-new"); // Should be ignored in toEntity
         dto.setActive(true); // Should be ignored in toEntity
         
+        // Mock the repository to return the picture
+        when(mediaRepository.findById(1L)).thenReturn(Optional.of(testPicture));
+        
         PageEntity result = pageMapper.toEntity(dto);
         
         assertNotNull(result);
         assertEquals("page-new", result.getId());
         assertEquals("New Organizer", result.getName());
-        // Picture mapping is handled through MediaEntity relationship
-        assertNull(result.getPicture());
+        assertEquals(testPicture, result.getPicture());
         // These are not set by toEntity (computed by toDTO)
         assertNull(result.getTokenStatus());
     }

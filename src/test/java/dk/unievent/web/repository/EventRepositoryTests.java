@@ -37,43 +37,47 @@ class EventRepositoryTests {
     @BeforeEach
     void setUp() {
         // Create and persist test page
-        testPage = new PageEntity();
-        testPage.setId("page-1");
-        testPage.setName("Test Page");
-        testPage.setTokenStatus("valid");
+        testPage = PageEntity.builder()
+                .id("page-1")
+                .name("Test Page")
+                .tokenStatus("valid")
+                .build();
         pageRepository.save(testPage);
 
         
         // Create and persist test place
-        testPlace = new PlaceEntity();
-        testPlace.setId("place-1");
-        testPlace.setName("Test Place");
-        testPlace.setCity("Test City");
-        testPlace.setCountry("Test Country");
+        testPlace = PlaceEntity.builder()
+                .id("place-1")
+                .name("Test Place")
+                .city("Test City")
+                .country("Test Country")
+                .build();
         placeRepository.save(testPlace);
 
         
         // Create and persist test event
-        testEvent = new EventEntity();
-        testEvent.setId("event-1");
-        testEvent.setTitle("Test Event");
-        testEvent.setDescription("Test Description");
-        testEvent.setPage(testPage);
-        testEvent.setPlace(testPlace);
-        testEvent.setStartTime(LocalDateTime.now().plusHours(1));
-        testEvent.setEndTime(LocalDateTime.now().plusHours(2));
+        testEvent = EventEntity.builder()
+                .id("event-1")
+                .title("Test Event")
+                .description("Test Description")
+                .page(testPage)
+                .place(testPlace)
+                .startTime(LocalDateTime.now().plusHours(1))
+                .endTime(LocalDateTime.now().plusHours(2))
+                .build();
         eventRepository.save(testEvent);
 
     }
     
     @Test
     void testSaveEvent() {
-        EventEntity event = new EventEntity();
-        event.setId("event-2");
-        event.setTitle("New Event");
-        event.setDescription("New Description");
-        event.setPage(testPage);
-        event.setStartTime(LocalDateTime.now());
+        EventEntity event = EventEntity.builder()
+                .id("event-2")
+                .title("New Event")
+                .description("New Description")
+                .page(testPage)
+                .startTime(LocalDateTime.now())
+                .build();
         
         EventEntity savedEvent = eventRepository.save(event);
         
@@ -101,11 +105,12 @@ class EventRepositoryTests {
     
     @Test
     void testFindAllEvents() {
-        EventEntity event2 = new EventEntity();
-        event2.setId("event-2");
-        event2.setTitle("Second Event");
-        event2.setPage(testPage);
-        event2.setStartTime(LocalDateTime.now().plusHours(3));
+        EventEntity event2 = EventEntity.builder()
+                .id("event-2")
+                .title("Second Event")
+                .page(testPage)
+                .startTime(LocalDateTime.now().plusHours(3))
+                .build();
         eventRepository.save(event2);
 
         
@@ -118,18 +123,20 @@ class EventRepositoryTests {
     void testFindAllByOrderByStartTimeAsc() {
         LocalDateTime now = LocalDateTime.now();
         
-        EventEntity event2 = new EventEntity();
-        event2.setId("event-2");
-        event2.setTitle("Later Event");
-        event2.setPage(testPage);
-        event2.setStartTime(now.plusHours(5));
+        EventEntity event2 = EventEntity.builder()
+                .id("event-2")
+                .title("Later Event")
+                .page(testPage)
+                .startTime(now.plusHours(5))
+                .build();
         eventRepository.save(event2);
         
-        EventEntity event3 = new EventEntity();
-        event3.setId("event-3");
-        event3.setTitle("Even Later Event");
-        event3.setPage(testPage);
-        event3.setStartTime(now.plusHours(10));
+        EventEntity event3 = EventEntity.builder()
+                .id("event-3")
+                .title("Even Later Event")
+                .page(testPage)
+                .startTime(now.plusHours(10))
+                .build();
         eventRepository.save(event3);
 
         
@@ -145,18 +152,20 @@ class EventRepositoryTests {
         LocalDateTime now = LocalDateTime.now();
         LocalDateTime futureTime = now.plusHours(5);
         
-        EventEntity pastEvent = new EventEntity();
-        pastEvent.setId("event-past");
-        pastEvent.setTitle("Past Event");
-        pastEvent.setPage(testPage);
-        pastEvent.setStartTime(now.minusHours(1));
+        EventEntity pastEvent = EventEntity.builder()
+                .id("event-past")
+                .title("Past Event")
+                .page(testPage)
+                .startTime(now.minusHours(1))
+                .build();
         eventRepository.save(pastEvent);
         
-        EventEntity futureEvent = new EventEntity();
-        futureEvent.setId("event-future");
-        futureEvent.setTitle("Future Event");
-        futureEvent.setPage(testPage);
-        futureEvent.setStartTime(futureTime.plusHours(1));
+        EventEntity futureEvent = EventEntity.builder()
+                .id("event-future")
+                .title("Future Event")
+                .page(testPage)
+                .startTime(futureTime.plusHours(1))
+                .build();
         eventRepository.save(futureEvent);
 
         
@@ -168,16 +177,18 @@ class EventRepositoryTests {
     
     @Test
     void testFindByPageIdOrderByStartTimeAsc() {
-        PageEntity page2 = new PageEntity();
-        page2.setId("page-2");
-        page2.setName("Page 2");
+        PageEntity page2 = PageEntity.builder()
+                .id("page-2")
+                .name("Page 2")
+                .build();
         pageRepository.save(page2);
         
-        EventEntity event2 = new EventEntity();
-        event2.setId("event-2");
-        event2.setTitle("Page 2 Event");
-        event2.setPage(page2);
-        event2.setStartTime(LocalDateTime.now().plusHours(5));
+        EventEntity event2 = EventEntity.builder()
+                .id("event-2")
+                .title("Page 2 Event")
+                .page(page2)
+                .startTime(LocalDateTime.now().plusHours(5))
+                .build();
         eventRepository.save(event2);
 
         
@@ -191,11 +202,12 @@ class EventRepositoryTests {
     void testFindByPageIdAndStartTimeGreaterThanEqualOrderByStartTimeAsc() {
         LocalDateTime futureTime = LocalDateTime.now().plusHours(5);
         
-        EventEntity futureEvent = new EventEntity();
-        futureEvent.setId("event-future");
-        futureEvent.setTitle("Future Event");
-        futureEvent.setPage(testPage);
-        futureEvent.setStartTime(futureTime.plusHours(1));
+        EventEntity futureEvent = EventEntity.builder()
+                .id("event-future")
+                .title("Future Event")
+                .page(testPage)
+                .startTime(futureTime.plusHours(1))
+                .build();
         eventRepository.save(futureEvent);
 
         

@@ -38,16 +38,18 @@ class EventServiceTests {
     
     @BeforeEach
     void setUp() {
-        testPage = new PageEntity();
-        testPage.setId("page-1");
-        testPage.setName("Test Page");
+        testPage = PageEntity.builder()
+                .id("page-1")
+                .name("Test Page")
+                .build();
         
-        testEventEntity = new EventEntity();
-        testEventEntity.setId("event-1");
-        testEventEntity.setTitle("Test Event");
-        testEventEntity.setDescription("Test Description");
-        testEventEntity.setPage(testPage);
-        testEventEntity.setStartTime(LocalDateTime.now().plusHours(1));
+        testEventEntity = EventEntity.builder()
+                .id("event-1")
+                .title("Test Event")
+                .description("Test Description")
+                .page(testPage)
+                .startTime(LocalDateTime.now().plusHours(1))
+                .build();
         
         testEventDTO = new EventDTO();
         testEventDTO.setId("event-1");
@@ -59,10 +61,11 @@ class EventServiceTests {
     
     @Test
     void testGetAllEvents() {
-        EventEntity event2 = new EventEntity();
-        event2.setId("event-2");
-        event2.setTitle("Event 2");
-        event2.setPage(testPage);
+        EventEntity event2 = EventEntity.builder()
+                .id("event-2")
+                .title("Event 2")
+                .page(testPage)
+                .build();
         
         List<EventEntity> eventEntities = List.of(testEventEntity, event2);
         when(eventRepository.findAllByOrderByStartTimeAsc()).thenReturn(eventEntities);

@@ -37,11 +37,12 @@ class PageServiceTests {
     
     @BeforeEach
     void setUp() {
-        testPageEntity = new PageEntity();
-        testPageEntity.setId("page-1");
-        testPageEntity.setName("Test Page");
-        testPageEntity.setTokenStatus("valid");
-        testPageEntity.setTokenExpiresAt(LocalDateTime.now().plusDays(30));
+        testPageEntity = PageEntity.builder()
+                .id("page-1")
+                .name("Test Page")
+                .tokenStatus("valid")
+                .tokenExpiresAt(LocalDateTime.now().plusDays(30))
+                .build();
         
         testPageDTO = new PageDTO();
         testPageDTO.setId("page-1");
@@ -51,9 +52,10 @@ class PageServiceTests {
     
     @Test
     void testGetAllPages() {
-        PageEntity page2 = new PageEntity();
-        page2.setId("page-2");
-        page2.setName("Page 2");
+        PageEntity page2 = PageEntity.builder()
+                .id("page-2")
+                .name("Page 2")
+                .build();
         
         List<PageEntity> pageEntities = List.of(testPageEntity, page2);
         when(pageRepository.findAllByOrderByNameAsc()).thenReturn(pageEntities);

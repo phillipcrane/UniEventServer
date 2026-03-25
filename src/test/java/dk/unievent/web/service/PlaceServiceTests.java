@@ -36,13 +36,14 @@ class PlaceServiceTests {
     
     @BeforeEach
     void setUp() {
-        testPlaceEntity = new PlaceEntity();
-        testPlaceEntity.setId("place-1");
-        testPlaceEntity.setName("Test Place");
-        testPlaceEntity.setCity("Test City");
-        testPlaceEntity.setCountry("Test Country");
-        testPlaceEntity.setLatitude(55.6761);
-        testPlaceEntity.setLongitude(12.5883);
+        testPlaceEntity = PlaceEntity.builder()
+                .id("place-1")
+                .name("Test Place")
+                .city("Test City")
+                .country("Test Country")
+                .latitude(55.6761)
+                .longitude(12.5883)
+                .build();
         
         LocationDTO location = new LocationDTO();
         location.setCity("Test City");

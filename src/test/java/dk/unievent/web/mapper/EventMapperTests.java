@@ -3,8 +3,10 @@ package dk.unievent.web.mapper;
 import dk.unievent.web.dto.EventDTO;
 import dk.unievent.web.dto.PlaceDTO;
 import dk.unievent.web.model.EventEntity;
+import dk.unievent.web.model.MediaEntity;
 import dk.unievent.web.model.PageEntity;
 import dk.unievent.web.model.PlaceEntity;
+import dk.unievent.web.repository.MediaRepository;
 import dk.unievent.web.repository.PageRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -13,7 +15,9 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.time.Instant;
 import java.time.LocalDateTime;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.when;
@@ -31,38 +35,52 @@ class EventMapperTests {
     @Mock
     private PageRepository pageRepository;
     
+    @Mock
+    private MediaRepository mediaRepository;
+    
     @InjectMocks
     private EventMapper eventMapper;
     
     private EventEntity testEventEntity;
     private PageEntity testPageEntity;
     private PlaceEntity testPlaceEntity;
+    private MediaEntity testCoverImage;
     
     @BeforeEach
     void setUp() {
-        testPageEntity = new PageEntity();
-        testPageEntity.setId("page-1");
-        testPageEntity.setName("Test Page");
+        testPageEntity = PageEntity.builder()
+                .id("page-1")
+                .name("Test Page")
+                .build();
         
-        testPlaceEntity = new PlaceEntity();
-        testPlaceEntity.setId("place-1");
-        testPlaceEntity.setName("Test Venue");
-        testPlaceEntity.setCity("Copenhagen");
-        testPlaceEntity.setCountry("Denmark");
+        testPlaceEntity = PlaceEntity.builder()
+                .id("place-1")
+                .name("Test Venue")
+                .city("Copenhagen")
+                .country("Denmark")
+                .build();
         
-        testEventEntity = new EventEntity();
-        testEventEntity.setId("event-1");
-        testEventEntity.setTitle("Test Event");
-        testEventEntity.setDescription("Test Description");
-        testEventEntity.setStartTime(LocalDateTime.of(2026, 3, 20, 18, 0));
-        testEventEntity.setEndTime(LocalDateTime.of(2026, 3, 20, 20, 0));
-        // coverImage mapping is handled through the MediaEntity relationship
-        // No direct ID setting needed as the mapper handles the conversion
-        testEventEntity.setEventURL("https://example.com/event");
-        testEventEntity.setPage(testPageEntity);
-        testEventEntity.setPlace(testPlaceEntity);
-        testEventEntity.setCreatedAt(LocalDateTime.of(2026, 3, 1, 10, 0));
-        testEventEntity.setUpdatedAt(LocalDateTime.of(2026, 3, 10, 15, 30));
+        testCoverImage = MediaEntity.builder()
+                .id(1L)
+                .filename("cover.jpg")
+                .contentType("image/jpeg")
+                .fileId("3,abc123")
+                .uploadedAt(Instant.now())
+                .build();
+        
+        testEventEntity = EventEntity.builder()
+                .id("event-1")
+                .title("Test Event")
+                .description("Test Description")
+                .startTime(LocalDateTime.of(2026, 3, 20, 18, 0))
+                .endTime(LocalDateTime.of(2026, 3, 20, 20, 0))
+                .coverImage(testCoverImage)
+                .eventURL("https://example.com/event")
+                .page(testPageEntity)
+                .place(testPlaceEntity)
+                .createdAt(LocalDateTime.of(2026, 3, 1, 10, 0))
+                .updatedAt(LocalDateTime.of(2026, 3, 10, 15, 30))
+                .build();
     }
     
     // ============= toDTO Tests =============
@@ -158,6 +176,15 @@ class EventMapperTests {
         dto.setEventURL("https://example.com/event-new");
         dto.setPageId("page-new");
         
+        // Mock the repositories to return entities
+        when(mediaRepository.findById(1L)).thenReturn(Optional.of(testCoverImage));
+        
+        PageEntity pageEntity = PageEntity.builder()
+                .id("page-new")
+                .name("New Page")
+                .build();
+        when(pageRepository.findById("page-new")).thenReturn(Optional.of(pageEntity));
+        
         EventEntity result = eventMapper.toEntity(dto);
         
         assertNotNull(result);
@@ -166,9 +193,9 @@ class EventMapperTests {
         assertEquals("New Description", result.getDescription());
         assertEquals(LocalDateTime.of(2026, 4, 1, 19, 0), result.getStartTime());
         assertEquals(LocalDateTime.of(2026, 4, 1, 21, 0), result.getEndTime());
-        // coverImage mapping is handled through mapper
-        assertNull(result.getCoverImage());
+        assertEquals(testCoverImage, result.getCoverImage());
         assertEquals("https://example.com/event-new", result.getEventURL());
+        assertEquals(pageEntity, result.getPage());
     }
     
     @Test

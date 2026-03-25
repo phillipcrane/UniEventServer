@@ -38,19 +38,19 @@ public class PlaceMapper {
             return null;
         }
         
-        PlaceEntity entity = new PlaceEntity();
-        entity.setId(dto.getId());
-        entity.setName(dto.getName());
+        PlaceEntity.PlaceEntityBuilder builder = PlaceEntity.builder()
+                .id(dto.getId())
+                .name(dto.getName());
         
         if (dto.getLocation() != null) {
-            entity.setStreet(dto.getLocation().getStreet());
-            entity.setCity(dto.getLocation().getCity());
-            entity.setZip(dto.getLocation().getZip());
-            entity.setCountry(dto.getLocation().getCountry());
-            entity.setLatitude(dto.getLocation().getLatitude());
-            entity.setLongitude(dto.getLocation().getLongitude());
+            builder.street(dto.getLocation().getStreet())
+                    .city(dto.getLocation().getCity())
+                    .zip(dto.getLocation().getZip())
+                    .country(dto.getLocation().getCountry())
+                    .latitude(dto.getLocation().getLatitude())
+                    .longitude(dto.getLocation().getLongitude());
         }
         
-        return entity;
+        return builder.build();
     }
 }

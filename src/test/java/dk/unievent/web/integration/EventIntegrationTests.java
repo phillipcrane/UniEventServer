@@ -50,18 +50,20 @@ class EventIntegrationTests {
     @BeforeEach
     void setUp() {
         // Create test page
-        testPage = new PageEntity();
-        testPage.setId("page-1");
-        testPage.setName("S-huset");
-        testPage.setTokenStatus("valid");
+        testPage = PageEntity.builder()
+                .id("page-1")
+                .name("S-huset")
+                .tokenStatus("valid")
+                .build();
         pageRepository.save(testPage);
         
         // Create test place
-        testPlace = new PlaceEntity();
-        testPlace.setId("place-1");
-        testPlace.setName("Venue A");
-        testPlace.setCity("Copenhagen");
-        testPlace.setCountry("Denmark");
+        testPlace = PlaceEntity.builder()
+                .id("place-1")
+                .name("Venue A")
+                .city("Copenhagen")
+                .country("Denmark")
+                .build();
         placeRepository.save(testPlace);
     }
     
@@ -156,9 +158,10 @@ class EventIntegrationTests {
     @Test
     void testGetEventsByPageId() {
         // Create page 2
-        PageEntity page2 = new PageEntity();
-        page2.setId("page-2");
-        page2.setName("Other Page");
+        PageEntity page2 = PageEntity.builder()
+                .id("page-2")
+                .name("Other Page")
+                .build();
         pageRepository.save(page2);
         
         // Create events for both pages
@@ -178,11 +181,12 @@ class EventIntegrationTests {
     @Test
     void testGetEventsByPlaceId() {
         // Create place 2
-        PlaceEntity place2 = new PlaceEntity();
-        place2.setId("place-2");
-        place2.setName("Venue B");
-        place2.setCity("Aarhus");
-        place2.setCountry("Denmark");
+        PlaceEntity place2 = PlaceEntity.builder()
+                .id("place-2")
+                .name("Venue B")
+                .city("Aarhus")
+                .country("Denmark")
+                .build();
         placeRepository.save(place2);
         
         // Create events for different places

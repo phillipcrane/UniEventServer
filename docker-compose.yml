@@ -38,8 +38,6 @@ services:
     image: chrislusf/seaweedfs:latest
     container_name: unievent-weed-volume
     command: volume -master weed-master:9333 -port 8080 -ip=weed-volume
-    ports:
-      - "127.0.0.1:8080:8080"
     depends_on:
       weed-master:
         condition: service_healthy
@@ -65,8 +63,8 @@ services:
       SPRING_DATASOURCE_PASSWORD: ${MYSQL_PASSWORD}
       UNIEVENT_MEDIA_SEAWEEDFS_MASTER_URL: ${SEAWEEDFS_MASTER_URL:-weed-master:9333}
       UNIEVENT_MEDIA_SEAWEEDFS_VOLUME_URL: ${SEAWEEDFS_VOLUME_URL:-http://weed-volume:8080}
-    expose:
-      - "8080"
+    ports:
+      - "127.0.0.1:8080:8080"
     networks:
       - unievent-network
 

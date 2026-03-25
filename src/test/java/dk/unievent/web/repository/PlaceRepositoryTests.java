@@ -26,26 +26,28 @@ class PlaceRepositoryTests {
     
     @BeforeEach
     void setUp() {
-        testPlace = new PlaceEntity();
-        testPlace.setId("place-1");
-        testPlace.setName("Test Place");
-        testPlace.setStreet("123 Test Street");
-        testPlace.setCity("Test City");
-        testPlace.setZip("12345");
-        testPlace.setCountry("Test Country");
-        testPlace.setLatitude(55.6761);
-        testPlace.setLongitude(12.5883);
+        testPlace = PlaceEntity.builder()
+                .id("place-1")
+                .name("Test Place")
+                .street("123 Test Street")
+                .city("Test City")
+                .zip("12345")
+                .country("Test Country")
+                .latitude(55.6761)
+                .longitude(12.5883)
+                .build();
         placeRepository.save(testPlace);
 
     }
     
     @Test
     void testSavePlace() {
-        PlaceEntity place = new PlaceEntity();
-        place.setId("place-2");
-        place.setName("New Place");
-        place.setCity("New City");
-        place.setCountry("New Country");
+        PlaceEntity place = PlaceEntity.builder()
+                .id("place-2")
+                .name("New Place")
+                .city("New City")
+                .country("New Country")
+                .build();
         
         PlaceEntity savedPlace = placeRepository.save(place);
         
@@ -73,11 +75,12 @@ class PlaceRepositoryTests {
     
     @Test
     void testFindAllPlaces() {
-        PlaceEntity place2 = new PlaceEntity();
-        place2.setId("place-2");
-        place2.setName("Second Place");
-        place2.setCity("City 2");
-        place2.setCountry("Country 2");
+        PlaceEntity place2 = PlaceEntity.builder()
+                .id("place-2")
+                .name("Second Place")
+                .city("City 2")
+                .country("Country 2")
+                .build();
         placeRepository.save(place2);
 
         
@@ -88,18 +91,20 @@ class PlaceRepositoryTests {
     
     @Test
     void testFindByCity() {
-        PlaceEntity place2 = new PlaceEntity();
-        place2.setId("place-2");
-        place2.setName("Another Place");
-        place2.setCity("Test City");
-        place2.setCountry("Different Country");
+        PlaceEntity place2 = PlaceEntity.builder()
+                .id("place-2")
+                .name("Another Place")
+                .city("Test City")
+                .country("Different Country")
+                .build();
         placeRepository.save(place2);
         
-        PlaceEntity place3 = new PlaceEntity();
-        place3.setId("place-3");
-        place3.setName("Different City Place");
-        place3.setCity("Different City");
-        place3.setCountry("Test Country");
+        PlaceEntity place3 = PlaceEntity.builder()
+                .id("place-3")
+                .name("Different City Place")
+                .city("Different City")
+                .country("Test Country")
+                .build();
         placeRepository.save(place3);
 
         
@@ -111,18 +116,20 @@ class PlaceRepositoryTests {
     
     @Test
     void testFindByCountry() {
-        PlaceEntity place2 = new PlaceEntity();
-        place2.setId("place-2");
-        place2.setName("Another Place");
-        place2.setCity("Different City");
-        place2.setCountry("Test Country");
+        PlaceEntity place2 = PlaceEntity.builder()
+                .id("place-2")
+                .name("Another Place")
+                .city("Different City")
+                .country("Test Country")
+                .build();
         placeRepository.save(place2);
         
-        PlaceEntity place3 = new PlaceEntity();
-        place3.setId("place-3");
-        place3.setName("Different Country Place");
-        place3.setCity("City 3");
-        place3.setCountry("Different Country");
+        PlaceEntity place3 = PlaceEntity.builder()
+                .id("place-3")
+                .name("Different Country Place")
+                .city("City 3")
+                .country("Different Country")
+                .build();
         placeRepository.save(place3);
 
         
@@ -134,18 +141,20 @@ class PlaceRepositoryTests {
     
     @Test
     void testFindByCityAndCountry() {
-        PlaceEntity place2 = new PlaceEntity();
-        place2.setId("place-2");
-        place2.setName("Same City Different Country");
-        place2.setCity("Test City");
-        place2.setCountry("Different Country");
+        PlaceEntity place2 = PlaceEntity.builder()
+                .id("place-2")
+                .name("Same City Different Country")
+                .city("Test City")
+                .country("Different Country")
+                .build();
         placeRepository.save(place2);
         
-        PlaceEntity place3 = new PlaceEntity();
-        place3.setId("place-3");
-        place3.setName("Different City Same Country");
-        place3.setCity("Different City");
-        place3.setCountry("Test Country");
+        PlaceEntity place3 = PlaceEntity.builder()
+                .id("place-3")
+                .name("Different City Same Country")
+                .city("Different City")
+                .country("Test Country")
+                .build();
         placeRepository.save(place3);
 
         

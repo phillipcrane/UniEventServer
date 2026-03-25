@@ -47,27 +47,27 @@ public class EventMapper {
             return null;
         }
         
-        EventEntity entity = new EventEntity();
-        entity.setId(dto.getId());
-        entity.setTitle(dto.getTitle());
-        entity.setDescription(dto.getDescription());
-        entity.setStartTime(dto.getStartTime());
-        entity.setEndTime(dto.getEndTime());
-        entity.setPlace(placeMapper.toEntity(dto.getPlace()));
-        entity.setEventURL(dto.getEventURL());
+        EventEntity.EventEntityBuilder builder = EventEntity.builder()
+                .id(dto.getId())
+                .title(dto.getTitle())
+                .description(dto.getDescription())
+                .startTime(dto.getStartTime())
+                .endTime(dto.getEndTime())
+                .place(placeMapper.toEntity(dto.getPlace()))
+                .eventURL(dto.getEventURL());
         
         // Load cover image if ID provided
         if (dto.getCoverImageId() != null) {
             MediaEntity coverImage = mediaRepository.findById(dto.getCoverImageId()).orElse(null);
-            entity.setCoverImage(coverImage);
+            builder.coverImage(coverImage);
         }
         
         // Look up and set the page by pageId
         if (dto.getPageId() != null) {
             PageEntity page = pageRepository.findById(dto.getPageId()).orElse(null);
-            entity.setPage(page);
+            builder.page(page);
         }
         
-        return entity;
+        return builder.build();
     }
 }

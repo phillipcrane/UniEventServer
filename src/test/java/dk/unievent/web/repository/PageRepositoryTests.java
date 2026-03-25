@@ -26,21 +26,23 @@ class PageRepositoryTests {
     
     @BeforeEach
     void setUp() {
-        testPage = new PageEntity();
-        testPage.setId("page-1");
-        testPage.setName("Test Page");
-        testPage.setTokenStatus("valid");
-        testPage.setTokenExpiresAt(LocalDateTime.now().plusDays(30));
+        testPage = PageEntity.builder()
+                .id("page-1")
+                .name("Test Page")
+                .tokenStatus("valid")
+                .tokenExpiresAt(LocalDateTime.now().plusDays(30))
+                .build();
         pageRepository.save(testPage);
 
     }
     
     @Test
     void testSavePage() {
-        PageEntity page = new PageEntity();
-        page.setId("page-2");
-        page.setName("New Page");
-        page.setTokenStatus("valid");
+        PageEntity page = PageEntity.builder()
+                .id("page-2")
+                .name("New Page")
+                .tokenStatus("valid")
+                .build();
         
         PageEntity savedPage = pageRepository.save(page);
         
@@ -69,10 +71,11 @@ class PageRepositoryTests {
     
     @Test
     void testFindAllPages() {
-        PageEntity page2 = new PageEntity();
-        page2.setId("page-2");
-        page2.setName("Second Page");
-        page2.setTokenStatus("valid");
+        PageEntity page2 = PageEntity.builder()
+                .id("page-2")
+                .name("Second Page")
+                .tokenStatus("valid")
+                .build();
         pageRepository.save(page2);
 
         
@@ -83,16 +86,18 @@ class PageRepositoryTests {
     
     @Test
     void testFindAllByOrderByNameAsc() {
-        PageEntity page2 = new PageEntity();
-        page2.setId("page-2");
-        page2.setName("Alpha Page");
-        page2.setTokenStatus("valid");
+        PageEntity page2 = PageEntity.builder()
+                .id("page-2")
+                .name("Alpha Page")
+                .tokenStatus("valid")
+                .build();
         pageRepository.save(page2);
         
-        PageEntity page3 = new PageEntity();
-        page3.setId("page-3");
-        page3.setName("Zebra Page");
-        page3.setTokenStatus("valid");
+        PageEntity page3 = PageEntity.builder()
+                .id("page-3")
+                .name("Zebra Page")
+                .tokenStatus("valid")
+                .build();
         pageRepository.save(page3);
 
         

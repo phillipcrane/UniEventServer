@@ -35,17 +35,17 @@ public class PageMapper {
             return null;
         }
         
-        PageEntity entity = new PageEntity();
-        entity.setId(dto.getId());
-        entity.setName(dto.getName());
+        PageEntity.PageEntityBuilder builder = PageEntity.builder()
+                .id(dto.getId())
+                .name(dto.getName());
         
         // Load picture if ID provided
         if (dto.getPictureId() != null) {
             MediaEntity picture = mediaRepository.findById(dto.getPictureId()).orElse(null);
-            entity.setPicture(picture);
+            builder.picture(picture);
         }
         
-        return entity;
+        return builder.build();
     }
     
     /**
