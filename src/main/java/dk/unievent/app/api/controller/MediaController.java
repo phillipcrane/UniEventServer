@@ -86,7 +86,7 @@ public class MediaController {
         MediaEntity media = repository.findById(id)
                 .orElseThrow(() -> {
                     log.warn("Media not found with id: {}", id);
-                    return new RuntimeException("Media not found: " + id);
+                    return new java.util.NoSuchElementException("Media not found: " + id);
                 });
         log.debug("Media found: {}", id);
         // fileId stored in DB is the SeaweedFS file ID

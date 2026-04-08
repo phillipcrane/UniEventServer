@@ -87,6 +87,48 @@ docker compose logs -f
 docker exec -it unievent-app cat logs/app.log
 ```
 
+### Enabling Debug Logging
+
+By default, application logs are at INFO level (production safe). To enable DEBUG logging for development:
+
+**Start the stack with debug profile:**
+```powershell
+docker compose down
+$env:SPRING_PROFILES_ACTIVE = "dev"
+docker compose up -d --build
+```
+
+**Or on Linux/Mac:**
+```bash
+docker compose down
+SPRING_PROFILES_ACTIVE=dev docker compose up -d --build
+```
+
+Debug logging provides additional detail on:
+- Database queries and pagination
+- API endpoint entry/exit points
+- Infrastructure client operations (SeaweedFS, Vault)
+
+Debug output is controlled by `src/main/resources/application-dev.yaml` and is automatically disabled when the dev profile is not active.
+
+### Disabling Debug Logging
+
+To return to INFO-level logging:
+
+**Windows PowerShell:**
+```powershell
+docker compose down
+docker compose up -d --build
+```
+
+**Linux/Mac:**
+```bash
+docker compose down
+docker compose up -d --build
+```
+
+Simply restart without the `SPRING_PROFILES_ACTIVE=dev` variable to return to production-safe INFO-level logging.
+
 ## Endpoints
 
 **Read:**

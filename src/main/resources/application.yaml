@@ -11,15 +11,17 @@ spring:
 logging:
   level:
     root: INFO
-    dk.unievent.app: DEBUG
-    dk.unievent.app.infrastructure.client: DEBUG
+    dk.unievent.app: INFO
+    dk.unievent.app.infrastructure.client: INFO
   pattern:
     console: "%d{yyyy-MM-dd HH:mm:ss} %-5level %logger{36} - %msg%n"
     file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
   file:
     name: logs/app.log
-    max-size: 10MB
-    max-history: 10
+  logback:
+    rollingpolicy:
+      max-file-size: 10MB
+      max-history: 10
 
 management:
   endpoints:

@@ -34,12 +34,12 @@ public class MediaService {
         String filename = StringUtils.cleanPath(file.getOriginalFilename());
         log.info("Storing file: {}, size: {} bytes", filename, file.getSize());
         if (file.isEmpty()) {
-            log.error("Cannot store empty file: {}", filename);
-            throw new IOException("Failed to store empty file " + filename);
+            log.warn("Cannot store empty file: {}", filename);
+            throw new IllegalArgumentException("Failed to store empty file");
         }
         if (filename.contains("..")) {
-            log.error("Cannot store file with relative path: {}", filename);
-            throw new IOException("Cannot store file with relative path outside current directory " + filename);
+            log.warn("Cannot store file with relative path: {}", filename);
+            throw new IllegalArgumentException("Cannot store file with relative path outside current directory");
         }
 
         try {
