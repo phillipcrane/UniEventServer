@@ -112,7 +112,7 @@ public class EventService {
         entity.setEventUrl(eventDTO.getEventUrl());
 
         if (eventDTO.getPlace() != null) {
-            entity.setPlace(eventMapper.toEntity(eventDTO).getPlace());
+            entity.setPlace(eventDTO.getPlace());
         }
 
         if (eventDTO.getPageId() != null) {
