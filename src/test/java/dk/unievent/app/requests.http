@@ -5,7 +5,9 @@ Content-Type: application/json
 {
   "id": "123456789",
   "name": "S-huset",
-  "pictureUrl": "https://example.com/logo.jpg"
+  "url": "https://facebook.com/shuset",
+  "pictureUrl": "https://example.com/logo.jpg",
+  "active": true
 }
 
 ### Create an event
@@ -14,10 +16,13 @@ Content-Type: application/json
 
 {
   "id": "event-1",
+  "pageId": "123456789",
   "title": "Pub Night",
   "description": "Join us for drinks and games!",
   "startTime": "2026-03-20T20:00:00",
-  "pageId": "123456789"
+  "endTime": "2026-03-20T23:00:00",
+  "coverImageUrl": "https://example.com/event.jpg",
+  "eventURL": "https://facebook.com/event/123"
 }
 
 ### Get all events

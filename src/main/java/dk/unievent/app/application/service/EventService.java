@@ -14,6 +14,7 @@ import dk.unievent.app.db.model.PageEntity;
 import dk.unievent.app.db.repository.EventRepository;
 import dk.unievent.app.db.repository.MediaRepository;
 import dk.unievent.app.db.repository.PageRepository;
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.time.Instant;
@@ -21,6 +22,7 @@ import java.time.LocalDateTime;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 
+@Slf4j
 @Service
 public class EventService {
 
@@ -47,36 +49,58 @@ public class EventService {
     }
 
     public Page<EventDTO> getAllEvents(Pageable pageable) {
-        return eventRepository.findAllByOrderByStartTimeAsc(pageable)
+        log.debug("Fetching all events with pagination: page={}, size={}", pageable.getPageNumber(), pageable.getPageSize());
+        Page<EventDTO> result = eventRepository.findAllByOrderByStartTimeAsc(pageable)
                 .map(eventMapper::toDTO);
+        log.debug("Found {} events", result.getTotalElements());
+        return result;
     }
 
     public Page<EventDTO> getFutureEvents(Pageable pageable) {
-        return eventRepository.findByStartTimeGreaterThanEqualOrderByStartTimeAsc(LocalDateTime.now(), pageable)
+        log.debug("Fetching future events with pagination: page={}, size={}", pageable.getPageNumber(), pageable.getPageSize());
+        Page<EventDTO> result = eventRepository.findByStartTimeGreaterThanEqualOrderByStartTimeAsc(LocalDateTime.now(), pageable)
                 .map(eventMapper::toDTO);
+        log.debug("Found {} future events", result.getTotalElements());
+        return result;
     }
 
     public EventDTO getEventById(String id) {
+        log.debug("Fetching event with id: {}", id);
         Optional<EventEntity> entity = eventRepository.findById(id);
+        if (entity.isEmpty()) {
+            log.debug("Event not found with id: {}", id);
+            return null;
+        }
+        log.debug("Event found: {}", id);
         return entity.map(eventMapper::toDTO).orElse(null);
     }
 
     public Page<EventDTO> getEventsByPageId(String pageId, Pageable pageable) {
-        return eventRepository.findByPageIdOrderByStartTimeAsc(pageId, pageable)
+        log.debug("Fetching events for pageId: {}, page: {}, size: {}", pageId, pageable.getPageNumber(), pageable.getPageSize());
+        Page<EventDTO> result = eventRepository.findByPageIdOrderByStartTimeAsc(pageId, pageable)
                 .map(eventMapper::toDTO);
+        log.debug("Found {} events for page: {}", result.getTotalElements(), pageId);
+        return result;
     }
 
     public Page<EventDTO> getFutureEventsByPageId(String pageId, Pageable pageable) {
-        return eventRepository.findByPageIdAndStartTimeGreaterThanEqualOrderByStartTimeAsc(pageId, LocalDateTime.now(), pageable)
+        log.debug("Fetching future events for pageId: {}, page: {}, size: {}", pageId, pageable.getPageNumber(), pageable.getPageSize());
+        Page<EventDTO> result = eventRepository.findByPageIdAndStartTimeGreaterThanEqualOrderByStartTimeAsc(pageId, LocalDateTime.now(), pageable)
                 .map(eventMapper::toDTO);
+        log.debug("Found {} future events for page: {}", result.getTotalElements(), pageId);
+        return result;
     }
 
     public Page<EventDTO> getEventsByPlaceId(String placeId, Pageable pageable) {
-        return eventRepository.findByPlaceIdOrderByStartTimeAsc(placeId, pageable)
+        log.debug("Fetching events for placeId: {}", placeId);
+        Page<EventDTO> result = eventRepository.findByPlaceIdOrderByStartTimeAsc(placeId, pageable)
                 .map(eventMapper::toDTO);
+        log.debug("Found {} events for place: {}", result.getTotalElements(), placeId);
+        return result;
     }
 
     public EventDTO createEvent(EventDTO eventDTO) {
+        log.info("Creating new event: {}", eventDTO.getTitle());
         EventEntity entity = eventMapper.toEntity(eventDTO);
 
         if (eventDTO.getPageId() != null) {
@@ -89,12 +113,15 @@ public class EventService {
         }
 
         EventEntity saved = eventRepository.save(entity);
+        log.info("Event created successfully with id: {}", saved.getId());
         return eventMapper.toDTO(saved);
     }
 
     public EventDTO updateEvent(String id, EventDTO eventDTO) {
+        log.info("Updating event with id: {}", id);
         Optional<EventEntity> existing = eventRepository.findById(id);
         if (existing.isEmpty()) {
+            log.warn("Event not found for update with id: {}", id);
             return null;
         }
 
@@ -119,12 +146,15 @@ public class EventService {
         }
 
         EventEntity updated = eventRepository.save(entity);
+        log.info("Event updated successfully: {}", id);
         return eventMapper.toDTO(updated);
     }
 
     public EventDTO uploadCoverImage(String id, MultipartFile file) throws IOException {
+        log.info("Uploading cover image for event: {}", id);
         Optional<EventEntity> existing = eventRepository.findById(id);
         if (existing.isEmpty()) {
+            log.warn("Event not found for cover image upload with id: {}", id);
             return null;
         }
 
@@ -140,14 +170,18 @@ public class EventService {
         EventEntity entity = existing.get();
         entity.setCoverImage(savedMedia);
         EventEntity updated = eventRepository.save(entity);
+        log.info("Cover image uploaded successfully for event: {}", id);
         return eventMapper.toDTO(updated);
     }
 
     public boolean deleteEvent(String id) {
+        log.info("Deleting event with id: {}", id);
         if (eventRepository.existsById(id)) {
             eventRepository.deleteById(id);
+            log.info("Event deleted successfully: {}", id);
             return true;
         }
+        log.warn("Event not found for deletion with id: {}", id);
         return false;
     }
 

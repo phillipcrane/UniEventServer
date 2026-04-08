@@ -21,7 +21,7 @@ We had previously created a version of UniEvent called DTUEvent hosted on Google
 - [ ] Implement pagination for large result sets
 
 ### API
-- [ ] Add SLF4J logging throughout services (im not sure what this is lol but claude suggested it)
+- [x] Add SLF4J logging throughout services
 
 ### Frontend
 - [ ] User favorites and personalization
@@ -65,6 +65,69 @@ UniEventServer currently runs as a Java/Spring backend with Dockerized infrastru
 2. Copy and rename the override file: `cp docker-compose.override.yml.example docker-compose.override.yml`
 3. Generate a self-signed cert: `mkdir -p certs && openssl req -x509 -nodes -days 3650 -newkey rsa:2048 -keyout certs/privkey.pem -out certs/fullchain.pem -subj "/CN=localhost"`
 4. Start the stack: `docker compose up -d`
+
+## Debugging & Logs
+
+### Viewing Application Logs
+
+The application logs are configured with SLF4J/Logback and output to both console and file:
+
+**View logs in real-time from the running container:**
+```powershell
+docker logs -f unievent-app
+```
+
+**View logs for all services:**
+```powershell
+docker compose logs -f
+```
+
+**View log file inside container:**
+```powershell
+docker exec -it unievent-app cat logs/app.log
+```
+
+### Enabling Debug Logging
+
+By default, application logs are at INFO level (production safe). To enable DEBUG logging for development:
+
+**Start the stack with debug profile:**
+```powershell
+docker compose down
+$env:SPRING_PROFILES_ACTIVE = "dev"
+docker compose up -d --build
+```
+
+**Or on Linux/Mac:**
+```bash
+docker compose down
+SPRING_PROFILES_ACTIVE=dev docker compose up -d --build
+```
+
+Debug logging provides additional detail on:
+- Database queries and pagination
+- API endpoint entry/exit points
+- Infrastructure client operations (SeaweedFS, Vault)
+
+Debug output is controlled by `src/main/resources/application-dev.yaml` and is automatically disabled when the dev profile is not active.
+
+### Disabling Debug Logging
+
+To return to INFO-level logging:
+
+**Windows PowerShell:**
+```powershell
+docker compose down
+docker compose up -d --build
+```
+
+**Linux/Mac:**
+```bash
+docker compose down
+docker compose up -d --build
+```
+
+Simply restart without the `SPRING_PROFILES_ACTIVE=dev` variable to return to production-safe INFO-level logging.
 
 ## Endpoints
 

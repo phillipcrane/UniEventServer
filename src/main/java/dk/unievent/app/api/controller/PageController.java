@@ -15,7 +15,9 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.Parameter;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 @RestController
 @RequestMapping("/api/pages")
 @Tag(name = "Pages", description = "Manage event organizer pages (Facebook pages)")
@@ -31,7 +33,9 @@ public class PageController {
     @Operation(summary = "Get all pages", description = "Retrieve all event organizer pages ordered by name")
     @ApiResponse(responseCode = "200", description = "Page of pages")
     public ResponseEntity<Page<PageDTO>> getAllPages(Pageable pageable) {
+        log.debug("Fetching all pages with pagination: page={}, size={}", pageable.getPageNumber(), pageable.getPageSize());
         Page<PageDTO> pages = pageService.getAllPages(pageable);
+        log.debug("Retrieved {} pages", pages.getTotalElements());
         return ResponseEntity.ok(pages);
     }
 
@@ -39,7 +43,9 @@ public class PageController {
     @Operation(summary = "Get active pages", description = "Retrieve only pages with valid Facebook tokens")
     @ApiResponse(responseCode = "200", description = "Page of active pages")
     public ResponseEntity<Page<PageDTO>> getActivePages(Pageable pageable) {
+        log.debug("Fetching active pages with pagination: page={}, size={}", pageable.getPageNumber(), pageable.getPageSize());
         Page<PageDTO> pages = pageService.getActivePages(pageable);
+        log.debug("Retrieved {} active pages", pages.getTotalElements());
         return ResponseEntity.ok(pages);
     }
 
@@ -48,12 +54,13 @@ public class PageController {
     @ApiResponse(responseCode = "200", description = "Page found")
     @ApiResponse(responseCode = "404", description = "Page not found")
     public ResponseEntity<PageDTO> getPageById(@PathVariable @Parameter(description = "Facebook page ID") String id) {
+        log.debug("Fetching page with id: {}", id);
         PageDTO page = pageService.getPageById(id);
-
         if (page == null) {
+            log.warn("Page not found with id: {}", id);
             return ResponseEntity.notFound().build();
         }
-
+        log.debug("Page found: {}", id);
         return ResponseEntity.ok(page);
     }
 
@@ -63,7 +70,9 @@ public class PageController {
     public ResponseEntity<Page<PageDTO>> searchPages(
             @RequestParam(name = "name") @Parameter(description = "Partial page name to search for") String name,
             Pageable pageable) {
+        log.debug("Searching pages by name: {}", name);
         Page<PageDTO> pages = pageService.searchPagesByName(name, pageable);
+        log.debug("Found {} pages matching: {}", pages.getTotalElements(), name);
         return ResponseEntity.ok(pages);
     }
 
@@ -71,7 +80,9 @@ public class PageController {
     @Operation(summary = "Create a new page", description = "Create a new event organizer page")
     @ApiResponse(responseCode = "201", description = "Page created successfully")
     public ResponseEntity<PageDTO> createPage(@Valid @RequestBody PageDTO pageDTO) {
+        log.info("Creating new page: {}", pageDTO.getName());
         PageDTO created = pageService.savePage(pageDTO);
+        log.info("Page created successfully with id: {}", created.getId());
         return ResponseEntity.status(HttpStatus.CREATED).body(created);
     }
 
@@ -82,8 +93,10 @@ public class PageController {
     public ResponseEntity<PageDTO> updatePage(
             @PathVariable @Parameter(description = "Facebook page ID") String id,
             @Valid @RequestBody PageDTO pageDTO) {
+        log.info("Updating page with id: {}", id);
         pageDTO.setId(id);
         PageDTO updated = pageService.savePage(pageDTO);
+        log.info("Page updated successfully: {}", id);
         return ResponseEntity.ok(updated);
     }
 
@@ -94,10 +107,13 @@ public class PageController {
     public ResponseEntity<PageDTO> uploadPagePicture(
             @PathVariable @Parameter(description = "Facebook page ID") String id,
             @RequestParam("file") MultipartFile file) throws IOException {
+        log.info("Uploading picture for page id: {}, filename: {}", id, file.getOriginalFilename());
         PageDTO updated = pageService.uploadPicture(id, file);
         if (updated == null) {
+            log.warn("Page not found for picture upload with id: {}", id);
             return ResponseEntity.notFound().build();
         }
+        log.info("Picture uploaded successfully for page: {}", id);
         return ResponseEntity.ok(updated);
     }
 
@@ -106,12 +122,13 @@ public class PageController {
     @ApiResponse(responseCode = "204", description = "Page deleted successfully")
     @ApiResponse(responseCode = "404", description = "Page not found")
     public ResponseEntity<Void> deletePage(@PathVariable @Parameter(description = "Facebook page ID") String id) {
+        log.info("Deleting page with id: {}", id);
         boolean deleted = pageService.deletePage(id);
-
         if (!deleted) {
+            log.warn("Page not found for deletion with id: {}", id);
             return ResponseEntity.notFound().build();
         }
-
+        log.info("Page deleted successfully: {}", id);
         return ResponseEntity.noContent().build();
     }
 }

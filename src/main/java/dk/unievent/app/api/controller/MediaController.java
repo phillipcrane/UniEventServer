@@ -18,6 +18,7 @@ import dk.unievent.app.application.dto.MediaDTO;
 import dk.unievent.app.db.model.MediaEntity;
 import dk.unievent.app.db.repository.MediaRepository;
 import dk.unievent.app.application.service.MediaService;
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.net.URLEncoder;
@@ -26,6 +27,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.stream.Collectors;
 
+@Slf4j
 @RestController
 @RequestMapping("/media")
 @Tag(name = "Media Management", description = "APIs for uploading, downloading, and managing media files")
@@ -53,6 +55,7 @@ public class MediaController {
     public ResponseEntity<MediaDTO> upload(
         @Parameter(description = "File to upload", required = true)
         @RequestParam("file") MultipartFile file) throws IOException {
+        log.info("Uploading media file: {}, size: {} bytes", file.getOriginalFilename(), file.getSize());
         String storedFilename = mediaService.store(file);
         MediaEntity meta = MediaEntity.builder()
                 .filename(file.getOriginalFilename())
@@ -61,6 +64,7 @@ public class MediaController {
                 .uploadedAt(Instant.now())
                 .build();
             MediaEntity saved = repository.save(meta);
+            log.info("Media file uploaded successfully with id: {}", saved.getId());
             return ResponseEntity.ok(toDto(saved));
     }
 
@@ -78,8 +82,13 @@ public class MediaController {
     public ResponseEntity<Resource> download(
         @Parameter(description = "Media file ID", required = true, example = "1")
         @PathVariable Long id) throws IOException {
+        log.debug("Fetching media with id: {}", id);
         MediaEntity media = repository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Media not found: " + id));
+                .orElseThrow(() -> {
+                    log.warn("Media not found with id: {}", id);
+                    return new java.util.NoSuchElementException("Media not found: " + id);
+                });
+        log.debug("Media found: {}", id);
         // fileId stored in DB is the SeaweedFS file ID
         Resource resource = mediaService.loadAsResource(media.getFileId());
         String encoded = URLEncoder.encode(media.getFilename(), StandardCharsets.UTF_8);
@@ -97,7 +106,10 @@ public class MediaController {
     @ApiResponse(responseCode = "200", description = "List of media files",
         content = @Content(mediaType = "application/json", schema = @Schema(implementation = MediaDTO.class)))
     public List<MediaDTO> list() {
-        return repository.findAll().stream().map(this::toDto).collect(Collectors.toList());
+        log.debug("Listing all media files");
+        List<MediaDTO> media = repository.findAll().stream().map(this::toDto).collect(Collectors.toList());
+        log.debug("Found {} media files", media.size());
+        return media;
     }
 
     private MediaDTO toDto(MediaEntity entity) {

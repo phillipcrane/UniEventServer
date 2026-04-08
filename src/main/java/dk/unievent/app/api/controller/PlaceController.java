@@ -14,6 +14,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.Parameter;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * REST Controller for Place endpoints (Venues/Locations)
@@ -27,6 +28,7 @@ import io.swagger.v3.oas.annotations.Parameter;
  * GET  /api/places/country/{country}       - Find venues in a country
  * GET  /api/places/search?name=s-huset     - Search venues by name
  */
+@Slf4j
 @RestController
 @RequestMapping("/api/places")
 @Tag(name = "Places", description = "Manage and search venues/locations for events")
@@ -61,12 +63,15 @@ public class PlaceController {
     @ApiResponse(responseCode = "200", description = "Place found")
     @ApiResponse(responseCode = "404", description = "Place not found")
     public ResponseEntity<PlaceDTO> getPlaceById(@PathVariable @Parameter(description = "Place ID") String id) {
+        log.debug("Fetching place with id: {}", id);
         PlaceDTO place = placeService.getPlaceById(id);
         
         if (place == null) {
+            log.warn("Place not found with id: {}", id);
             return ResponseEntity.notFound().build();
         }
         
+        log.debug("Place found: {}", id);
         return ResponseEntity.ok(place);
     }
     
@@ -84,7 +89,9 @@ public class PlaceController {
     @Operation(summary = "Get places by city", description = "Find all venues in a specific city")
     @ApiResponse(responseCode = "200", description = "Page of places in the city")
     public ResponseEntity<Page<PlaceDTO>> getPlacesByCity(@PathVariable @Parameter(description = "City name") String city, Pageable pageable) {
+        log.debug("Fetching places for city: {}, page: {}, size: {}", city, pageable.getPageNumber(), pageable.getPageSize());
         Page<PlaceDTO> places = placeService.getPlacesByCity(city, pageable);
+        log.debug("Found {} places in city: {}", places.getTotalElements(), city);
         return ResponseEntity.ok(places);
     }
     
@@ -102,7 +109,9 @@ public class PlaceController {
     @Operation(summary = "Get places by country", description = "Find all venues in a specific country")
     @ApiResponse(responseCode = "200", description = "Page of places in the country")
     public ResponseEntity<Page<PlaceDTO>> getPlacesByCountry(@PathVariable @Parameter(description = "Country name") String country, Pageable pageable) {
+        log.debug("Fetching places for country: {}, page: {}, size: {}", country, pageable.getPageNumber(), pageable.getPageSize());
         Page<PlaceDTO> places = placeService.getPlacesByCountry(country, pageable);
+        log.debug("Found {} places in country: {}", places.getTotalElements(), country);
         return ResponseEntity.ok(places);
     }
     
@@ -123,7 +132,9 @@ public class PlaceController {
             @PathVariable @Parameter(description = "City name") String city,
             @PathVariable @Parameter(description = "Country name") String country,
             Pageable pageable) {
+        log.debug("Fetching places for city: {}, country: {}, page: {}, size: {}", city, country, pageable.getPageNumber(), pageable.getPageSize());
         Page<PlaceDTO> places = placeService.getPlacesByCityAndCountry(city, country, pageable);
+        log.debug("Found {} places in {}, {}", places.getTotalElements(), city, country);
         return ResponseEntity.ok(places);
     }
     
@@ -143,7 +154,9 @@ public class PlaceController {
     public ResponseEntity<Page<PlaceDTO>> searchPlaces(
             @RequestParam(name = "name") @Parameter(description = "Partial place name to search for") String name,
             Pageable pageable) {
+        log.debug("Searching places by name: {}", name);
         Page<PlaceDTO> places = placeService.searchByName(name, pageable);
+        log.debug("Search found {} places matching: {}", places.getTotalElements(), name);
         return ResponseEntity.ok(places);
     }
     
@@ -174,7 +187,9 @@ public class PlaceController {
     @Operation(summary = "Create a new place", description = "Create a new venue/location")
     @ApiResponse(responseCode = "201", description = "Place created successfully")
     public ResponseEntity<PlaceDTO> createPlace(@Valid @RequestBody PlaceDTO placeDTO) {
+        log.info("Creating new place: {}", placeDTO.getName());
         PlaceDTO created = placeService.createPlace(placeDTO);
+        log.info("Place created successfully with id: {}", created.getId());
         return ResponseEntity.status(HttpStatus.CREATED).body(created);
     }
     
@@ -199,13 +214,16 @@ public class PlaceController {
     public ResponseEntity<PlaceDTO> updatePlace(
             @PathVariable @Parameter(description = "Place ID") String id,
             @Valid @RequestBody PlaceDTO placeDTO) {
+        log.info("Updating place with id: {}", id);
         placeDTO.setId(id);  // Ensure we're updating the right place
         PlaceDTO updated = placeService.updatePlace(id, placeDTO);
         
         if (updated == null) {
+            log.warn("Place not found for update with id: {}", id);
             return ResponseEntity.notFound().build();
         }
         
+        log.info("Place updated successfully: {}", id);
         return ResponseEntity.ok(updated);
     }
     
@@ -228,12 +246,15 @@ public class PlaceController {
     @ApiResponse(responseCode = "204", description = "Place deleted successfully")
     @ApiResponse(responseCode = "404", description = "Place not found")
     public ResponseEntity<Void> deletePlace(@PathVariable @Parameter(description = "Place ID") String id) {
+        log.info("Deleting place with id: {}", id);
         boolean deleted = placeService.deletePlace(id);
         
         if (!deleted) {
+            log.warn("Place not found for deletion with id: {}", id);
             return ResponseEntity.notFound().build();
         }
         
+        log.info("Place deleted successfully: {}", id);
         return ResponseEntity.noContent().build();
     }
 }

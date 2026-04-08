@@ -44,3 +44,4 @@ vault-init.json
 ### LOCAL DEV ###
 certs/
 docker-compose.override.yml
+logs/

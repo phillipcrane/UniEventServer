@@ -11,12 +11,14 @@ import dk.unievent.app.db.model.MediaEntity;
 import dk.unievent.app.db.model.PageEntity;
 import dk.unievent.app.db.repository.MediaRepository;
 import dk.unievent.app.db.repository.PageRepository;
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.Optional;
 
+@Slf4j
 @Service
 public class PageService {
 
@@ -37,18 +39,30 @@ public class PageService {
     }
 
     public Page<PageDTO> getAllPages(Pageable pageable) {
-        return pageRepository.findAllByOrderByNameAsc(pageable)
+        log.debug("Fetching all pages with pagination: page={}, size={}", pageable.getPageNumber(), pageable.getPageSize());
+        Page<PageDTO> result = pageRepository.findAllByOrderByNameAsc(pageable)
             .map(pageMapper::toDTO);
+        log.debug("Found {} pages", result.getTotalElements());
+        return result;
     }
 
     public PageDTO getPageById(String id) {
+        log.debug("Fetching page with id: {}", id); 
         Optional<PageEntity> entity = pageRepository.findById(id);
+        if (entity.isEmpty()) {
+            log.debug("Page not found with id: {}", id);
+        } else {
+            log.debug("Page found: {}", id);
+        }
         return entity.map(pageMapper::toDTO).orElse(null);
     }
 
     public Page<PageDTO> getActivePages(Pageable pageable) {
-        return pageRepository.findByTokenStatusOrderByNameAsc("valid", pageable)
+        log.debug("Fetching active pages with pagination: page={}, size={}", pageable.getPageNumber(), pageable.getPageSize());
+        Page<PageDTO> result = pageRepository.findByTokenStatusOrderByNameAsc("valid", pageable)
             .map(pageMapper::toDTO);
+        log.debug("Found {} active pages", result.getTotalElements());
+        return result;
     }
 
     public Page<PageEntity> getPagesToRefresh(Pageable pageable) {
@@ -61,11 +75,15 @@ public class PageService {
     }
 
     public Page<PageDTO> searchPagesByName(String name, Pageable pageable) {
-        return pageRepository.findByNameIgnoreCase(name, pageable)
+        log.debug("Searching pages by name: {}", name);
+        Page<PageDTO> result = pageRepository.findByNameIgnoreCase(name, pageable)
             .map(pageMapper::toDTO);
+        log.debug("Search found {} pages matching: {}", result.getTotalElements(), name);
+        return result;
     }
 
     public PageDTO savePage(PageDTO pageDTO) {
+        log.info("Saving page: {}", pageDTO.getName());
         PageEntity entity = pageMapper.toEntity(pageDTO);
 
         if (pageDTO.getPictureId() != null) {
@@ -74,10 +92,12 @@ public class PageService {
         }
 
         PageEntity saved = pageRepository.save(entity);
+        log.info("Page saved successfully with id: {}", saved.getId());
         return pageMapper.toDTO(saved);
     }
 
     public void updatePageToken(String pageId, String tokenStatus, LocalDateTime expiresAt, Integer expiresInDays) {
+        log.debug("Updating token for page: {}, status: {}", pageId, tokenStatus);
         Optional<PageEntity> existing = pageRepository.findById(pageId);
         if (existing.isPresent()) {
             PageEntity page = existing.get();
@@ -89,10 +109,14 @@ public class PageService {
             page.setLastRefreshError(null);
             page.setLastRefreshAttempt(LocalDateTime.now());
             pageRepository.save(page);
+            log.info("Page token updated successfully: {}", pageId);
+        } else {
+            log.warn("Page not found for token update: {}", pageId);
         }
     }
 
     public void logRefreshFailure(String pageId, String error) {
+        log.warn("Logging refresh failure for page: {}, error: {}", pageId, error);
         Optional<PageEntity> existing = pageRepository.findById(pageId);
         if (existing.isPresent()) {
             PageEntity page = existing.get();
@@ -100,12 +124,14 @@ public class PageService {
             page.setLastRefreshError(error);
             page.setLastRefreshAttempt(LocalDateTime.now());
             pageRepository.save(page);
-        }
+        }        
     }
 
     public PageDTO uploadPicture(String id, MultipartFile file) throws IOException {
+        log.info("Uploading picture for page: {}", id);
         Optional<PageEntity> existing = pageRepository.findById(id);
         if (existing.isEmpty()) {
+            log.warn("Page not found for picture upload with id: {}", id);
             return null;
         }
 
@@ -121,15 +147,19 @@ public class PageService {
         PageEntity page = existing.get();
         page.setPicture(saved);
         PageEntity updated = pageRepository.save(page);
+        log.info("Picture uploaded successfully for page: {}", id);
 
         return pageMapper.toDTO(updated);
     }
 
     public boolean deletePage(String id) {
+        log.info("Deleting page with id: {}", id);
         if (pageRepository.existsById(id)) {
             pageRepository.deleteById(id);
+            log.info("Page deleted successfully: {}", id);
             return true;
         }
+        log.warn("Page not found for deletion with id: {}", id);
         return false;
     }
 }
