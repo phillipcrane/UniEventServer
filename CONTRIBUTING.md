@@ -7,7 +7,7 @@ We had previously created a version of UniEvent called DTUEvent hosted on Google
 ## TODO
 
 ### Big Tasks
-- [ ] Port /web frontend to backend (currently missing)
+- [ ] Port /web directory in old repo to new repo (entire frontend currently missing)
 - [ ] Facebook Page Organizer Onboarding Flow
 - [ ] Fix (auto) token refresh if possible lol
 
@@ -22,7 +22,7 @@ We had previously created a version of UniEvent called DTUEvent hosted on Google
 - [ ] Restrict `/actuator/health` details (currently exposes DB/memory info publicly lol)
 
 ### Database
-- [ ] Replace `ddl-auto: update` with Flyway or Liquibase migrations
+
 - [ ] Fix N+1 query problem with JOIN FETCH in repositories
 - [ ] Implement pagination for large result sets
 - [ ] Add cascade delete / orphan removal for page deletion
@@ -35,7 +35,7 @@ We had previously created a version of UniEvent called DTUEvent hosted on Google
 
 ### Testing
 - [ ] Add Testcontainers for integration tests (currently uses H2, not real MySQL)
-- [ ] Add `mvn test` step to CI pipeline before deploying
+- [x] Add `mvn test` step to CI pipeline before deploying
 - [ ] Add rollback mechanism to deploy script
 
 ### Frontend
@@ -45,6 +45,7 @@ We had previously created a version of UniEvent called DTUEvent hosted on Google
 - [ ] Page admin dashboard for managing event sync
 
 ### Nice-To-Have
+- [ ] DB Replace `ddl-auto: update` with Flyway or Liquibase migrations
 - [ ] Make more mobile-friendly
 - [ ] Location mapping
 - [ ] Manual event submission (fallback for pages without dedicated event)
@@ -118,91 +119,54 @@ UniEventServer currently runs as a Java/Spring backend with Dockerized infrastru
 
 ## Project Structure
 
-```
+```text
 UniEventServer/
-├── .github/workflows/
-│   └── deploy-live.yml          # CI/CD: SSH deploy to production on push to `live`
+├── .dockerignore
+├── .gitattributes
+├── .github/
+│   └── workflows/
+│       └── deploy-live.yml
+├── .gitignore
+├── .idea/
+├── .vscode/
+├── CONTRIBUTING.md
 ├── deploy/
-│   ├── nginx.conf               # Nginx: production HTTP (ACME challenge support)
-│   ├── nginx-https.conf         # Nginx: production HTTPS (TLS 1.2+, HSTS, security headers)
-│   └── nginx-dev.conf           # Nginx: local dev HTTPS with self-signed cert
-├── vault/
-│   └── config/
-│       ├── vault.hcl            # HashiCorp Vault server config (file storage, TCP listener)
-│       └── policies/
-│           └── unievent-app.hcl # Vault policy: read-only access to secret/data/unievent
-├── certs/                       # Local dev self-signed TLS certs (gitignored)
-│   ├── fullchain.pem
-│   └── privkey.pem
+│   ├── nginx.conf
+│   ├── nginx-dev.conf
+│   └── nginx-https.conf
+├── docker-compose.override.yml
+├── docker-compose.override.yml.example
+├── docker-compose.yml
+├── Dockerfile
+├── LICENSE
+├── mvnw
+├── mvnw.cmd
+├── pom.xml
+├── README.md
 ├── src/
 │   ├── main/
 │   │   ├── java/dk/unievent/app/
-│   │   │   ├── WebApplication.java            # Spring Boot entry point
-│   │   │   ├── core/
-│   │   │   │   ├── config/
-│   │   │   │   │   └── OpenApiConfig.java     # Swagger / SpringDoc setup
+│   │   │   ├── WebApplication.java
+│   │   │   ├── api/
 │   │   │   │   ├── controller/
-│   │   │   │   │   ├── EventController.java
-│   │   │   │   │   ├── PageController.java
-│   │   │   │   │   └── PlaceController.java
+│   │   │   │   └── handler/
+│   │   │   ├── application/
 │   │   │   │   ├── dto/
-│   │   │   │   │   ├── EventDTO.java
-│   │   │   │   │   ├── LocationDTO.java
-│   │   │   │   │   ├── PageDTO.java
-│   │   │   │   │   └── PlaceDTO.java
-│   │   │   │   ├── handler/
-│   │   │   │   │   └── GlobalExceptionHandler.java
 │   │   │   │   ├── mapper/
-│   │   │   │   │   ├── EventMapper.java
-│   │   │   │   │   ├── PageMapper.java
-│   │   │   │   │   └── PlaceMapper.java
 │   │   │   │   └── service/
-│   │   │   │       ├── EventService.java
-│   │   │   │       ├── PageService.java
-│   │   │   │       └── PlaceService.java
-│   │   │   ├── facebook/
-│   │   │   │   └── SecurityConfig.java        # OAuth2/Facebook config (not yet active)
-│   │   │   ├── mysql/
+│   │   │   ├── db/
 │   │   │   │   ├── model/
-│   │   │   │   │   ├── EventEntity.java
-│   │   │   │   │   ├── MediaEntity.java
-│   │   │   │   │   ├── PageEntity.java
-│   │   │   │   │   └── PlaceEntity.java
 │   │   │   │   └── repository/
-│   │   │   │       ├── EventRepository.java
-│   │   │   │       ├── MediaRepository.java
-│   │   │   │       ├── PageRepository.java
-│   │   │   │       └── PlaceRepository.java
-│   │   │   ├── seaweedfs/
-│   │   │   │   ├── MediaConfig.java
-│   │   │   │   ├── MediaController.java
-│   │   │   │   └── MediaService.java
-│   │   │   └── vault/
-│   │   │       ├── VaultClient.java           # HashiCorp Vault HTTP client
-│   │   │       └── VaultProperties.java
+│   │   │   └── infrastructure/
+│   │   │       ├── client/
+│   │   │       └── config/
 │   │   └── resources/
-│   │       ├── application.yaml              # Root config (imports the below)
-│   │       ├── mysql.yaml                    # Datasource + JPA settings
-│   │       ├── vault.yaml                    # Vault connection settings
-│   │       ├── seaweedfs.yaml                # SeaweedFS master/volume URLs
-│   │       └── facebook.yaml                 # OAuth2 config (not yet active)
+│   │       ├── api.yaml
+│   │       ├── application.yaml
+│   │       ├── db.yaml
+│   │       ├── media.yaml
+│   │       └── vault.yaml
 │   └── test/
-│       ├── java/dk/unievent/app/
-│       │   ├── WebApplicationTests.java
-│       │   ├── dto/                           # DTO validation unit tests
-│       │   ├── integration/                   # Full API integration tests
-│       │   ├── mapper/                        # Mapper unit tests
-│       │   ├── repository/                    # Repository query tests
-│       │   ├── service/                       # Service unit tests
-│       │   └── vault/                         # Vault client tests
-│       └── resources/
-│           ├── application-test.yaml         # Test root config
-│           ├── mysql-test.yaml               # H2 in-memory DB (MySQL mode)
-│           └── vault-test.yaml               # Vault disabled for tests
-├── docker-compose.yml                        # Full stack: app, mysql, vault, seaweedfs, nginx, certbot
-├── docker-compose.override.yml               # Local dev overrides (gitignored)
-├── docker-compose.override.yml.example       # Template for the above
-├── Dockerfile                                # Multi-stage build: JDK build → JRE runtime
-├── .env                                      # Local env vars / DB credentials (gitignored)
-└── pom.xml                                   # Maven build, Java 25, Spring Boot 4.x
+└── vault/
+    └── config/
 ```

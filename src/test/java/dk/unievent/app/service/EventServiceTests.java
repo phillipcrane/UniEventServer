@@ -6,12 +6,14 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import dk.unievent.app.core.dto.EventDTO;
-import dk.unievent.app.core.mapper.EventMapper;
-import dk.unievent.app.core.service.EventService;
-import dk.unievent.app.mysql.model.EventEntity;
-import dk.unievent.app.mysql.model.PageEntity;
-import dk.unievent.app.mysql.repository.EventRepository;
+import dk.unievent.app.application.dto.EventDTO;
+import dk.unievent.app.application.mapper.EventMapper;
+import dk.unievent.app.application.service.EventService;
+import dk.unievent.app.db.model.EventEntity;
+import dk.unievent.app.db.model.PageEntity;
+import dk.unievent.app.db.repository.EventRepository;
+import dk.unievent.app.db.repository.MediaRepository;
+import dk.unievent.app.db.repository.PageRepository;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -29,6 +31,12 @@ class EventServiceTests {
     
     @Mock
     private EventMapper eventMapper;
+
+    @Mock
+    private MediaRepository mediaRepository;
+
+    @Mock
+    private PageRepository pageRepository;
     
     @InjectMocks
     private EventService eventService;
@@ -187,11 +195,13 @@ class EventServiceTests {
         
         assertEquals(1, result.size());
         verify(eventRepository, times(1)).findByPlaceIdOrderByStartTimeAsc("place-1");
+        verify(eventMapper, times(1)).toDTO(testEventEntity);
     }
     
     @Test
     void testCreateEvent() {
         when(eventMapper.toEntity(testEventDTO)).thenReturn(testEventEntity);
+        when(pageRepository.findById("page-1")).thenReturn(Optional.of(testPage));
         when(eventRepository.save(testEventEntity)).thenReturn(testEventEntity);
         when(eventMapper.toDTO(testEventEntity)).thenReturn(testEventDTO);
         
@@ -200,6 +210,7 @@ class EventServiceTests {
         assertNotNull(result);
         assertEquals("event-1", result.getId());
         verify(eventMapper, times(1)).toEntity(testEventDTO);
+        verify(pageRepository, times(1)).findById("page-1");
         verify(eventRepository, times(1)).save(testEventEntity);
         verify(eventMapper, times(1)).toDTO(testEventEntity);
     }

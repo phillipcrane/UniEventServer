@@ -3,5 +3,5 @@ spring:
     name: web
   config:
     import:
-      - classpath:mysql-test.yaml
+      - classpath:db-test.yaml
       - classpath:vault-test.yaml

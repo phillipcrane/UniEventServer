@@ -7,8 +7,8 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.annotation.Transactional;
 
-import dk.unievent.app.mysql.model.PlaceEntity;
-import dk.unievent.app.mysql.repository.PlaceRepository;
+import dk.unievent.app.db.model.PlaceEntity;
+import dk.unievent.app.db.repository.PlaceRepository;
 
 import java.time.LocalDateTime;
 import java.util.List;

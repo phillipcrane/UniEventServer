@@ -7,8 +7,8 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.mock.web.MockMultipartFile;
 
-import dk.unievent.app.seaweedfs.MediaConfig;
-import dk.unievent.app.seaweedfs.MediaService;
+import dk.unievent.app.application.service.MediaService;
+import dk.unievent.app.infrastructure.client.SeaweedFsClient;
 
 import java.io.IOException;
 
@@ -18,14 +18,13 @@ import static org.junit.jupiter.api.Assertions.*;
 class MediaServiceTests {
     
     @Mock
-    private MediaConfig mediaConfig;
+    private SeaweedFsClient seaweedClient;
     
     private MediaService mediaService;
     
     @BeforeEach
     void setUp() {
-        // Manually create MediaService with mocked config
-        mediaService = new MediaService(mediaConfig);
+        mediaService = new MediaService(seaweedClient);
     }
     
     @Test

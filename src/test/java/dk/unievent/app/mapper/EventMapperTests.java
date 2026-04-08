@@ -6,20 +6,17 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import dk.unievent.app.core.dto.EventDTO;
-import dk.unievent.app.core.dto.PlaceDTO;
-import dk.unievent.app.core.mapper.EventMapper;
-import dk.unievent.app.core.mapper.PlaceMapper;
-import dk.unievent.app.mysql.model.EventEntity;
-import dk.unievent.app.mysql.model.MediaEntity;
-import dk.unievent.app.mysql.model.PageEntity;
-import dk.unievent.app.mysql.model.PlaceEntity;
-import dk.unievent.app.mysql.repository.MediaRepository;
-import dk.unievent.app.mysql.repository.PageRepository;
+import dk.unievent.app.application.dto.EventDTO;
+import dk.unievent.app.application.dto.PlaceDTO;
+import dk.unievent.app.application.mapper.EventMapper;
+import dk.unievent.app.application.mapper.PlaceMapper;
+import dk.unievent.app.db.model.EventEntity;
+import dk.unievent.app.db.model.MediaEntity;
+import dk.unievent.app.db.model.PageEntity;
+import dk.unievent.app.db.model.PlaceEntity;
 
 import java.time.Instant;
 import java.time.LocalDateTime;
-import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.when;
@@ -33,12 +30,6 @@ class EventMapperTests {
     
     @Mock
     private PlaceMapper placeMapper;
-    
-    @Mock
-    private PageRepository pageRepository;
-    
-    @Mock
-    private MediaRepository mediaRepository;
     
     @InjectMocks
     private EventMapper eventMapper;
@@ -77,7 +68,7 @@ class EventMapperTests {
                 .startTime(LocalDateTime.of(2026, 3, 20, 18, 0))
                 .endTime(LocalDateTime.of(2026, 3, 20, 20, 0))
                 .coverImage(testCoverImage)
-                .eventURL("https://example.com/event")
+                .eventUrl("https://example.com/event")
                 .page(testPageEntity)
                 .place(testPlaceEntity)
                 .createdAt(LocalDateTime.of(2026, 3, 1, 10, 0))
@@ -110,7 +101,7 @@ class EventMapperTests {
         assertEquals(LocalDateTime.of(2026, 3, 20, 18, 0), result.getStartTime());
         assertEquals(LocalDateTime.of(2026, 3, 20, 20, 0), result.getEndTime());
         assertEquals(1L, result.getCoverImageId());
-        assertEquals("https://example.com/event", result.getEventURL());
+        assertEquals("https://example.com/event", result.getEventUrl());
         assertEquals("page-1", result.getPageId());
         assertEquals(placeDTOResult, result.getPlace());
         assertEquals(LocalDateTime.of(2026, 3, 1, 10, 0), result.getCreatedAt());
@@ -175,17 +166,8 @@ class EventMapperTests {
         dto.setStartTime(LocalDateTime.of(2026, 4, 1, 19, 0));
         dto.setEndTime(LocalDateTime.of(2026, 4, 1, 21, 0));
         dto.setCoverImageId(1L);
-        dto.setEventURL("https://example.com/event-new");
+        dto.setEventUrl("https://example.com/event-new");
         dto.setPageId("page-new");
-        
-        // Mock the repositories to return entities
-        when(mediaRepository.findById(1L)).thenReturn(Optional.of(testCoverImage));
-        
-        PageEntity pageEntity = PageEntity.builder()
-                .id("page-new")
-                .name("New Page")
-                .build();
-        when(pageRepository.findById("page-new")).thenReturn(Optional.of(pageEntity));
         
         EventEntity result = eventMapper.toEntity(dto);
         
@@ -195,9 +177,9 @@ class EventMapperTests {
         assertEquals("New Description", result.getDescription());
         assertEquals(LocalDateTime.of(2026, 4, 1, 19, 0), result.getStartTime());
         assertEquals(LocalDateTime.of(2026, 4, 1, 21, 0), result.getEndTime());
-        assertEquals(testCoverImage, result.getCoverImage());
-        assertEquals("https://example.com/event-new", result.getEventURL());
-        assertEquals(pageEntity, result.getPage());
+        assertEquals("https://example.com/event-new", result.getEventUrl());
+        assertNull(result.getCoverImage());
+        assertNull(result.getPage());
     }
     
     @Test
@@ -216,3 +198,4 @@ class EventMapperTests {
         assertNull(result.getEndTime());
     }
 }
+

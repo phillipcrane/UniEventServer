@@ -2,10 +2,10 @@ package dk.unievent.app.mapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import dk.unievent.app.core.dto.LocationDTO;
-import dk.unievent.app.core.dto.PlaceDTO;
-import dk.unievent.app.core.mapper.PlaceMapper;
-import dk.unievent.app.mysql.model.PlaceEntity;
+import dk.unievent.app.application.dto.LocationDTO;
+import dk.unievent.app.application.dto.PlaceDTO;
+import dk.unievent.app.application.mapper.PlaceMapper;
+import dk.unievent.app.db.model.PlaceEntity;
 
 import static org.junit.jupiter.api.Assertions.*;
 

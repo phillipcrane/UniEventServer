@@ -3,21 +3,15 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
-import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import dk.unievent.app.core.dto.PageDTO;
-import dk.unievent.app.core.mapper.PageMapper;
-import dk.unievent.app.mysql.model.MediaEntity;
-import dk.unievent.app.mysql.model.PageEntity;
-import dk.unievent.app.mysql.repository.MediaRepository;
+import dk.unievent.app.application.dto.PageDTO;
+import dk.unievent.app.application.mapper.PageMapper;
+import dk.unievent.app.db.model.PageEntity;
 
-import java.time.Instant;
 import java.time.LocalDateTime;
-import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.when;
 
 /**
  * Unit tests for PageMapper
@@ -26,25 +20,13 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class PageMapperTests {
     
-    @Mock
-    private MediaRepository mediaRepository;
-    
     @InjectMocks
     private PageMapper pageMapper;
     
     private PageEntity testPageEntity;
-    private MediaEntity testPicture;
     
     @BeforeEach
     void setUp() {
-        testPicture = MediaEntity.builder()
-                .id(1L)
-                .filename("picture.jpg")
-                .contentType("image/jpeg")
-                .fileId("3,xyz789")
-                .uploadedAt(Instant.now())
-                .build();
-        
         testPageEntity = PageEntity.builder()
                 .id("123456789")
                 .name("S-huset")
@@ -149,17 +131,12 @@ class PageMapperTests {
         dto.setUrl("https://facebook.com/page-new"); // Should be ignored in toEntity
         dto.setActive(true); // Should be ignored in toEntity
         
-        // Mock the repository to return the picture
-        when(mediaRepository.findById(1L)).thenReturn(Optional.of(testPicture));
-        
         PageEntity result = pageMapper.toEntity(dto);
         
         assertNotNull(result);
         assertEquals("page-new", result.getId());
         assertEquals("New Organizer", result.getName());
-        assertEquals(testPicture, result.getPicture());
-        // These are not set by toEntity (computed by toDTO)
-        assertNull(result.getTokenStatus());
+        assertNull(result.getPicture());
     }
     
     @Test

@@ -6,8 +6,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import dk.unievent.app.mysql.model.MediaEntity;
-import dk.unievent.app.mysql.repository.MediaRepository;
+import dk.unievent.app.db.model.MediaEntity;
+import dk.unievent.app.db.repository.MediaRepository;
 
 import java.time.Instant;
 import java.util.List;

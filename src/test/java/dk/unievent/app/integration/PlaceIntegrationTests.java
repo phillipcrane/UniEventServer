@@ -6,11 +6,11 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.annotation.Transactional;
 
-import dk.unievent.app.core.dto.LocationDTO;
-import dk.unievent.app.core.dto.PlaceDTO;
-import dk.unievent.app.core.service.PlaceService;
-import dk.unievent.app.mysql.model.PlaceEntity;
-import dk.unievent.app.mysql.repository.PlaceRepository;
+import dk.unievent.app.application.dto.LocationDTO;
+import dk.unievent.app.application.dto.PlaceDTO;
+import dk.unievent.app.application.service.PlaceService;
+import dk.unievent.app.db.model.PlaceEntity;
+import dk.unievent.app.db.repository.PlaceRepository;
 
 import java.util.List;
 import java.util.Optional;

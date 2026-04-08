@@ -7,15 +7,15 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.annotation.Transactional;
 
-import dk.unievent.app.core.dto.EventDTO;
-import dk.unievent.app.core.dto.PlaceDTO;
-import dk.unievent.app.core.service.EventService;
-import dk.unievent.app.mysql.model.EventEntity;
-import dk.unievent.app.mysql.model.PageEntity;
-import dk.unievent.app.mysql.model.PlaceEntity;
-import dk.unievent.app.mysql.repository.EventRepository;
-import dk.unievent.app.mysql.repository.PageRepository;
-import dk.unievent.app.mysql.repository.PlaceRepository;
+import dk.unievent.app.application.dto.EventDTO;
+import dk.unievent.app.application.dto.PlaceDTO;
+import dk.unievent.app.application.service.EventService;
+import dk.unievent.app.db.model.EventEntity;
+import dk.unievent.app.db.model.PageEntity;
+import dk.unievent.app.db.model.PlaceEntity;
+import dk.unievent.app.db.repository.EventRepository;
+import dk.unievent.app.db.repository.PageRepository;
+import dk.unievent.app.db.repository.PlaceRepository;
 
 import java.time.LocalDateTime;
 import java.util.List;
