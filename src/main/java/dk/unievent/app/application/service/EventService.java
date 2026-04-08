@@ -5,6 +5,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import dk.unievent.app.application.dto.EventDTO;
 import dk.unievent.app.application.mapper.EventMapper;
+import dk.unievent.app.application.mapper.PlaceMapper;
 import dk.unievent.app.db.model.EventEntity;
 import dk.unievent.app.db.model.MediaEntity;
 import dk.unievent.app.db.model.PageEntity;
@@ -16,6 +17,7 @@ import java.io.IOException;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -24,6 +26,7 @@ public class EventService {
 
     private final EventRepository eventRepository;
     private final EventMapper eventMapper;
+    private final PlaceMapper placeMapper;
     private final MediaRepository mediaRepository;
     private final PageRepository pageRepository;
     private final MediaService mediaService;
@@ -31,11 +34,13 @@ public class EventService {
     public EventService(
             EventRepository eventRepository,
             EventMapper eventMapper,
+            PlaceMapper placeMapper,
             MediaRepository mediaRepository,
             PageRepository pageRepository,
             MediaService mediaService) {
         this.eventRepository = eventRepository;
         this.eventMapper = eventMapper;
+        this.placeMapper = placeMapper;
         this.mediaRepository = mediaRepository;
         this.pageRepository = pageRepository;
         this.mediaService = mediaService;
@@ -85,7 +90,8 @@ public class EventService {
         EventEntity entity = eventMapper.toEntity(eventDTO);
 
         if (eventDTO.getPageId() != null) {
-            PageEntity page = pageRepository.findById(eventDTO.getPageId()).orElse(null);
+            PageEntity page = pageRepository.findById(eventDTO.getPageId())
+                    .orElseThrow(() -> new NoSuchElementException("Page not found: " + eventDTO.getPageId()));
             entity.setPage(page);
         }
 
@@ -112,11 +118,12 @@ public class EventService {
         entity.setEventUrl(eventDTO.getEventUrl());
 
         if (eventDTO.getPlace() != null) {
-            entity.setPlace(eventDTO.getPlace());
+            entity.setPlace(placeMapper.toEntity(eventDTO.getPlace()));
         }
 
         if (eventDTO.getPageId() != null) {
-            PageEntity page = pageRepository.findById(eventDTO.getPageId()).orElse(null);
+            PageEntity page = pageRepository.findById(eventDTO.getPageId())
+                    .orElseThrow(() -> new NoSuchElementException("Page not found: " + eventDTO.getPageId()));
             entity.setPage(page);
         }
 

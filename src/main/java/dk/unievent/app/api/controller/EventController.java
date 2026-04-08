@@ -104,16 +104,12 @@ public class EventController {
     @ApiResponse(responseCode = "404", description = "Event not found")
     public ResponseEntity<EventDTO> uploadCoverImage(
             @PathVariable @Parameter(description = "Event ID") String id,
-            @RequestParam("file") MultipartFile file) {
-        try {
-            EventDTO updated = eventService.uploadCoverImage(id, file);
-            if (updated == null) {
-                return ResponseEntity.notFound().build();
-            }
-            return ResponseEntity.ok(updated);
-        } catch (IOException e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+            @RequestParam("file") MultipartFile file) throws IOException {
+        EventDTO updated = eventService.uploadCoverImage(id, file);
+        if (updated == null) {
+            return ResponseEntity.notFound().build();
         }
+        return ResponseEntity.ok(updated);
     }
 
     @DeleteMapping("/{id}")
