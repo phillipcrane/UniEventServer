@@ -22,7 +22,7 @@ We had previously created a version of UniEvent called DTUEvent hosted on Google
 - [ ] Restrict `/actuator/health` details (currently exposes DB/memory info publicly lol)
 
 ### Database
-- [ ] Replace `ddl-auto: update` with Flyway or Liquibase migrations
+
 - [ ] Fix N+1 query problem with JOIN FETCH in repositories
 - [ ] Implement pagination for large result sets
 - [ ] Add cascade delete / orphan removal for page deletion
@@ -35,7 +35,7 @@ We had previously created a version of UniEvent called DTUEvent hosted on Google
 
 ### Testing
 - [ ] Add Testcontainers for integration tests (currently uses H2, not real MySQL)
-- [ ] Add `mvn test` step to CI pipeline before deploying
+- [x] Add `mvn test` step to CI pipeline before deploying
 - [ ] Add rollback mechanism to deploy script
 
 ### Frontend
@@ -45,6 +45,7 @@ We had previously created a version of UniEvent called DTUEvent hosted on Google
 - [ ] Page admin dashboard for managing event sync
 
 ### Nice-To-Have
+- [ ] DB Replace `ddl-auto: update` with Flyway or Liquibase migrations
 - [ ] Make more mobile-friendly
 - [ ] Location mapping
 - [ ] Manual event submission (fallback for pages without dedicated event)
