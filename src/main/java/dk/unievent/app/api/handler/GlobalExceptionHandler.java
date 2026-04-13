@@ -84,7 +84,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(NoResourceFoundException.class)
     public ResponseEntity<Map<String, Object>> handleNoResourceFound(NoResourceFoundException ex) {
-        log.warn("No static resource found: {}", ex.getMessage());
+        log.debug("No resource found: {}", ex.getResourcePath());
         return buildErrorResponse(HttpStatus.NOT_FOUND, "Not Found", ex.getMessage());
     }
 
