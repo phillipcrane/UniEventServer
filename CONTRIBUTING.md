@@ -176,19 +176,14 @@ curl -X DELETE http://localhost:8080/admin/seed
 
 ### Workflow Example
 
-```powershell
+```sh
 # Start the stack
 docker compose up -d
 
 # Wait ~40s for services to be healthy
 
-# Seed test data with images
+# Seed test data
 curl -X POST http://localhost:8080/admin/seed
-
-# Query the API to verify (e.g., via Swagger UI at http://localhost:8080/swagger-ui.html)
-# All events should now display cover images
-
-# Test your frontend or API endpoints with real data
 
 # Clean up when done
 curl -X DELETE http://localhost:8080/admin/seed
