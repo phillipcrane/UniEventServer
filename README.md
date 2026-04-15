@@ -4,6 +4,24 @@ This document is the **non-technical** part of DTU Event documentation, for gene
 
 This website will be a central registry for Technical University of Denmark (DTU)'s campus events from bars and cafes. It's called UniEvent rather than DTUEvent because DTU is trademarked. JS/Node/REACT frontend; Java/SpringBoot/MySQL backend. The site pulls through facebook's Graph API from a number of DTU Campus bars and nearby dorm bars. Note that we do not discriminate between Lyngby Campus and Ballerup Campus.
 
+## Authentication Notes
+
+The backend now issues JWT-based access tokens and refresh tokens from `/api/auth/register` and `/api/auth/login`.
+
+Protected routes use bearer tokens in the `Authorization` header:
+
+- Protected: `POST`, `PUT`, `DELETE`, `/admin/**`, and media uploads
+- Public: `GET /api/**`, `/api/auth/**`, Swagger/OpenAPI docs, and the existing CORS preflight routes
+
+Environment variables used by the auth system:
+
+- `UNIEVENT_SECURITY_JWT_SECRET`
+- `UNIEVENT_SECURITY_JWT_EXPIRATION_MS`
+- `UNIEVENT_SECURITY_JWT_REFRESH_SECRET`
+- `UNIEVENT_SECURITY_JWT_REFRESH_EXPIRATION_MS`
+
+Refresh tokens are rotated on use and revoked on logout. If a reused refresh token is detected, the whole token family is revoked.
+
 DTU student events are currently fragmented across many Facebook pages (student orgs, bars, dorms, ad‑hoc groups). New and international students especially struggle to discover what is happening without already following 10-20 pages or relying on friends’ “Interested” notifs. UniEvent then provides a single neutral, lightweight, mobile‑friendly web feed aggregating events (initially via mock data + pages where we have admin tokens). A web app (instead of native) keeps scope realistic and instantly accessible.
 
 ## Stakeholders

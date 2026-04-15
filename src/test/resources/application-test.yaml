@@ -10,3 +10,11 @@ app:
   pagination:
     default-page-size: 20
     max-page-size: 100
+
+unievent:
+  security:
+    jwt:
+      secret: 12345678901234567890123456789012
+      expiration-ms: 60000
+      refresh-secret: abcdefghijklmnopqrstuvwx12345678
+      refresh-expiration-ms: 120000

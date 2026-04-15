@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
+import dk.unievent.app.infrastructure.exception.UnauthorizedTokenException;
 import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
 
@@ -73,6 +74,12 @@ public class GlobalExceptionHandler {
         log.warn("Bad request error: {}", ex.getClass().getSimpleName());
         log.debug("Exception message: {}", ex.getMessage());
         return buildErrorResponse(HttpStatus.BAD_REQUEST, "Bad Request", ex.getMessage());
+    }
+
+    @ExceptionHandler(UnauthorizedTokenException.class)
+    public ResponseEntity<Map<String, Object>> handleUnauthorized(UnauthorizedTokenException ex) {
+        log.warn("Unauthorized token error: {}", ex.getMessage());
+        return buildErrorResponse(HttpStatus.UNAUTHORIZED, "Unauthorized", ex.getMessage());
     }
 
     @ExceptionHandler(NoSuchElementException.class)
