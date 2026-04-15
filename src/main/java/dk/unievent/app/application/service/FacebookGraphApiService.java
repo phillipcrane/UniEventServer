@@ -276,7 +276,7 @@ public class FacebookGraphApiService {
                 return false;
             }
             Object id = response.get("id");
-            return id instanceof String idValue && pageId.equals(idValue);
+            return id instanceof String && pageId.equals((String) id);
 
         } catch (RestClientResponseException e) {
             if (e.getStatusCode() == HttpStatus.UNAUTHORIZED || e.getStatusCode() == HttpStatus.FORBIDDEN) {
