@@ -23,6 +23,15 @@ UniEventServer currently runs as a Java/Spring backend with Dockerized infrastru
 - **SeaweedFS** (Media Storage)
 - **HashiCorp Vault** (Secret Storage)
 
+## Setup
+
+Run `./tools setup`. It will:
+- Check check whether you have installed the right dependencies (Java, Maven, cURL, Docker)
+- Check for an `.env` file in root. If not there, ask from dev team.
+- Set up HTTPS/TLS self-certs by creating files (`docker-compose.override.yml`, OpenSSL certs in `/certs`)
+- Add "tools" environmental variable (Windows: As user PATH in the directory ~/.local/bin) so you no longer have to prefix the dev tools with `./setup`, but now just with `setup`
+- Optionally begin Docker Compose
+
 ## TODO
 
 ### Backend Big Tasks

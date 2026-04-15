@@ -47,10 +47,10 @@ unievent:
       allow-credentials: true
       max-age: 3600
     jwt:
-      secret: ${UNIEVENT_SECURITY_JWT_SECRET}
-      expiration-ms: ${UNIEVENT_SECURITY_JWT_EXPIRATION_MS}
-      refresh-secret: ${UNIEVENT_SECURITY_JWT_REFRESH_SECRET}
-      refresh-expiration-ms: ${UNIEVENT_SECURITY_JWT_REFRESH_EXPIRATION_MS}
+      secret: ${UNIEVENT_SECURITY_JWT_SECRET:dev-secret-key-this-must-be-changed-in-production}
+      expiration-ms: ${UNIEVENT_SECURITY_JWT_EXPIRATION_MS:86400000}
+      refresh-secret: ${UNIEVENT_SECURITY_JWT_REFRESH_SECRET:dev-refresh-secret-key-this-must-be-changed-in-production}
+      refresh-expiration-ms: ${UNIEVENT_SECURITY_JWT_REFRESH_EXPIRATION_MS:604800000}
   openapi:
     title: ${UNIEVENT_OPENAPI_TITLE:UniEvent API}
     version: ${UNIEVENT_OPENAPI_VERSION:1.0.0}
@@ -59,6 +59,8 @@ unievent:
     contact-email: support@unievent.dk
     license-name: MIT
     license-url: https://opensource.org/licenses/MIT
+  tools:
+    admin-key: ${UNIEVENT_API_KEY:}
   facebook:
     enabled: ${FACEBOOK_ENABLED:false}
     app-id: ${FACEBOOK_APP_ID:}

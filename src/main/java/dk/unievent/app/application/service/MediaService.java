@@ -101,7 +101,7 @@ public class MediaService {
             log.info("File deleted successfully: {}", fileId);
         } catch (Exception e) {
             log.warn("Could not delete file from SeaweedFS: {}", fileId, e);
-            // Don't fail hard—file might already be deleted
+            // Don't fail hard-file might already be deleted
         }
     }
 

@@ -1,5 +1,6 @@
 package dk.unievent.app.infrastructure.seeding;
 
+import dk.unievent.app.application.service.MediaService;
 import dk.unievent.app.db.model.EventEntity;
 import dk.unievent.app.db.model.MediaEntity;
 import dk.unievent.app.db.model.PageEntity;
@@ -29,14 +30,17 @@ public class DataSeederService {
     private final PageRepository pageRepository;
     private final PlaceRepository placeRepository;
     private final MediaRepository mediaRepository;
+    private final MediaService mediaService;
 
     private static final String SEED_PREFIX = "SEED_";
+    private static final String PLACEHOLDER_IMAGE_URL = "https://placehold.co/600x400.jpg";
 
-    public DataSeederService(EventRepository eventRepository, PageRepository pageRepository, PlaceRepository placeRepository, MediaRepository mediaRepository) {
+    public DataSeederService(EventRepository eventRepository, PageRepository pageRepository, PlaceRepository placeRepository, MediaRepository mediaRepository, MediaService mediaService) {
         this.eventRepository = eventRepository;
         this.pageRepository = pageRepository;
         this.placeRepository = placeRepository;
         this.mediaRepository = mediaRepository;
+        this.mediaService = mediaService;
     }
 
     /**
@@ -48,11 +52,9 @@ public class DataSeederService {
     public SeedResult seedData() {
         log.info("Starting data seed operation...");
         try {
-            // Fetch the existing media/1 to get the shared fileId
-            MediaEntity referenceMedia = mediaRepository.findById(1L).orElse(null);
-            String sharedFileId = referenceMedia != null ? referenceMedia.getFileId() : "shared_image";
-            
-            log.info("Using shared fileId: {}", sharedFileId);
+            // Download a placeholder image and upload it to SeaweedFS once
+            String sharedFileId = mediaService.downloadAndStoreImage(PLACEHOLDER_IMAGE_URL, "SEED_placeholder.jpg");
+            log.info("Placeholder image uploaded to SeaweedFS: {}", sharedFileId);
 
             // Create 10 unique media records all pointing to the same image
             MediaEntity media1 = createAndSaveMedia("SEED_react_workshop.jpg", "image/jpeg", sharedFileId);
@@ -169,6 +171,13 @@ public class DataSeederService {
             List<MediaEntity> seededMedia = mediaRepository.findAll().stream()
                 .filter(m -> m.getFilename() != null && m.getFilename().startsWith(SEED_PREFIX))
                 .toList();
+            // Delete unique fileIds from SeaweedFS (all seed records share one file)
+            seededMedia.stream()
+                .map(MediaEntity::getFileId)
+                .distinct()
+                .forEach(fid -> {
+                    try { mediaService.delete(fid); } catch (Exception e) { log.warn("Could not delete seed file from SeaweedFS: {}", fid, e); }
+                });
             mediaRepository.deleteAll(seededMedia);
             long deletedMedia = seededMedia.size();
 
