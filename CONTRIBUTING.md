@@ -51,6 +51,15 @@ Run `./tools setup`. It will:
 - [ ] Business Manager integration for stable API access
 - [ ] User favorites and personalization
 
+### Dev Tools
+- [ ] Finish setup with Vault seal/unseal
+- [ ] Easy Seal/Unseal tool
+- [ ] Manual Ingest tool
+- [ ] Manual Token Refresh tool
+- [ ] Check Health tool
+- [ ] Refactor away from infra/seeding directory 
+- [ ] Put SeedController, SeedReponse and SeedService into a flat infra/tools/seeding folder
+
 ### DB
 - [ ] Align place deletion behavior with docs (nullify place in events OR document cascading delete)
 - [ ] Add deterministic media replacement lifecycle (cleanup old DB record and SeaweedFS file on replace)
@@ -66,12 +75,20 @@ Run `./tools setup`. It will:
 - [ ] Add integration tests for auth guardrails, seed endpoint access control, and update-not-found behavior
 - [ ] Make actuator `health/info` access strategy explicit for Docker probes + production security
 
-### Nice-To-Have Code 
+### Small Tasks
+- [ ] Move JWT refresh in ms env var to JwtConfig
+- [ ] Consolidate constants into one config called ConstantsConfig
+- [ ] Replace field injection with constructor injection for consistency and testability
+- [ ] Harden media download content-type handling with safe fallback on invalid metadata
+- [ ] Refactor away from FacebookAppSecurityUtil; just do it directly in the code
+- [ ] Combine RestClientSecurityConfig into RestClientConfig
+- [ ] Add more exceptions where needed
+
+### Nice-To-Have Frameworks
 - [ ] DB Replace `ddl-auto: update` with Flyway or Liquibase migrations
 - [ ] Quartz scheduler
-- [ ] Replace field injection with constructor injection for consistency and testability
+- [ ] PicoCLI for proper tool CLI integration
 - [ ] Pin Docker image versions (avoid `latest` tags for reproducibility)
-- [ ] Harden media download content-type handling with safe fallback on invalid metadata
 
 ### Nice-To-Have Features
 - [ ] Location mapping (A literal google maps with the events placed)
