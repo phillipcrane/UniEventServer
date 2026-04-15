@@ -48,8 +48,8 @@ services:
 
   app:
     build:
-      context: ..
-      dockerfile: UniEventServer/Dockerfile
+      context: .
+      dockerfile: Dockerfile
     container_name: unievent-app
     restart: on-failure
     depends_on:
