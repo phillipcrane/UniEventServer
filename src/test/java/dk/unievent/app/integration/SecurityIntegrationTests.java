@@ -148,6 +148,8 @@ class SecurityIntegrationTests {
         String accessToken = registerPayload.path("token").asText();
         String refreshToken = registerPayload.path("refreshToken").asText();
 
+        assertTrue(!accessToken.isBlank());
+
         HttpRequest refreshRequest = HttpRequest.newBuilder()
             .uri(URI.create(url("/api/auth/refresh")))
             .header("Content-Type", "application/json")
