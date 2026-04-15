@@ -97,6 +97,9 @@ public class FacebookOAuthService {
     private PageEntity processFacebookPage(FbPageResponse fbPage, String userToken) {
         log.debug("Processing Facebook page: {} ({})", fbPage.getName(), fbPage.getId());
 
+        if (userToken == null || userToken.isBlank()) {
+            log.warn("Processing page {} without a valid user token from the OAuth flow", fbPage.getId());
+        }
         try {
             // Store page token in Vault
             String pageToken = fbPage.getAccessToken();
