@@ -37,9 +37,12 @@ public class FbEventResponse {
     
     private String timezone;
     
-    private Boolean is_canceled;
+    @JsonProperty("is_canceled")
+    private Boolean isCanceled;
     
-    private Boolean is_online;
+    @JsonProperty("is_online")
+    private Boolean isOnline;
     
-    private Boolean is_page_owned;
+    @JsonProperty("is_page_owned")
+    private Boolean isPageOwned;
 }
