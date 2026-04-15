@@ -8,19 +8,20 @@ public class FacebookAppSecurityUtil {
 
     /**
      * Mask a sensitive token for safe logging.
-     * Shows only first 10 characters + "..." to prevent full token exposure in logs.
+     * Shows only a small prefix followed by a fixed mask marker to prevent
+     * full token exposure in logs, regardless of token length.
      *
      * @param token The token to mask
-     * @return Masked token string (e.g., "token_12...") or "[EMPTY]" if null/blank
+     * @return Masked token string (e.g., "toke***") or "[EMPTY]" if null/blank
      */
     public static String maskToken(String token) {
         if (token == null || token.isEmpty()) {
             return "[EMPTY]";
         }
-        if (token.length() <= 10) {
-            return token.substring(0, token.length()) + "...";
-        }
-        return token.substring(0, 10) + "...";
+
+        int visibleChars = Math.min(4, token.length() - 1);
+        String prefix = visibleChars > 0 ? token.substring(0, visibleChars) : "";
+        return prefix + "***";
     }
 
     /**
