@@ -1,4 +1,4 @@
-package dk.unievent.app.infrastructure.config;
+package dk.unievent.app.infrastructure.filter;
 
 import dk.unievent.app.application.service.JwtService;
 import dk.unievent.app.application.service.UserService;
