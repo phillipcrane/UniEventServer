@@ -39,7 +39,7 @@ public class FacebookController {
      * @param state State parameter for CSRF protection (optional)
      * @return Redirects to frontend with success/error
      */
-    @PostMapping("/callback")
+    @GetMapping("/callback")
     @Operation(
         summary = "Facebook OAuth callback",
         description = "Process OAuth authorization code, exchange for tokens, and store pages"
