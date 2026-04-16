@@ -39,7 +39,7 @@ jobs:
           cache: maven
 
       - name: Run Maven tests
-        run: mvn test
+        run: ./mvnw test
 
       - name: Deploy on remote host
         env:

@@ -326,10 +326,71 @@ function Get-JavaMajorVersion {
 
 # ── Vault setup ──────────────────────────────────────────────────────────────
 
+function Test-DockerDaemon {
+    param([string]$DockerPath)
+
+    try {
+        & $DockerPath info 1>$null 2>$null
+        if ($LASTEXITCODE -eq 0) { return $true }
+    } catch {}
+
+    Write-Err "Docker is installed, but the Docker daemon is not running"
+    Write-Warn "Start Docker Desktop (or your Docker service), then re-run this command"
+    Write-Warn "Quick check: docker info"
+    return $false
+}
+
+function Test-VaultContainerRunning {
+    param([string]$DockerPath)
+
+    $vaultPsOutput = @(& $DockerPath compose ps -q vault 2>&1)
+    if ($LASTEXITCODE -ne 0) {
+        $details = ($vaultPsOutput -join " ").Trim()
+        Write-Err "Unable to query the Vault service via docker compose"
+        if ($details) { Write-Warn $details }
+        Write-Warn "Run this command from the project root and ensure docker-compose.yml contains the 'vault' service"
+        return $false
+    }
+
+    $firstLine = $vaultPsOutput | Select-Object -First 1
+    $containerId = if ($null -eq $firstLine) { "" } else { "$firstLine".Trim() }
+    if (-not $containerId) {
+        Write-Err "Vault container is not running"
+        Write-Warn "Start it with: docker compose up -d vault"
+        Write-Warn "Or start the full stack: docker compose up -d"
+        return $false
+    }
+
+    $statusLines = @(& $DockerPath inspect -f '{{.State.Status}}' $containerId 2>$null)
+    $status = ($statusLines -join "").Trim()
+    if ($LASTEXITCODE -ne 0 -or -not $status) {
+        Write-Err "Could not inspect Vault container state"
+        Write-Warn "Check: docker compose ps vault"
+        return $false
+    }
+
+    if ($status -ne "running") {
+        Write-Err "Vault container is '$status' (expected 'running')"
+        Write-Warn "Check logs: docker compose logs vault"
+        Write-Warn "Try restarting: docker compose up -d vault"
+        return $false
+    }
+
+    return $true
+}
+
 function Invoke-VaultSetup {
     $DockerPath = Find-Executable -Name "docker" -Fallbacks $script:KnownPaths.docker
     if (-not $DockerPath) {
         Write-Err "Docker not found"
+        exit 1
+    }
+
+    if (-not (Test-DockerDaemon -DockerPath $DockerPath)) {
+        exit 1
+    }
+
+    if (-not (Test-VaultContainerRunning -DockerPath $DockerPath)) {
         exit 1
     }
 
@@ -486,6 +547,14 @@ function Invoke-Unseal {
     $dockerPath = Find-Executable -Name "docker" -Fallbacks $script:KnownPaths.docker
     if (-not $dockerPath) {
         Write-Err "Docker not found"
+        exit 1
+    }
+
+    if (-not (Test-DockerDaemon -DockerPath $dockerPath)) {
+        exit 1
+    }
+
+    if (-not (Test-VaultContainerRunning -DockerPath $dockerPath)) {
         exit 1
     }
 
