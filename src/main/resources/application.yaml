@@ -59,8 +59,6 @@ unievent:
     contact-email: support@unievent.dk
     license-name: MIT
     license-url: https://opensource.org/licenses/MIT
-  tools:
-    admin-key: ${UNIEVENT_API_KEY:}
   facebook:
     enabled: ${FACEBOOK_ENABLED:false}
     app-id: ${FACEBOOK_APP_ID:}

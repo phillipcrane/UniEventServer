@@ -8,6 +8,8 @@
 
 .COMMANDS
     setup           Check dependencies and configure the local dev environment
+    vault           Initialize and/or unseal Vault (run after docker compose up)
+    unseal          Quick unseal Vault (shortcut for restart)
     seed            Seed test data into the database
     clear           Clear all SEED_ prefixed test data
     ingest          (future) Trigger manual Facebook ingestion
@@ -66,6 +68,8 @@ function Show-Help {
     Write-Host ""
     Write-Host "Commands:"
     Write-Host "  setup                 Check dependencies and configure local dev environment"
+    Write-Host "  vault                 Initialize and/or unseal Vault (run after docker compose up)"
+    Write-Host "  unseal                Quick unseal Vault (shortcut for restart)"
     Write-Host "  seed                  Seed test data (2 pages, 10 events, 2 places)"
     Write-Host "  clear                 Remove all SEED_ prefixed records"
     Write-Host ""
@@ -103,6 +107,24 @@ function Load-DotEnv {
     return $vars
 }
 
+function Update-EnvVar {
+    param([string]$Key, [string]$Value)
+    $envFile = Join-Path $PSScriptRoot ".env"
+    if (-not (Test-Path $envFile)) { return }
+
+    $lines = @(Get-Content $envFile)
+    $found = $false
+    for ($i = 0; $i -lt $lines.Count; $i++) {
+        if ($lines[$i] -match "^$([regex]::Escape($Key))=") {
+            $lines[$i] = "$Key=$Value"
+            $found = $true
+            break
+        }
+    }
+    if (-not $found) { $lines += "$Key=$Value" }
+    $lines | Set-Content $envFile
+}
+
 # ── Web request wrapper (handles self-signed certs for localhost) ─────────────
 
 function Invoke-Web {
@@ -132,13 +154,14 @@ function Test-ServerHealth {
     try {
         Invoke-Web -Uri "$BaseUrl/actuator/health" -TimeoutSec 5 | Out-Null
         return $true
-    } catch [System.Net.WebException] {
-        # HTTP response (even 401/403) = server is up
-        if ($null -ne $_.Exception.Response) { return $true }
-        # TrustFailure = self-signed cert the delegate didn't catch = server is up
-        if ($_.Exception.Status -eq [System.Net.WebExceptionStatus]::TrustFailure) { return $true }
-        return $false
     } catch {
+        $ex = $_.Exception
+        # PS7: HttpRequestException wraps an inner HttpRequestError for non-2xx
+        # PS5: WebException with a Response means the server replied (even 401/403)
+        if ($ex -is [System.Net.WebException] -and $null -ne $ex.Response) { return $true }
+        if ($ex -is [System.Net.WebException] -and $ex.Status -eq [System.Net.WebExceptionStatus]::TrustFailure) { return $true }
+        # PS7: HttpResponseException means the server replied with a non-2xx status
+        if ($ex.GetType().Name -eq "HttpResponseException") { return $true }
         return $false
     }
 }
@@ -146,13 +169,12 @@ function Test-ServerHealth {
 # ── HTTP request helper ───────────────────────────────────────────────────────
 
 function Invoke-AdminRequest {
-    param([string]$Method, [string]$Url, [string]$ApiKey)
+    param([string]$Method, [string]$Url)
 
-    $headers = @{ "X-Admin-Key" = $ApiKey; "Content-Type" = "application/json" }
+    $headers = @{ "Content-Type" = "application/json" }
 
     if ($VerboseOutput) {
         Write-Info "$Method $Url"
-        Write-Info "X-Admin-Key: $($ApiKey.Substring(0, [Math]::Min(4, $ApiKey.Length)))***"
     }
 
     try {
@@ -189,11 +211,6 @@ function Handle-Response {
                     Write-Host $Response.Body -ForegroundColor Gray
                 }
             }
-        }
-        401 {
-            Write-Err "Unauthorized (401) - UNIEVENT_API_KEY is missing or incorrect"
-            Write-Warn "Please request the .env file from the dev team."
-            exit 1
         }
         404 {
             Write-Err "Endpoint not found (404)"
@@ -305,6 +322,181 @@ function Get-JavaMajorVersion {
         if ($line -match '"(\d+)')     { return [int]$Matches[1] }  # Java 11+: "17.x.x"
     } catch {}
     return $null
+}
+
+# ── Vault setup ──────────────────────────────────────────────────────────────
+
+function Invoke-VaultSetup {
+    $DockerPath = Find-Executable -Name "docker" -Fallbacks $script:KnownPaths.docker
+    if (-not $DockerPath) {
+        Write-Err "Docker not found"
+        exit 1
+    }
+
+    Write-Step "Configuring Vault..."
+
+    # Wait for Vault container to respond to status queries
+    Write-Info "Waiting for Vault to be ready..."
+    $statusJson = $null
+    for ($i = 0; $i -lt 20; $i++) {
+        try {
+            $lines = @(& $DockerPath compose exec -T vault vault status -format=json 2>$null)
+            $exitCode = $LASTEXITCODE
+            if ($exitCode -eq 0 -or $exitCode -eq 2) {
+                $jsonStr = ($lines -join "`n").Trim()
+                $statusJson = $jsonStr | ConvertFrom-Json
+                break
+            }
+        } catch {}
+        Start-Sleep -Seconds 3
+    }
+
+    if (-not $statusJson) {
+        Write-Err "Vault did not respond within 60s"
+        Write-Warn "Check logs: docker compose logs vault"
+        return
+    }
+
+    if (-not $statusJson.initialized) {
+        # ── First-time Vault initialization ──────────────────────────────────
+        Write-Info "Vault is not initialized - running first-time setup..."
+
+        # Step 1: Initialize
+        $initLines = @(& $DockerPath compose exec -T vault vault operator init -key-shares=1 -key-threshold=1 -format=json 2>$null)
+        if ($LASTEXITCODE -ne 0) {
+            Write-Err "vault operator init failed"
+            return
+        }
+        try {
+            $initData = ($initLines -join "`n").Trim() | ConvertFrom-Json
+        } catch {
+            Write-Err "Failed to parse init output - raw output below (save these values!):"
+            Write-Host ($initLines -join "`n") -ForegroundColor Yellow
+            return
+        }
+        $unsealKey = $initData.unseal_keys_b64[0]
+        $rootToken = $initData.root_token
+        Write-Ok "Vault initialized"
+
+        # Step 2: Unseal
+        Write-Info "Unsealing Vault..."
+        & $DockerPath compose exec -T vault vault operator unseal $unsealKey 2>$null | Out-Null
+        if ($LASTEXITCODE -ne 0) {
+            Write-Err "Failed to unseal Vault"
+            Write-Warn "Unseal key: $unsealKey"
+            return
+        }
+        Write-Ok "Vault unsealed"
+
+        # Step 3: Enable KV v2 secrets engine
+        Write-Info "Enabling KV v2 secrets engine at /secret/..."
+        $kvLines = @(& $DockerPath compose exec -T -e "VAULT_TOKEN=$rootToken" vault vault secrets enable -path=secret kv-v2 2>&1)
+        if ($LASTEXITCODE -ne 0) {
+            $kvOut = $kvLines -join " "
+            if ($kvOut -match "already in use") {
+                Write-Ok "KV v2 already enabled at /secret/"
+            } else {
+                Write-Err "Failed to enable KV v2"
+                if ($kvOut) { Write-Warn $kvOut }
+                return
+            }
+        } else {
+            Write-Ok "KV v2 secrets engine enabled"
+        }
+
+        # Step 4: Write application policy
+        Write-Info "Writing application policy..."
+        & $DockerPath compose exec -T -e "VAULT_TOKEN=$rootToken" vault vault policy write unievent-app /vault/config/policies/unievent-app.hcl 2>$null | Out-Null
+        if ($LASTEXITCODE -ne 0) {
+            Write-Err "Failed to write Vault policy"
+            return
+        }
+        Write-Ok "Policy 'unievent-app' written"
+
+        # Step 5: Create application token
+        Write-Info "Creating application token (valid 32 days)..."
+        $tokenLines = @(& $DockerPath compose exec -T -e "VAULT_TOKEN=$rootToken" vault vault token create -policy=unievent-app -ttl=768h -format=json 2>$null)
+        if ($LASTEXITCODE -ne 0) {
+            Write-Err "Failed to create application token"
+            return
+        }
+        try {
+            $tokenData = ($tokenLines -join "`n").Trim() | ConvertFrom-Json
+        } catch {
+            Write-Err "Failed to parse token output"
+            return
+        }
+        $appToken = $tokenData.auth.client_token
+        Write-Ok "Application token created"
+
+        # Step 6: Save credentials to .env
+        Update-EnvVar -Key "VAULT_UNSEAL_TOKEN" -Value $unsealKey
+        Update-EnvVar -Key "VAULT_ROOT_TOKEN" -Value $rootToken
+        Update-EnvVar -Key "VAULT_TOKEN" -Value $appToken
+        Write-Ok "Vault credentials saved to .env"
+
+        # Recreate app container so it picks up the new VAULT_TOKEN
+        Write-Info "Restarting app with new Vault token..."
+        & $DockerPath compose up -d app 2>$null | Out-Null
+        Write-Ok "App container updated"
+
+        Write-Host ""
+        Write-Warn "Back up these Vault credentials - you need them if the volume is lost:"
+        Write-Info "  Unseal Key : $unsealKey"
+        Write-Info "  Root Token : $rootToken"
+        Write-Info "  App Token  : $($appToken.Substring(0, [Math]::Min(20, $appToken.Length)))..."
+
+    } elseif ($statusJson.sealed) {
+        # ── Unseal ───────────────────────────────────────────────────────────
+        Write-Info "Vault is sealed - unsealing..."
+
+        $envVars = Load-DotEnv
+        $unsealKey = if ($envVars.ContainsKey("VAULT_UNSEAL_TOKEN")) { $envVars["VAULT_UNSEAL_TOKEN"] } else { "" }
+
+        if (-not $unsealKey) {
+            Write-Err "VAULT_UNSEAL_TOKEN is not set in .env"
+            Write-Warn "Add your unseal key to .env or unseal manually:"
+            Write-Warn "  docker compose exec vault vault operator unseal <KEY>"
+            return
+        }
+
+        & $DockerPath compose exec -T vault vault operator unseal $unsealKey 2>$null | Out-Null
+        if ($LASTEXITCODE -ne 0) {
+            Write-Err "Unseal failed - check VAULT_UNSEAL_TOKEN in .env"
+            return
+        }
+        Write-Ok "Vault unsealed"
+
+    } else {
+        Write-Ok "Vault is initialized and unsealed"
+    }
+}
+
+function Invoke-Unseal {
+    $envVars = Load-DotEnv
+    $unsealKey = if ($envVars.ContainsKey("VAULT_UNSEAL_TOKEN")) { $envVars["VAULT_UNSEAL_TOKEN"] } else { "" }
+
+    if (-not $unsealKey) {
+        Write-Err "VAULT_UNSEAL_TOKEN is not set in .env"
+        Write-Warn "Add your Vault unseal key to .env:"
+        Write-Warn "  VAULT_UNSEAL_TOKEN=<your-key>"
+        exit 1
+    }
+
+    $dockerPath = Find-Executable -Name "docker" -Fallbacks $script:KnownPaths.docker
+    if (-not $dockerPath) {
+        Write-Err "Docker not found"
+        exit 1
+    }
+
+    Write-Info "Unsealing Vault..."
+    & $dockerPath compose exec -T vault vault operator unseal $unsealKey 2>$null | Out-Null
+    if ($LASTEXITCODE -ne 0) {
+        Write-Err "Failed to unseal Vault - is the container running?"
+        Write-Warn "Start the stack first: docker compose up -d"
+        exit 1
+    }
+    Write-Ok "Vault unsealed"
 }
 
 # ── Setup: main flow ──────────────────────────────────────────────────────────
@@ -635,7 +827,7 @@ function Invoke-Setup {
             Write-Info "Starting docker compose..."
             & $dockerPath compose up -d
             if ($LASTEXITCODE -eq 0) {
-                Write-Ok "Stack started. Give it ~30s to be healthy, then run 'tools seed'."
+                Write-Ok "Stack started. Run 'tools vault' to initialize/unseal Vault."
             } else {
                 Write-Err "docker compose up failed - check the output above."
             }
@@ -659,15 +851,17 @@ if ($Command.ToLower() -eq "setup") {
     exit 0
 }
 
-# All other commands require .env + a running server
-$env = Load-DotEnv
-if (-not $env.ContainsKey("UNIEVENT_API_KEY") -or $env["UNIEVENT_API_KEY"] -eq "") {
-    Write-Err "UNIEVENT_API_KEY is not set in your .env file"
-    Write-Warn "Add: UNIEVENT_API_KEY=your-key-here"
-    exit 1
+if ($Command.ToLower() -eq "vault") {
+    Invoke-VaultSetup
+    exit 0
 }
-$apiKey = $env["UNIEVENT_API_KEY"]
 
+if ($Command.ToLower() -eq "unseal") {
+    Invoke-Unseal
+    exit 0
+}
+
+# All other commands require a running server
 $baseUrl = if ($Remote -ne "") { $Remote.TrimEnd("/") } else { "https://localhost" }
 
 Write-Info "Connecting to $baseUrl ..."
@@ -688,13 +882,13 @@ switch ($Command.ToLower()) {
 
     "seed" {
         Write-Info "Seeding test data..."
-        $resp = Invoke-AdminRequest -Method "POST" -Url "$baseUrl/admin/tools/seed" -ApiKey $apiKey
+        $resp = Invoke-AdminRequest -Method "POST" -Url "$baseUrl/admin/tools/seed"
         Handle-Response -Response $resp -SuccessMsg "Test data seeded successfully"
     }
 
     "clear" {
         Write-Info "Clearing seed data..."
-        $resp = Invoke-AdminRequest -Method "DELETE" -Url "$baseUrl/admin/tools/seed" -ApiKey $apiKey
+        $resp = Invoke-AdminRequest -Method "DELETE" -Url "$baseUrl/admin/tools/seed"
         Handle-Response -Response $resp -SuccessMsg "Seed data cleared successfully"
     }
 
