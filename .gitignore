@@ -45,6 +45,7 @@ vault-init.json
 certs/
 docker-compose.override.yml
 logs/
+.docker/buildcache/
 
 ### GENERATED FRONTEND BUILD ###
 src/main/resources/static/
