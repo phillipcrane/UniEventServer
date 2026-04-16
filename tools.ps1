@@ -326,6 +326,53 @@ function Get-JavaMajorVersion {
 
 # ── Vault setup ──────────────────────────────────────────────────────────────
 
+# Runs `docker compose up -d --build [extra args]`, falling back to the legacy
+# `docker-compose` CLI if the subcommand variant is unavailable.
+# -Quiet suppresses all output (used for background restarts).
+function Invoke-ComposeUp {
+    param(
+        [string]$DockerPath,
+        [string[]]$ExtraArgs = @(),
+        [switch]$Quiet
+    )
+
+    # Temporarily allow native-command stderr without throwing - $LASTEXITCODE
+    # is still set correctly, but progress lines written to stderr won't become
+    # terminating errors under $ErrorActionPreference = "Stop".
+    $prev = $ErrorActionPreference
+    $ErrorActionPreference = "Continue"
+
+    $allArgs = @("compose", "up", "-d", "--build") + $ExtraArgs
+    if ($Quiet) {
+        & $DockerPath @allArgs 2>&1 | Out-Null
+    } else {
+        & $DockerPath @allArgs
+    }
+    $exitCode = $LASTEXITCODE
+
+    $ErrorActionPreference = $prev
+
+    if ($exitCode -eq 0) { return $true }
+
+    # Fallback: legacy docker-compose binary
+    $legacy = Get-Command "docker-compose" -ErrorAction SilentlyContinue
+    if ($legacy) {
+        Write-Warn "'docker compose' failed - retrying with legacy 'docker-compose' CLI"
+        $legacyArgs = @("up", "-d", "--build") + $ExtraArgs
+        $ErrorActionPreference = "Continue"
+        if ($Quiet) {
+            & docker-compose @legacyArgs 2>&1 | Out-Null
+        } else {
+            & docker-compose @legacyArgs
+        }
+        $exitCode = $LASTEXITCODE
+        $ErrorActionPreference = $prev
+        return ($exitCode -eq 0)
+    }
+
+    return $false
+}
+
 function Test-DockerDaemon {
     param([string]$DockerPath)
 
@@ -356,8 +403,8 @@ function Test-VaultContainerRunning {
     $containerId = if ($null -eq $firstLine) { "" } else { "$firstLine".Trim() }
     if (-not $containerId) {
         Write-Err "Vault container is not running"
-        Write-Warn "Start it with: docker compose up -d vault"
-        Write-Warn "Or start the full stack: docker compose up -d"
+        Write-Warn "Start it with: docker compose up -d --build vault"
+        Write-Warn "Or start the full stack: docker compose up -d --build"
         return $false
     }
 
@@ -372,7 +419,7 @@ function Test-VaultContainerRunning {
     if ($status -ne "running") {
         Write-Err "Vault container is '$status' (expected 'running')"
         Write-Warn "Check logs: docker compose logs vault"
-        Write-Warn "Try restarting: docker compose up -d vault"
+        Write-Warn "Try restarting: docker compose up -d --build vault"
         return $false
     }
 
@@ -441,7 +488,7 @@ function Invoke-VaultSetup {
 
         # Step 2: Unseal
         Write-Info "Unsealing Vault..."
-        & $DockerPath compose exec -T vault vault operator unseal $unsealKey 2>$null | Out-Null
+        & $DockerPath compose exec -T vault vault operator unseal $unsealKey 2>&1 | Out-Null
         if ($LASTEXITCODE -ne 0) {
             Write-Err "Failed to unseal Vault"
             Write-Warn "Unseal key: $unsealKey"
@@ -467,7 +514,7 @@ function Invoke-VaultSetup {
 
         # Step 4: Write application policy
         Write-Info "Writing application policy..."
-        & $DockerPath compose exec -T -e "VAULT_TOKEN=$rootToken" vault vault policy write unievent-app /vault/config/policies/unievent-app.hcl 2>$null | Out-Null
+        & $DockerPath compose exec -T -e "VAULT_TOKEN=$rootToken" vault vault policy write unievent-app /vault/config/policies/unievent-app.hcl 2>&1 | Out-Null
         if ($LASTEXITCODE -ne 0) {
             Write-Err "Failed to write Vault policy"
             return
@@ -498,7 +545,7 @@ function Invoke-VaultSetup {
 
         # Recreate app container so it picks up the new VAULT_TOKEN
         Write-Info "Restarting app with new Vault token..."
-        & $DockerPath compose up -d app 2>$null | Out-Null
+        Invoke-ComposeUp -DockerPath $DockerPath -ExtraArgs @("app") -Quiet | Out-Null
         Write-Ok "App container updated"
 
         Write-Host ""
@@ -521,12 +568,20 @@ function Invoke-VaultSetup {
             return
         }
 
-        & $DockerPath compose exec -T vault vault operator unseal $unsealKey 2>$null | Out-Null
+        & $DockerPath compose exec -T vault vault operator unseal $unsealKey 2>&1 | Out-Null
         if ($LASTEXITCODE -ne 0) {
             Write-Err "Unseal failed - check VAULT_UNSEAL_TOKEN in .env"
             return
         }
         Write-Ok "Vault unsealed"
+
+        $rootToken = if ($envVars.ContainsKey("VAULT_ROOT_TOKEN")) { $envVars["VAULT_ROOT_TOKEN"] } else { "" }
+        $appToken  = if ($envVars.ContainsKey("VAULT_TOKEN"))       { $envVars["VAULT_TOKEN"] }       else { "" }
+        Write-Host ""
+        Write-Info "Vault credentials (from .env):"
+        Write-Info "  Unseal Key : $unsealKey"
+        if ($rootToken) { Write-Info "  Root Token : $rootToken" }
+        if ($appToken)  { Write-Info "  App Token  : $($appToken.Substring(0, [Math]::Min(20, $appToken.Length)))..." }
 
     } else {
         Write-Ok "Vault is initialized and unsealed"
@@ -559,13 +614,30 @@ function Invoke-Unseal {
     }
 
     Write-Info "Unsealing Vault..."
-    & $dockerPath compose exec -T vault vault operator unseal $unsealKey 2>$null | Out-Null
+    & $dockerPath compose exec -T vault vault operator unseal $unsealKey 2>&1 | Out-Null
     if ($LASTEXITCODE -ne 0) {
         Write-Err "Failed to unseal Vault - is the container running?"
-        Write-Warn "Start the stack first: docker compose up -d"
+        Write-Warn "Start the stack first: docker compose up -d --build"
         exit 1
     }
     Write-Ok "Vault unsealed"
+}
+
+# ── Vault status probe (single attempt, no retry) ────────────────────────────
+
+function Get-VaultStatus {
+    param([string]$DockerPath)
+    try {
+        $lines    = @(& $DockerPath compose exec -T vault vault status -format=json 2>$null)
+        $exitCode = $LASTEXITCODE
+        if ($exitCode -eq 0 -or $exitCode -eq 2) {
+            $json = ($lines -join "`n").Trim() | ConvertFrom-Json
+            if (-not $json.initialized) { return "not-initialized" }
+            if ($json.sealed)           { return "sealed" }
+            return "ready"
+        }
+    } catch {}
+    return "unavailable"
 }
 
 # ── Setup: main flow ──────────────────────────────────────────────────────────
@@ -874,7 +946,7 @@ function Invoke-Setup {
     if (-not $dockerRunning) {
         Write-Warn "Docker daemon is not running."
         Write-Warn "Start Docker Desktop, then run:"
-        Write-Host "    docker compose up -d" -ForegroundColor White
+        Write-Host "    docker compose up -d --build" -ForegroundColor White
         Write-Host ""
         return
     }
@@ -888,20 +960,31 @@ function Invoke-Setup {
         $stackUp = $false
     }
 
+    $ESC      = [char]27; $BEL = [char]7
+    $linkRoot = "${ESC}]8;;http://localhost${BEL}localhost${ESC}]8;;${BEL}"
+    $link8080 = "${ESC}]8;;http://localhost:8080${BEL}localhost:8080${ESC}]8;;${BEL}"
+
     if ($stackUp) {
-        Write-Ok "Docker stack is already running."
+        Write-Ok "Docker stack is already running. Visit $linkRoot or $link8080."
+        $vaultStatus = Get-VaultStatus -DockerPath $dockerPath
+        switch ($vaultStatus) {
+            "not-initialized" { Write-Warn "Vault is not initialized. Run: tools vault" }
+            "sealed"          { Write-Warn "Vault is sealed. Run: tools vault (or tools unseal) to unseal it." }
+            "ready"           { Write-Ok   "Vault is initialized and unsealed." }
+            "unavailable"     { Write-Warn "Could not reach Vault - it may still be starting. Run: tools vault" }
+        }
     } else {
         $answer = Read-Host "  Docker is available but the stack is not running. Start it now? [Y/n]"
         if ($answer -eq "" -or $answer -match "^[Yy]") {
             Write-Info "Starting docker compose..."
-            & $dockerPath compose up -d
-            if ($LASTEXITCODE -eq 0) {
-                Write-Ok "Stack started. Run 'tools vault' to initialize/unseal Vault."
+            $started = Invoke-ComposeUp -DockerPath $dockerPath
+            if ($started) {
+                Write-Ok "Stack started. Go to $linkRoot or $link8080 to see frontend. Then initialize/unseal Vault by running 'tools vault'."
             } else {
                 Write-Err "docker compose up failed - check the output above."
             }
         } else {
-            Write-Info "Skipped. When ready, run: docker compose up -d"
+            Write-Info "Skipped. When ready, run: docker compose up -d --build"
         }
     }
     Write-Host ""
@@ -937,7 +1020,7 @@ Write-Info "Connecting to $baseUrl ..."
 if (-not (Test-ServerHealth -BaseUrl $baseUrl)) {
     Write-Err "Server not running at $baseUrl"
     if ($Remote -eq "") {
-        Write-Warn "Start the stack: docker compose up -d"
+        Write-Warn "Start the stack: docker compose up -d --build"
         Write-Warn "Or run locally: ./mvnw spring-boot:run -Dspring-boot.run.arguments='--spring.profiles.active=dev'"
     } else {
         Write-Warn "Check that the remote server is reachable: $baseUrl"

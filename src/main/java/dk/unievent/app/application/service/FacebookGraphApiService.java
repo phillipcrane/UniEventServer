@@ -197,6 +197,7 @@ public class FacebookGraphApiService {
      * @return List of pages with their data
      * @throws FacebookApiException if API call fails
      */
+    @SuppressWarnings("unchecked")
     public List<FbPageResponse> getPagesFromUser(String userToken) {
         try {
             log.debug("Fetching admin-controlled pages for user (token: {})", FacebookAppSecurityUtil.maskToken(userToken));
@@ -275,6 +276,7 @@ public class FacebookGraphApiService {
      * @return List of upcoming events
      * @throws FacebookApiException if API call fails
      */
+    @SuppressWarnings("unchecked")
     public List<FbEventResponse> getPageEvents(String pageId, String pageToken) {
         try {
             log.debug("Fetching events for page: {} (token: {})", pageId, FacebookAppSecurityUtil.maskToken(pageToken));
