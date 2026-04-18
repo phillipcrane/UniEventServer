@@ -16,7 +16,9 @@ import org.springframework.context.annotation.Configuration;
 public class FacebookConfig {
     
     private boolean enabled;
-    
+
+    private String graphApiBaseUrl = "https://graph.facebook.com";
+
     private String appId;
     
     private String appSecret;
