@@ -36,7 +36,7 @@ class SeaweedFsClientTests {
 
         SeaweedConfig config = new SeaweedConfig();
         config.setMasterUrl("localhost:9333");
-        seaweedFsClient = new SeaweedFsClient(config, restClientBuilder, new ObjectMapper());
+        seaweedFsClient = new SeaweedFsClient(config, new ObjectMapper());
     }
 
     @Test

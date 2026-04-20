@@ -229,7 +229,7 @@ class MediaControllerHttpIntegrationTests {
         byte[] downloadPayload = "default".getBytes();
 
         FakeSeaweedFsClient() {
-            super(config(), org.springframework.web.client.RestClient.builder(), new ObjectMapper());
+            super(config(), new ObjectMapper());
         }
 
         private static SeaweedConfig config() {

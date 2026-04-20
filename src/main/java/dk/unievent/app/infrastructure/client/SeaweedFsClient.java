@@ -19,20 +19,18 @@ import java.util.concurrent.ConcurrentHashMap;
 @Component
 public class SeaweedFsClient {
 
-    private final RestClient.Builder restClientBuilder;
     private final RestClient restClient;
     private final ObjectMapper objectMapper;
     private final Map<String, RestClient> volumeClientCache = new ConcurrentHashMap<>();
 
-    public SeaweedFsClient(SeaweedConfig config, RestClient.Builder restClientBuilder, ObjectMapper objectMapper) {
-        this.restClientBuilder = restClientBuilder;
-        this.restClient = restClientBuilder.baseUrl("http://" + config.getMasterUrl()).build();
+    public SeaweedFsClient(SeaweedConfig config, ObjectMapper objectMapper) {
+        this.restClient = RestClient.builder().baseUrl("http://" + config.getMasterUrl()).build();
         this.objectMapper = objectMapper;
     }
 
     private RestClient getVolumeClient(String publicUrl) {
         return volumeClientCache.computeIfAbsent(
-                publicUrl, url -> restClientBuilder.baseUrl("http://" + url).build());
+                publicUrl, url -> RestClient.builder().baseUrl("http://" + url).build());
     }
 
     public FileAssignment assignFile() throws IOException {

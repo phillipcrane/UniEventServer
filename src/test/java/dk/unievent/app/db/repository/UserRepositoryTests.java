@@ -111,6 +111,6 @@ class UserRepositoryTests {
     @Test
     void defaultRoleShouldBeUser() {
         UserEntity user = userRepository.findByEmail("repotest@example.com").orElseThrow();
-        assertEquals("USER", user.getRole());
+        assertEquals("user", user.getRole());
     }
 }

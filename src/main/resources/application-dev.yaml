@@ -8,3 +8,7 @@ unievent:
   media:
     ssrf:
       extra-allowed-hosts: placehold.co
+  security:
+    jwt:
+      secret: dev-secret-key-this-must-be-changed-in-production
+      refresh-secret: dev-refresh-secret-key-this-must-be-changed-in-production

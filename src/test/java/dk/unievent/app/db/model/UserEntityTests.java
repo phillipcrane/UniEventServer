@@ -51,7 +51,7 @@ class UserEntityTests {
             .password("encoded")
             .build();
 
-        assertEquals("USER", entity.getRole());
+        assertEquals("user", entity.getRole());
     }
 
     @Test
@@ -60,7 +60,7 @@ class UserEntityTests {
             .username("admin")
             .email("admin@example.com")
             .password("encoded")
-            .role("ADMIN")
+            .role("admin")
             .build();
 
         assertEquals("ADMIN", entity.getRole());

@@ -52,9 +52,9 @@ unievent:
       allow-credentials: true
       max-age: 3600
     jwt:
-      secret: ${UNIEVENT_SECURITY_JWT_SECRET:dev-secret-key-this-must-be-changed-in-production}
+      secret: ${UNIEVENT_SECURITY_JWT_SECRET}
       expiration-ms: ${UNIEVENT_SECURITY_JWT_EXPIRATION_MS:86400000}
-      refresh-secret: ${UNIEVENT_SECURITY_JWT_REFRESH_SECRET:dev-refresh-secret-key-this-must-be-changed-in-production}
+      refresh-secret: ${UNIEVENT_SECURITY_JWT_REFRESH_SECRET}
       refresh-expiration-ms: ${UNIEVENT_SECURITY_JWT_REFRESH_EXPIRATION_MS:604800000}
   openapi:
     title: ${UNIEVENT_OPENAPI_TITLE:UniEvent API}

@@ -4,6 +4,7 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import dk.unievent.app.application.dto.PlaceDTO;
 import dk.unievent.app.application.mapper.PlaceMapper;
@@ -124,20 +125,26 @@ public class PlaceService {
     
     /**
      * Delete a place
+     * 
+     * This operation is wrapped in a transaction to ensure atomicity. If any step fails,
+     * the entire operation is rolled back to prevent partial updates and FK constraint failures.
+     * Uses a bulk update query to avoid loading all events into memory.
      */
+    @Transactional
     public boolean deletePlace(String id) {
         log.info("Deleting place with id: {}", id);
         if (!placeRepository.existsById(id)) {
             log.warn("Place not found for deletion with id: {}", id);
             return false;
         }
-        List<EventEntity> affected = eventRepository.findByPlaceId(id);
-        for (EventEntity event : affected) {
-            event.setPlace(null);
-        }
-        eventRepository.saveAll(affected);
+        
+        // Bulk update to nullify place reference for all associated events
+        int affectedCount = eventRepository.nullifyEventsByPlaceId(id);
+        
+        // Delete the place
         placeRepository.deleteById(id);
-        log.info("Place deleted, nullified place on {} event(s): {}", affected.size(), id);
+        
+        log.info("Place deleted, nullified place on {} event(s): {}", affectedCount, id);
         return true;
     }
 

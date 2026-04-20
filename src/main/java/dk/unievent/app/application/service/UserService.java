@@ -40,10 +40,10 @@ public class UserService implements UserDetailsService, ApplicationRunner {
                 log.error("CLI admin account {} exists but ADMIN_PASSWORD does not match - not touching it (possible pre-registration attack?)", adminEmail);
                 return;
             }
-            if (!"ADMIN".equals(existing.getRole())) {
-                existing.setRole("ADMIN");
+            if (!"admin".equals(existing.getRole())) {
+                existing.setRole("admin");
                 userRepository.save(existing);
-                log.warn("CLI admin account role corrected to ADMIN: {}", adminEmail);
+                log.warn("CLI admin account role corrected to admin: {}", adminEmail);
             } else {
                 log.debug("CLI admin account already exists: {}", adminEmail);
             }
@@ -52,7 +52,7 @@ public class UserService implements UserDetailsService, ApplicationRunner {
                     .username("cli")
                     .email(adminEmail)
                     .password(passwordEncoder.encode(adminPassword))
-                    .role("ADMIN")
+                    .role("admin")
                     .build());
             log.info("CLI admin account provisioned: {}", adminEmail);
         });

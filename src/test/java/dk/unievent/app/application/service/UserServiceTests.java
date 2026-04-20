@@ -39,7 +39,7 @@ class UserServiceTests {
             .username("testuser")
             .email("test@example.com")
             .password("encodedpassword")
-            .role("USER")
+            .role("user")
             .build();
     }
 
