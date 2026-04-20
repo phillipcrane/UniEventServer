@@ -40,10 +40,10 @@ public class UserService implements UserDetailsService, ApplicationRunner {
                 log.error("CLI admin account {} exists but ADMIN_PASSWORD does not match - not touching it (possible pre-registration attack?)", adminEmail);
                 return;
             }
-            if (!"admin".equals(existing.getRole())) {
-                existing.setRole("admin");
+            if (!"ADMIN".equals(existing.getRole())) {
+                existing.setRole("ADMIN");
                 userRepository.save(existing);
-                log.warn("CLI admin account role corrected to admin: {}", adminEmail);
+                log.warn("CLI admin account role corrected to ADMIN: {}", adminEmail);
             } else {
                 log.debug("CLI admin account already exists: {}", adminEmail);
             }
@@ -52,7 +52,7 @@ public class UserService implements UserDetailsService, ApplicationRunner {
                     .username("cli")
                     .email(adminEmail)
                     .password(passwordEncoder.encode(adminPassword))
-                    .role("admin")
+                    .role("ADMIN")
                     .build());
             log.info("CLI admin account provisioned: {}", adminEmail);
         });
@@ -72,14 +72,33 @@ public class UserService implements UserDetailsService, ApplicationRunner {
         if (userRepository.existsByUsername(user.getUsername())) {
             throw new IllegalArgumentException("Username is already taken.");
         }
-        String role = user.getRole() != null && !user.getRole().isBlank() ? user.getRole() : "user";
+        // Validate role against allowlist - only 'user' and 'organizer' are permitted for self-registration.
+        // 'admin' role elevation requires an authorized admin-only flow.
+        String requestedRole = user.getRole();
+        if (requestedRole == null || requestedRole.isBlank()) {
+            requestedRole = "user";
+        }
+        String validatedRole = validateRegistrationRole(requestedRole);
         UserEntity account = UserEntity.builder()
                 .username(user.getUsername())
                 .email(user.getEmail())
                 .password(passwordEncoder.encode(user.getPassword()))
-                .role(role)
+                .role(validatedRole)
                 .build();
         return userRepository.save(account);
+    }
+
+    /**
+     * Validates and returns a role for self-registration.
+     * Only 'user' and 'organizer' are allowed; 'admin' requires authorized admin action.
+     * This prevents privilege escalation attacks during registration.
+     */
+    private String validateRegistrationRole(String role) {
+        if ("user".equalsIgnoreCase(role) || "organizer".equalsIgnoreCase(role)) {
+            return role.toLowerCase();
+        }
+        log.warn("Invalid role requested during registration: {}. Defaulting to 'user'.", role);
+        throw new IllegalArgumentException("Invalid role: " + role + ". Only 'user' or 'organizer' are allowed.");
     }
 
     public UserEntity findByEmail(String email) {
