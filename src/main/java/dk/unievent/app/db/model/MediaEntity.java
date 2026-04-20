@@ -32,6 +32,7 @@ public class MediaEntity {
      */
     private String fileId;
 
+    @Column(length = 2048)
     private String sourceUrl;
 
     private Instant uploadedAt;
