@@ -90,15 +90,20 @@ public class UserService implements UserDetailsService, ApplicationRunner {
 
     /**
      * Validates and returns a role for self-registration.
-     * Only 'user' and 'organizer' are allowed; 'admin' requires authorized admin action.
+     * Only 'user' is allowed for self-registration. 'organizer' role requires an admin-issued invitation key.
+     * 'admin' role requires authorized admin-only action.
      * This prevents privilege escalation attacks during registration.
      */
     private String validateRegistrationRole(String role) {
-        if ("user".equalsIgnoreCase(role) || "organizer".equalsIgnoreCase(role)) {
-            return role.toLowerCase();
+        if ("user".equalsIgnoreCase(role) || role == null || role.isBlank()) {
+            return "user";
+        }
+        if ("organizer".equalsIgnoreCase(role)) {
+            log.warn("Organizer role requested during self-registration - not allowed. Use the invitation key flow instead.");
+            throw new IllegalArgumentException("Organizer role cannot be self-registered. Contact an admin for an invitation key.");
         }
         log.warn("Invalid role requested during registration: {}. Defaulting to 'user'.", role);
-        throw new IllegalArgumentException("Invalid role: " + role + ". Only 'user' or 'organizer' are allowed.");
+        throw new IllegalArgumentException("Invalid role: " + role + ". Only 'user' is allowed for self-registration.");
     }
 
     public UserEntity findByEmail(String email) {

@@ -72,6 +72,7 @@ public class SecurityConfig {
                     // Frontend SPA - static assets served from resources/static (Vite build output)
                     .requestMatchers(org.springframework.http.HttpMethod.GET,
                             "/", "/index.html", "/assets/**", "/favicon.ico", "/favicon.svg", "/favicon.png").permitAll()
+                    .requestMatchers("/api/auth/organizer-key/generate").authenticated()
                     .requestMatchers("/api/auth/**").permitAll()
                     .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/**").permitAll()
                     .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/**").authenticated()
