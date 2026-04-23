@@ -30,6 +30,7 @@ public class OrganizerKeyService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
+    private final EmailService emailService;
 
     @Value("${unievent.security.jwt.secret}")
     private String jwtSecret;
@@ -61,6 +62,9 @@ public class OrganizerKeyService {
 
         organizerKeyRepository.save(keyEntity);
         log.info("Generated organizer key for email: {}", email);
+
+        // Send invitation email asynchronously
+        emailService.sendOrganizerInvitationEmailAsync(email, keyValue);
 
         return keyValue;
     }
