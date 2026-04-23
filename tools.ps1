@@ -7,16 +7,18 @@
     ./tools.ps1 <command> [flags]
 
 .COMMANDS
-    setup              Check dependencies and configure the local dev environment
-    docker             Start (or rebuild/restart) the Docker stack
-    vault              Initialize and/or unseal Vault
-    unseal             Quick unseal Vault (shortcut for restart)
-    seed               Clear and re-seed test data
-    refresh            Refresh Facebook page tokens (all, or one with -p)
-    ingest             Manually ingest from a Facebook page (interactive picker or -p)
+    setup                  Check dependencies and configure the local dev environment
+    docker                 Start (or rebuild/restart) the Docker stack
+    vault                  Initialize and/or unseal Vault
+    unseal                 Quick unseal Vault (shortcut for restart)
+    seed                   Clear and re-seed test data
+    refresh                Refresh Facebook page tokens (all, or one with -p)
+    ingest                 Manually ingest from a Facebook page (interactive picker or -p)
+    invite                 Send organizer invite key and test registration flow
 
 .FLAGS
     -r, --remote <url>   Target server URL (default: https://localhost)
+    -e, --email <email>  invite: Email for organizer invite (default: test@example.com)
     -p, --page <id>      Scope to a single page (refresh, ingest)
     -c, --clear          seed: only clear, skip re-seed
     -d, --down           docker: stop the stack
@@ -36,6 +38,9 @@ param(
 
     [Alias("r")]
     [string]$Remote = "",
+
+    [Alias("e")]
+    [string]$Email = "",
 
     [Alias("p")]
     [string]$Page = "",
@@ -137,6 +142,10 @@ switch ($cmdLower) {
     "ingest" {
         . (Join-Path $cliDir "ingest.ps1")
         Invoke-Ingest -BaseUrl $baseUrl -Page $Page -VerboseOutput:$VerboseOutput
+    }
+    "invite" {
+        . (Join-Path $cliDir "invite.ps1")
+        Invoke-TestOrganizerKey -BaseUrl $baseUrl -Email $Email -VerboseOutput:$VerboseOutput
     }
     default {
         Write-Err "Unknown command: '$Command'"
