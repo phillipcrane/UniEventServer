@@ -29,8 +29,6 @@ public class OrganizerKeyService {
     private final OrganizerKeyRepository organizerKeyRepository;
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
-    private final JwtService jwtService;
-    private final EmailService emailService;
 
     @Value("${unievent.security.jwt.secret}")
     private String jwtSecret;

@@ -119,23 +119,15 @@ class UserServiceTests {
     }
 
     @Test
-    void registerShouldSaveCustomRole() {
-        UserEntity organizerUser = UserEntity.builder()
-            .username("organizer")
-            .email("organizer@example.com")
-            .password("encodedpassword")
-            .role("organizer")
-            .build();
-
+    void registerShouldThrowWhenOrganizerRoleRequestedDirectly() {
         when(userRepository.existsByEmail("organizer@example.com")).thenReturn(false);
         when(userRepository.existsByUsername("organizer")).thenReturn(false);
-        when(passwordEncoder.encode("rawpassword")).thenReturn("encodedpassword");
-        when(userRepository.save(any(UserEntity.class))).thenReturn(organizerUser);
 
-        UserEntity result = userService.register(new UserDTO("organizer", "organizer@example.com", "rawpassword", "organizer"));
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+            () -> userService.register(new UserDTO("organizer", "organizer@example.com", "rawpassword", "organizer")));
 
-        assertNotNull(result);
-        assertEquals("organizer", result.getRole());
+        assertTrue(ex.getMessage().contains("invitation key"));
+        verify(userRepository, never()).save(any());
     }
 
     @Test

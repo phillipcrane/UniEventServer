@@ -24,6 +24,16 @@ spring:
       - classpath:vault-test.yaml
   jpa:
     show-sql: false
+  mail:
+    host: localhost
+    port: 1025
+    username: test@test.com
+    password: test-password
+
+management:
+  health:
+    mail:
+      enabled: false
 
 app:
   pagination:

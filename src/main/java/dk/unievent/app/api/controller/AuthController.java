@@ -215,7 +215,7 @@ public class AuthController {
             return ResponseEntity.badRequest().build();
         } catch (IllegalStateException ex) {
             if (ex.getMessage().contains("already been used")) {
-                return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY).build();
+                return ResponseEntity.status(422).build();
             }
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
