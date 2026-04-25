@@ -5,6 +5,12 @@ import dk.unievent.app.db.model.OrganizerKeyEntity;
 import dk.unievent.app.db.model.UserEntity;
 import dk.unievent.app.db.repository.OrganizerKeyRepository;
 import dk.unievent.app.db.repository.UserRepository;
+import dk.unievent.app.infrastructure.exception.EmailAlreadyRegisteredException;
+import dk.unievent.app.infrastructure.exception.InvalidConfirmationTokenException;
+import dk.unievent.app.infrastructure.exception.OrganizerKeyAlreadyUsedException;
+import dk.unievent.app.infrastructure.exception.OrganizerKeyExpiredException;
+import dk.unievent.app.infrastructure.exception.OrganizerKeyNotFoundException;
+import dk.unievent.app.infrastructure.exception.UsernameAlreadyTakenException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import org.junit.jupiter.api.BeforeEach;
@@ -32,6 +38,7 @@ class OrganizerKeyServiceTests {
 
     private static final String TEST_JWT_SECRET = "12345678901234567890123456789012";
     private static final String TEST_EMAIL = "organizer@example.com";
+    private static final String TEST_ADMIN_EMAIL = "admin@example.com";
     private static final Long TEST_ADMIN_ID = 1L;
     private static final Long TEST_KEY_ID = 42L;
 
@@ -58,9 +65,10 @@ class OrganizerKeyServiceTests {
 
     @Test
     void generateShouldSaveKeyEntityWithCorrectFields() {
+        when(userRepository.findByEmail(TEST_ADMIN_EMAIL)).thenReturn(Optional.of(adminUser()));
         when(organizerKeyRepository.save(any(OrganizerKeyEntity.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        organizerKeyService.generateOrganizerKey(TEST_EMAIL, TEST_ADMIN_ID);
+        organizerKeyService.generateOrganizerKey(TEST_EMAIL, TEST_ADMIN_EMAIL);
 
         verify(organizerKeyRepository).save(argThat(entity ->
             TEST_EMAIL.equals(entity.getEmail()) &&
@@ -72,9 +80,10 @@ class OrganizerKeyServiceTests {
 
     @Test
     void generateShouldReturn32CharAlphanumericKey() {
+        when(userRepository.findByEmail(TEST_ADMIN_EMAIL)).thenReturn(Optional.of(adminUser()));
         when(organizerKeyRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
-        String key = organizerKeyService.generateOrganizerKey(TEST_EMAIL, TEST_ADMIN_ID);
+        String key = organizerKeyService.generateOrganizerKey(TEST_EMAIL, TEST_ADMIN_EMAIL);
 
         assertEquals(32, key.length());
         assertTrue(key.matches("[A-Za-z0-9]{32}"));
@@ -97,7 +106,7 @@ class OrganizerKeyServiceTests {
     void verifyShouldThrowIllegalArgumentWhenKeyNotFound() {
         when(organizerKeyRepository.findByKeyValue(any())).thenReturn(Optional.empty());
 
-        assertThrows(IllegalArgumentException.class,
+        assertThrows(OrganizerKeyNotFoundException.class,
             () -> organizerKeyService.verifyOrganizerKey("BADKEY"));
     }
 
@@ -107,9 +116,8 @@ class OrganizerKeyServiceTests {
         usedKey.setUsedAt(Instant.now().minusSeconds(3600));
         when(organizerKeyRepository.findByKeyValue("USEDKEY")).thenReturn(Optional.of(usedKey));
 
-        IllegalStateException ex = assertThrows(IllegalStateException.class,
+        assertThrows(OrganizerKeyAlreadyUsedException.class,
             () -> organizerKeyService.verifyOrganizerKey("USEDKEY"));
-        assertEquals("Organizer key has already been used", ex.getMessage());
     }
 
     @Test
@@ -118,9 +126,8 @@ class OrganizerKeyServiceTests {
         expiredKey.setExpiresAt(Instant.now().minusSeconds(3600));
         when(organizerKeyRepository.findByKeyValue("EXPIREDKEY")).thenReturn(Optional.of(expiredKey));
 
-        IllegalStateException ex = assertThrows(IllegalStateException.class,
+        assertThrows(OrganizerKeyExpiredException.class,
             () -> organizerKeyService.verifyOrganizerKey("EXPIREDKEY"));
-        assertEquals("Organizer key has expired", ex.getMessage());
     }
 
     // ── completeOrganizerRegistration ─────────────────────────────────────────
@@ -146,7 +153,7 @@ class OrganizerKeyServiceTests {
 
     @Test
     void completeShouldThrowWhenConfirmationTokenIsInvalid() {
-        assertThrows(IllegalArgumentException.class,
+        assertThrows(InvalidConfirmationTokenException.class,
             () -> organizerKeyService.completeOrganizerRegistration("not-a-jwt", "user", "password123456", TEST_EMAIL));
     }
 
@@ -157,9 +164,8 @@ class OrganizerKeyServiceTests {
         usedKey.setUsedAt(Instant.now().minusSeconds(60));
         when(organizerKeyRepository.findById(TEST_KEY_ID)).thenReturn(Optional.of(usedKey));
 
-        IllegalStateException ex = assertThrows(IllegalStateException.class,
+        assertThrows(OrganizerKeyAlreadyUsedException.class,
             () -> organizerKeyService.completeOrganizerRegistration(token, "user", "password123456", TEST_EMAIL));
-        assertTrue(ex.getMessage().contains("already been used"));
     }
 
     @Test
@@ -169,9 +175,8 @@ class OrganizerKeyServiceTests {
         expiredKey.setExpiresAt(Instant.now().minusSeconds(60));
         when(organizerKeyRepository.findById(TEST_KEY_ID)).thenReturn(Optional.of(expiredKey));
 
-        IllegalStateException ex = assertThrows(IllegalStateException.class,
+        assertThrows(OrganizerKeyExpiredException.class,
             () -> organizerKeyService.completeOrganizerRegistration(token, "user", "password123456", TEST_EMAIL));
-        assertTrue(ex.getMessage().contains("expired"));
     }
 
     @Test
@@ -190,9 +195,8 @@ class OrganizerKeyServiceTests {
         when(organizerKeyRepository.findById(TEST_KEY_ID)).thenReturn(Optional.of(activeKey()));
         when(userRepository.existsByUsername("takenuser")).thenReturn(true);
 
-        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+        assertThrows(UsernameAlreadyTakenException.class,
             () -> organizerKeyService.completeOrganizerRegistration(token, "takenuser", "password123456", TEST_EMAIL));
-        assertTrue(ex.getMessage().contains("already taken"));
     }
 
     @Test
@@ -202,12 +206,18 @@ class OrganizerKeyServiceTests {
         when(userRepository.existsByUsername("neworg")).thenReturn(false);
         when(userRepository.existsByEmail(TEST_EMAIL)).thenReturn(true);
 
-        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+        assertThrows(EmailAlreadyRegisteredException.class,
             () -> organizerKeyService.completeOrganizerRegistration(token, "neworg", "password123456", TEST_EMAIL));
-        assertTrue(ex.getMessage().contains("already registered"));
     }
 
     // ── helpers ───────────────────────────────────────────────────────────────
+
+    private UserEntity adminUser() {
+        UserEntity admin = UserEntity.builder()
+            .username("admin").email(TEST_ADMIN_EMAIL).role("admin").build();
+        admin.setId(TEST_ADMIN_ID);
+        return admin;
+    }
 
     private OrganizerKeyEntity activeKey() {
         OrganizerKeyEntity entity = OrganizerKeyEntity.builder()

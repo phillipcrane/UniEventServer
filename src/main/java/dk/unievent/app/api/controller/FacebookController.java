@@ -98,7 +98,8 @@ public class FacebookController {
             response.sendRedirect(frontendUrl + "?success=true&pages=" + pages.size());
         } catch (Exception e) {
             log.error("Error processing Facebook OAuth callback", e);
-            response.sendRedirect(frontendUrl + "?error=" + URLEncoder.encode(e.getMessage(), StandardCharsets.UTF_8));
+            log.error("Error processing Facebook OAuth callback", e);
+            response.sendRedirect(frontendUrl + "?error=oauth_error");
         }
     }
 

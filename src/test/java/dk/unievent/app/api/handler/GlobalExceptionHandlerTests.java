@@ -15,6 +15,13 @@ import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
+import dk.unievent.app.infrastructure.exception.EmailAlreadyRegisteredException;
+import dk.unievent.app.infrastructure.exception.InvalidConfirmationTokenException;
+import dk.unievent.app.infrastructure.exception.OrganizerKeyAlreadyUsedException;
+import dk.unievent.app.infrastructure.exception.OrganizerKeyExpiredException;
+import dk.unievent.app.infrastructure.exception.OrganizerKeyNotFoundException;
+import dk.unievent.app.infrastructure.exception.UsernameAlreadyTakenException;
+
 import java.lang.reflect.Method;
 import java.util.Map;
 import java.util.NoSuchElementException;
@@ -94,6 +101,56 @@ class GlobalExceptionHandlerTests {
         assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
         assertEquals("Not Found", response.getBody().get("error"));
         assertEquals("missing", response.getBody().get("message"));
+    }
+
+    @Test
+    void handleOrganizerKeyNotFoundShouldReturn404() {
+        ResponseEntity<Map<String, Object>> response = handler.handleOrganizerKeyNotFound(new OrganizerKeyNotFoundException());
+
+        assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
+        assertEquals("Not Found", response.getBody().get("error"));
+        assertEquals("Organizer key not found", response.getBody().get("message"));
+    }
+
+    @Test
+    void handleOrganizerKeyAlreadyUsedShouldReturn410() {
+        ResponseEntity<Map<String, Object>> response = handler.handleOrganizerKeyAlreadyUsed(new OrganizerKeyAlreadyUsedException());
+
+        assertEquals(HttpStatus.GONE, response.getStatusCode());
+        assertEquals("Gone", response.getBody().get("error"));
+        assertEquals("Organizer key has already been used", response.getBody().get("message"));
+    }
+
+    @Test
+    void handleOrganizerKeyExpiredShouldReturn401() {
+        ResponseEntity<Map<String, Object>> response = handler.handleOrganizerKeyExpired(new OrganizerKeyExpiredException());
+
+        assertEquals(HttpStatus.UNAUTHORIZED, response.getStatusCode());
+        assertEquals("Unauthorized", response.getBody().get("error"));
+    }
+
+    @Test
+    void handleInvalidConfirmationTokenShouldReturn401() {
+        ResponseEntity<Map<String, Object>> response = handler.handleInvalidConfirmationToken(new InvalidConfirmationTokenException());
+
+        assertEquals(HttpStatus.UNAUTHORIZED, response.getStatusCode());
+        assertEquals("Unauthorized", response.getBody().get("error"));
+    }
+
+    @Test
+    void handleUsernameAlreadyTakenShouldReturn409() {
+        ResponseEntity<Map<String, Object>> response = handler.handleRegistrationConflict(new UsernameAlreadyTakenException());
+
+        assertEquals(HttpStatus.CONFLICT, response.getStatusCode());
+        assertEquals("Conflict", response.getBody().get("error"));
+    }
+
+    @Test
+    void handleEmailAlreadyRegisteredShouldReturn409() {
+        ResponseEntity<Map<String, Object>> response = handler.handleRegistrationConflict(new EmailAlreadyRegisteredException());
+
+        assertEquals(HttpStatus.CONFLICT, response.getStatusCode());
+        assertEquals("Conflict", response.getBody().get("error"));
     }
 
     @Test

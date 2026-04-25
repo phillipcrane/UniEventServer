@@ -8,6 +8,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.mock.web.MockMultipartFile;
 
 import dk.unievent.app.db.model.MediaEntity;
+import dk.unievent.app.db.repository.MediaRepository;
 import dk.unievent.app.infrastructure.client.SeaweedFsClient;
 
 import java.io.IOException;
@@ -21,12 +22,15 @@ class MediaIntegrationTests {
     @Mock
     private SeaweedFsClient seaweedClient;
 
+    @Mock
+    private MediaRepository mediaRepository;
+
     private MediaService mediaService;
     private MockMultipartFile testFile;
 
     @BeforeEach
     void setUp() {
-        mediaService = new MediaService(seaweedClient);
+        mediaService = new MediaService(seaweedClient, mediaRepository);
 
         testFile = new MockMultipartFile(
                 "file",

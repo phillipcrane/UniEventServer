@@ -17,19 +17,17 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.Parameter;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @RestController
 @RequestMapping("/api/pages")
+@RequiredArgsConstructor
 @Tag(name = "Pages", description = "Manage event organizer pages (Facebook pages)")
 public class PageController {
 
     private final PageService pageService;
-
-    public PageController(PageService pageService) {
-        this.pageService = pageService;
-    }
 
     @GetMapping
     @Operation(summary = "Get all pages", description = "Retrieve all event organizer pages ordered by name")

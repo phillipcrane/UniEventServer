@@ -112,6 +112,6 @@ class FacebookControllerTests {
                 .param("code", "bad-code")
                 .param("state", state))
             .andExpect(status().is3xxRedirection())
-            .andExpect(redirectedUrlPattern("http://localhost:3000?error=*"));
+            .andExpect(redirectedUrl("http://localhost:3000?error=oauth_error"));
     }
 }

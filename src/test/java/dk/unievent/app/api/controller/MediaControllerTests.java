@@ -2,9 +2,9 @@ package dk.unievent.app.api.controller;
 
 import dk.unievent.app.api.handler.GlobalExceptionHandler;
 import tools.jackson.databind.json.JsonMapper;
+import dk.unievent.app.application.dto.MediaDTO;
 import dk.unievent.app.application.service.MediaService;
 import dk.unievent.app.db.model.MediaEntity;
-import dk.unievent.app.db.repository.MediaRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -25,7 +25,7 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import java.io.IOException;
 import java.time.Instant;
 import java.util.List;
-import java.util.Optional;
+import java.util.NoSuchElementException;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
@@ -41,9 +41,6 @@ class MediaControllerTests {
 
     @Mock
     private MediaService mediaService;
-
-    @Mock
-    private MediaRepository mediaRepository;
 
     @InjectMocks
     private MediaController mediaController;
@@ -66,13 +63,8 @@ class MediaControllerTests {
     @Test
     void uploadShouldReturnOkWithMappedDto() throws Exception {
         MockMultipartFile file = new MockMultipartFile("file", "poster.png", "image/png", "payload".getBytes());
-
-        when(mediaService.store(any())).thenReturn("1,abc");
-        when(mediaRepository.save(any(MediaEntity.class))).thenAnswer(invocation -> {
-            MediaEntity entity = invocation.getArgument(0);
-            entity.setId(10L);
-            return entity;
-        });
+        MediaDTO dto = MediaDTO.builder().id(10L).filename("poster.png").contentType("image/png").fileId("1,abc").uploadedAt(Instant.now()).build();
+        when(mediaService.storeAndSave(any())).thenReturn(dto);
 
         mockMvc.perform(multipart("/media").file(file))
             .andExpect(status().isOk())
@@ -85,7 +77,7 @@ class MediaControllerTests {
     @Test
     void uploadShouldReturnInternalServerErrorWhenStorageFails() throws Exception {
         MockMultipartFile file = new MockMultipartFile("file", "poster.png", "image/png", "payload".getBytes());
-        when(mediaService.store(any())).thenThrow(new IOException("store failed"));
+        when(mediaService.storeAndSave(any())).thenThrow(new IOException("store failed"));
 
         mockMvc.perform(multipart("/media").file(file))
             .andExpect(status().isInternalServerError())
@@ -94,15 +86,8 @@ class MediaControllerTests {
 
     @Test
     void downloadShouldReturnResourceWithContentHeaders() throws Exception {
-        MediaEntity media = MediaEntity.builder()
-            .id(42L)
-            .filename("my photo.jpg")
-            .contentType("image/jpeg")
-            .fileId("1,abc")
-            .uploadedAt(Instant.now())
-            .build();
-
-        when(mediaRepository.findById(42L)).thenReturn(Optional.of(media));
+        MediaEntity media = MediaEntity.builder().id(42L).filename("my photo.jpg").contentType("image/jpeg").fileId("1,abc").uploadedAt(Instant.now()).build();
+        when(mediaService.findById(42L)).thenReturn(media);
         when(mediaService.loadAsResource("1,abc")).thenReturn(new ByteArrayResource("hello".getBytes()));
 
         mockMvc.perform(get("/media/42"))
@@ -114,7 +99,7 @@ class MediaControllerTests {
 
     @Test
     void downloadShouldReturnNotFoundWhenMediaMissing() throws Exception {
-        when(mediaRepository.findById(999L)).thenReturn(Optional.empty());
+        when(mediaService.findById(999L)).thenThrow(new NoSuchElementException("Media not found: 999"));
 
         mockMvc.perform(get("/media/999"))
             .andExpect(status().isNotFound())
@@ -123,11 +108,9 @@ class MediaControllerTests {
 
     @Test
     void listShouldReturnAllMediaAsDtos() throws Exception {
-        MediaEntity first = MediaEntity.builder().id(1L).filename("a.jpg").contentType("image/jpeg").fileId("1,a").uploadedAt(Instant.now()).build();
-        MediaEntity second = MediaEntity.builder().id(2L).filename("b.png").contentType("image/png").fileId("1,b").uploadedAt(Instant.now()).build();
-
-        when(mediaRepository.findAll(any(Pageable.class)))
-            .thenReturn(new PageImpl<>(List.of(first, second), PageRequest.of(0, 50), 2));
+        MediaDTO first = MediaDTO.builder().id(1L).filename("a.jpg").contentType("image/jpeg").fileId("1,a").uploadedAt(Instant.now()).build();
+        MediaDTO second = MediaDTO.builder().id(2L).filename("b.png").contentType("image/png").fileId("1,b").uploadedAt(Instant.now()).build();
+        when(mediaService.listAll(any(Pageable.class))).thenReturn(new PageImpl<>(List.of(first, second), PageRequest.of(0, 50), 2));
 
         mockMvc.perform(get("/media"))
             .andExpect(status().isOk())

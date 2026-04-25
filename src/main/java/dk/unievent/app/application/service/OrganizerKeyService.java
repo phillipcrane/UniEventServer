@@ -5,6 +5,12 @@ import dk.unievent.app.db.model.OrganizerKeyEntity;
 import dk.unievent.app.db.model.UserEntity;
 import dk.unievent.app.db.repository.OrganizerKeyRepository;
 import dk.unievent.app.db.repository.UserRepository;
+import dk.unievent.app.infrastructure.exception.EmailAlreadyRegisteredException;
+import dk.unievent.app.infrastructure.exception.InvalidConfirmationTokenException;
+import dk.unievent.app.infrastructure.exception.OrganizerKeyAlreadyUsedException;
+import dk.unievent.app.infrastructure.exception.OrganizerKeyExpiredException;
+import dk.unievent.app.infrastructure.exception.OrganizerKeyNotFoundException;
+import dk.unievent.app.infrastructure.exception.UsernameAlreadyTakenException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import lombok.RequiredArgsConstructor;
@@ -43,17 +49,20 @@ public class OrganizerKeyService {
     private static final String KEY_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
     private static final int KEY_LENGTH = 32;
 
-    /**
-     * Generates a new single-use key for organizer registration.
-     */
+    public long getKeyExpirationSeconds() {
+        return keyExpirationHours * 3600;
+    }
+
     @Transactional
-    public String generateOrganizerKey(String email, Long adminUserId) {
+    public String generateOrganizerKey(String email, String adminEmail) {
+        UserEntity admin = userRepository.findByEmail(adminEmail)
+                .orElseThrow(() -> new IllegalStateException("Admin user not found"));
         String keyValue = generateRandomKey();
 
         OrganizerKeyEntity keyEntity = OrganizerKeyEntity.builder()
                 .keyValue(keyValue)
                 .email(email)
-                .createdBy(adminUserId)
+                .createdBy(admin.getId())
                 .expiresAt(Instant.now().plusSeconds(keyExpirationHours * 3600))
                 .usedAt(null)
                 .build();
@@ -71,16 +80,14 @@ public class OrganizerKeyService {
     @Transactional
     public OrganizerKeyVerifyResponse verifyOrganizerKey(String keyValue) {
         OrganizerKeyEntity keyEntity = organizerKeyRepository.findByKeyValue(keyValue)
-                .orElseThrow(() -> new IllegalArgumentException("Invalid organizer key"));
+                .orElseThrow(OrganizerKeyNotFoundException::new);
 
-        // Check if key is already used
         if (keyEntity.getUsedAt() != null) {
-            throw new IllegalStateException("Organizer key has already been used");
+            throw new OrganizerKeyAlreadyUsedException();
         }
 
-        // Check if key is expired
         if (Instant.now().isAfter(keyEntity.getExpiresAt())) {
-            throw new IllegalStateException("Organizer key has expired");
+            throw new OrganizerKeyExpiredException();
         }
 
         // Generate confirmation token
@@ -106,28 +113,26 @@ public class OrganizerKeyService {
 
         // Verify the key still exists and hasn't been used
         OrganizerKeyEntity keyEntity = organizerKeyRepository.findById(keyId)
-                .orElseThrow(() -> new IllegalStateException("Registration key not found"));
+                .orElseThrow(OrganizerKeyNotFoundException::new);
 
         if (keyEntity.getUsedAt() != null) {
-            throw new IllegalStateException("This key has already been used");
+            throw new OrganizerKeyAlreadyUsedException();
         }
 
         if (Instant.now().isAfter(keyEntity.getExpiresAt())) {
-            throw new IllegalStateException("This key has expired");
+            throw new OrganizerKeyExpiredException();
         }
 
-        // Verify email matches
         if (!keyEntity.getEmail().equalsIgnoreCase(email)) {
             throw new IllegalArgumentException("Email does not match the key");
         }
 
-        // Check if username or email already exists
         if (userRepository.existsByUsername(username)) {
-            throw new IllegalArgumentException("Username is already taken");
+            throw new UsernameAlreadyTakenException();
         }
 
         if (userRepository.existsByEmail(email)) {
-            throw new IllegalArgumentException("Email is already registered");
+            throw new EmailAlreadyRegisteredException();
         }
 
         // Create new organizer user
@@ -211,7 +216,7 @@ public class OrganizerKeyService {
             return Long.valueOf(keyIdObj.toString());
         } catch (Exception ex) {
             log.warn("Invalid confirmation token: {}", ex.getMessage());
-            throw new IllegalArgumentException("Invalid or expired confirmation token", ex);
+            throw new InvalidConfirmationTokenException();
         }
     }
 

@@ -9,6 +9,11 @@ import dk.unievent.app.application.service.RefreshTokenService;
 import dk.unievent.app.application.service.UserService;
 import dk.unievent.app.db.model.UserEntity;
 import dk.unievent.app.db.repository.UserRepository;
+import dk.unievent.app.infrastructure.exception.InvalidConfirmationTokenException;
+import dk.unievent.app.infrastructure.exception.OrganizerKeyAlreadyUsedException;
+import dk.unievent.app.infrastructure.exception.OrganizerKeyExpiredException;
+import dk.unievent.app.infrastructure.exception.OrganizerKeyNotFoundException;
+import dk.unievent.app.infrastructure.exception.UsernameAlreadyTakenException;
 import dk.unievent.app.infrastructure.security.UserDetailsAdapter;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -25,7 +30,6 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import java.util.List;
-import java.util.Optional;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -225,8 +229,8 @@ class AuthControllerTests {
 
     @Test
     void generateOrganizerKeyShouldReturn200WhenAdminAuthenticated() throws Exception {
-        when(userRepository.findByEmail("admin@unievent.internal")).thenReturn(Optional.of(adminUser));
-        when(organizerKeyService.generateOrganizerKey("organizer@example.com", 1L)).thenReturn("GENERATEDKEY123456789012345ABCDE");
+        when(organizerKeyService.generateOrganizerKey("organizer@example.com", "admin@unievent.internal")).thenReturn("GENERATEDKEY123456789012345ABCDE");
+        when(organizerKeyService.getKeyExpirationSeconds()).thenReturn(86400L);
 
         mockMvc.perform(post("/api/auth/organizer-key/generate")
                 .principal(adminAuth)
@@ -281,7 +285,7 @@ class AuthControllerTests {
 
     @Test
     void verifyOrganizerKeyShouldReturn404WhenKeyNotFound() throws Exception {
-        when(organizerKeyService.verifyOrganizerKey(any())).thenThrow(new IllegalArgumentException("Invalid organizer key"));
+        when(organizerKeyService.verifyOrganizerKey(any())).thenThrow(new OrganizerKeyNotFoundException());
 
         mockMvc.perform(post("/api/auth/organizer-key/verify")
                 .contentType(MediaType.APPLICATION_JSON)
@@ -291,7 +295,7 @@ class AuthControllerTests {
 
     @Test
     void verifyOrganizerKeyShouldReturn410WhenKeyAlreadyUsed() throws Exception {
-        when(organizerKeyService.verifyOrganizerKey(any())).thenThrow(new IllegalStateException("Organizer key has already been used"));
+        when(organizerKeyService.verifyOrganizerKey(any())).thenThrow(new OrganizerKeyAlreadyUsedException());
 
         mockMvc.perform(post("/api/auth/organizer-key/verify")
                 .contentType(MediaType.APPLICATION_JSON)
@@ -301,7 +305,7 @@ class AuthControllerTests {
 
     @Test
     void verifyOrganizerKeyShouldReturn401WhenKeyExpired() throws Exception {
-        when(organizerKeyService.verifyOrganizerKey(any())).thenThrow(new IllegalStateException("Organizer key has expired"));
+        when(organizerKeyService.verifyOrganizerKey(any())).thenThrow(new OrganizerKeyExpiredException());
 
         mockMvc.perform(post("/api/auth/organizer-key/verify")
                 .contentType(MediaType.APPLICATION_JSON)
@@ -357,18 +361,18 @@ class AuthControllerTests {
     @Test
     void registerWithKeyShouldReturn401WhenTokenInvalid() throws Exception {
         when(organizerKeyService.completeOrganizerRegistration(any(), any(), any(), any()))
-            .thenThrow(new IllegalArgumentException("Invalid or expired confirmation token"));
+            .thenThrow(new InvalidConfirmationTokenException());
 
         mockMvc.perform(post("/api/auth/register-with-key")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"confirmationToken\":\"bad-token\",\"username\":\"neworg\",\"password\":\"securepassword1\",\"email\":\"organizer@example.com\"}"))
-            .andExpect(status().isBadRequest());
+            .andExpect(status().isUnauthorized());
     }
 
     @Test
     void registerWithKeyShouldReturn409WhenUsernameAlreadyTaken() throws Exception {
         when(organizerKeyService.completeOrganizerRegistration(any(), any(), any(), any()))
-            .thenThrow(new IllegalArgumentException("Username is already taken"));
+            .thenThrow(new UsernameAlreadyTakenException());
 
         mockMvc.perform(post("/api/auth/register-with-key")
                 .contentType(MediaType.APPLICATION_JSON)
@@ -379,11 +383,11 @@ class AuthControllerTests {
     @Test
     void registerWithKeyShouldReturn422WhenKeyAlreadyUsed() throws Exception {
         when(organizerKeyService.completeOrganizerRegistration(any(), any(), any(), any()))
-            .thenThrow(new IllegalStateException("This key has already been used"));
+            .thenThrow(new OrganizerKeyAlreadyUsedException());
 
         mockMvc.perform(post("/api/auth/register-with-key")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"confirmationToken\":\"token\",\"username\":\"neworg\",\"password\":\"securepassword1\",\"email\":\"organizer@example.com\"}"))
-            .andExpect(status().isUnprocessableEntity());
+            .andExpect(status().isGone());
     }
 }

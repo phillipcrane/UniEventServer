@@ -5,7 +5,6 @@ import dk.unievent.app.application.service.RefreshTokenService;
 import dk.unievent.app.application.service.UserService;
 import dk.unievent.app.application.service.OrganizerKeyService;
 import dk.unievent.app.db.model.UserEntity;
-import dk.unievent.app.db.repository.UserRepository;
 import dk.unievent.app.api.dto.AuthResponse;
 import dk.unievent.app.api.dto.LogoutRequest;
 import dk.unievent.app.api.dto.LoginRequest;
@@ -48,7 +47,6 @@ public class AuthController {
     private final RefreshTokenService refreshTokenService;
     private final AuthenticationManager authenticationManager;
     private final OrganizerKeyService organizerKeyService;
-    private final UserRepository userRepository;
     private final EmailService emailService;
 
     @PostMapping("/register")
@@ -140,18 +138,12 @@ public class AuthController {
     public ResponseEntity<GenerateOrganizerKeyResponse> generateOrganizerKey(
             @Valid @RequestBody GenerateOrganizerKeyRequest request,
             Authentication authentication) {
-        // Extract admin user ID from authentication
-        String email = authentication.getName();
-        UserEntity admin = userRepository.findByEmail(email)
-                .orElseThrow(() -> new IllegalStateException("Admin user not found"));
-        String key = organizerKeyService.generateOrganizerKey(request.email(), admin.getId());
-        
-        // Send invitation email asynchronously
+        String key = organizerKeyService.generateOrganizerKey(request.email(), authentication.getName());
         emailService.sendOrganizerInvitationEmailAsync(request.email(), key);
 
         return ResponseEntity.ok(new GenerateOrganizerKeyResponse(
                 "Invitation key has been sent to " + request.email(),
-                86400
+                organizerKeyService.getKeyExpirationSeconds()
         ));
     }
 
@@ -166,19 +158,8 @@ public class AuthController {
     })
     public ResponseEntity<OrganizerKeyVerifyResponse> verifyOrganizerKey(
             @Valid @RequestBody OrganizerKeyVerifyRequest request) {
-        try {
-            OrganizerKeyVerifyResponse response = organizerKeyService.verifyOrganizerKey(request.key());
-            return ResponseEntity.ok(response);
-        } catch (IllegalArgumentException ex) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
-        } catch (IllegalStateException ex) {
-            if ("Organizer key has already been used".equals(ex.getMessage())) {
-                return ResponseEntity.status(HttpStatus.GONE).build();
-            } else if ("Organizer key has expired".equals(ex.getMessage())) {
-                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
-            }
-            return ResponseEntity.badRequest().build();
-        }
+        OrganizerKeyVerifyResponse response = organizerKeyService.verifyOrganizerKey(request.key());
+        return ResponseEntity.ok(response);
     }
 
     @PostMapping("/register-with-key")
@@ -192,32 +173,20 @@ public class AuthController {
     })
     public ResponseEntity<AuthResponse> registerOrganizerWithKey(
             @Valid @RequestBody OrganizerRegisterWithKeyRequest request) {
-        try {
-            UserEntity organizer = organizerKeyService.completeOrganizerRegistration(
-                    request.confirmationToken(),
-                    request.username(),
-                    request.password(),
-                    request.email()
-            );
-            RefreshTokenService.TokenPair tokenPair = refreshTokenService.issueTokenPair(organizer);
-            return ResponseEntity.status(HttpStatus.CREATED).body(new AuthResponse(
-                    tokenPair.accessToken(),
-                    tokenPair.refreshToken(),
-                    organizer.getUsername(),
-                    organizer.getEmail(),
-                    tokenPair.accessTokenExpiresInMs(),
-                    tokenPair.refreshTokenExpiresInMs()
-            ));
-        } catch (IllegalArgumentException ex) {
-            if (ex.getMessage().contains("already taken") || ex.getMessage().contains("already registered")) {
-                return ResponseEntity.status(HttpStatus.CONFLICT).build();
-            }
-            return ResponseEntity.badRequest().build();
-        } catch (IllegalStateException ex) {
-            if (ex.getMessage().contains("already been used")) {
-                return ResponseEntity.status(422).build();
-            }
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
-        }
+        UserEntity organizer = organizerKeyService.completeOrganizerRegistration(
+                request.confirmationToken(),
+                request.username(),
+                request.password(),
+                request.email()
+        );
+        RefreshTokenService.TokenPair tokenPair = refreshTokenService.issueTokenPair(organizer);
+        return ResponseEntity.status(HttpStatus.CREATED).body(new AuthResponse(
+                tokenPair.accessToken(),
+                tokenPair.refreshToken(),
+                organizer.getUsername(),
+                organizer.getEmail(),
+                tokenPair.accessTokenExpiresInMs(),
+                tokenPair.refreshTokenExpiresInMs()
+        ));
     }
 }

@@ -1,5 +1,8 @@
 package dk.unievent.app.application.service;
 
+import dk.unievent.app.application.dto.MediaDTO;
+import dk.unievent.app.db.model.MediaEntity;
+import dk.unievent.app.db.repository.MediaRepository;
 import dk.unievent.app.infrastructure.client.SeaweedFsClient;
 
 import jakarta.annotation.PostConstruct;
@@ -11,12 +14,17 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 import lombok.extern.slf4j.Slf4j;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
 import java.net.URLConnection;
 import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.time.Instant;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
@@ -36,9 +44,53 @@ public class MediaService {
     private Set<String> allowedImageHosts;
 
     private final SeaweedFsClient seaweedClient;
+    private final MediaRepository mediaRepository;
 
-    public MediaService(SeaweedFsClient seaweedClient) {
+    public MediaService(SeaweedFsClient seaweedClient, MediaRepository mediaRepository) {
         this.seaweedClient = seaweedClient;
+        this.mediaRepository = mediaRepository;
+    }
+
+    public Page<MediaDTO> listAll(Pageable pageable) {
+        return mediaRepository.findAll(pageable).map(this::toDto);
+    }
+
+    public MediaEntity findById(Long id) {
+        return mediaRepository.findById(id)
+                .orElseThrow(() -> {
+                    log.warn("Media not found with id: {}", id);
+                    return new java.util.NoSuchElementException("Media not found: " + id);
+                });
+    }
+
+    public MediaDTO storeAndSave(MultipartFile file) throws IOException {
+        String fid = store(file);
+        String detectedContentType = detectMimeType(file.getBytes());
+        String sanitizedFilename = sanitizeFilename(file.getOriginalFilename());
+        MediaEntity entity = MediaEntity.builder()
+                .filename(sanitizedFilename)
+                .contentType(detectedContentType)
+                .fileId(fid)
+                .uploadedAt(Instant.now())
+                .build();
+        return toDto(mediaRepository.save(entity));
+    }
+
+    private String sanitizeFilename(String original) {
+        if (original == null || original.isBlank()) {
+            return "upload_" + System.currentTimeMillis();
+        }
+        return Paths.get(original).getFileName().toString().replaceAll("[^a-zA-Z0-9._\\-]", "_");
+    }
+
+    private MediaDTO toDto(MediaEntity entity) {
+        return MediaDTO.builder()
+                .id(entity.getId())
+                .filename(entity.getFilename())
+                .contentType(entity.getContentType())
+                .fileId(entity.getFileId())
+                .uploadedAt(entity.getUploadedAt())
+                .build();
     }
 
     @PostConstruct
