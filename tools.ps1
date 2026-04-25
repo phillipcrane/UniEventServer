@@ -128,7 +128,11 @@ switch ($cmdLower) {
 
 # ── Server-backed commands: require the server to be reachable ────────────────
 
-$baseUrl = "https://localhost"
+$baseUrl = if ($Remote) {
+    Assert-ValidBaseUrl -BaseUrl $Remote
+} else {
+    "https://localhost"
+}
 
 Write-Info "Connecting to $baseUrl ..."
 if (-not (Test-ServerHealth -BaseUrl $baseUrl -VerboseOutput:$VerboseOutput)) {

@@ -4,17 +4,19 @@
 
 function Get-PageList {
     param([string]$BaseUrl, [switch]$VerboseOutput)
+
+    $BaseUrl = Assert-ValidBaseUrl -BaseUrl $BaseUrl
     $resp = Invoke-AdminRequest -Method "GET" -Url "$BaseUrl/admin/tools/pages" -VerboseOutput:$VerboseOutput
     if ($resp.StatusCode -ne 200) {
         Write-Err "Could not list pages (status $($resp.StatusCode))"
-        if ($resp.Body) { Write-Warn $resp.Body }
+        if ($resp.Body) { Write-Warn (Redact-SensitiveText -Text $resp.Body) }
         exit 1
     }
     try {
         return @($resp.Body | ConvertFrom-Json)
     } catch {
         Write-Err "Could not parse pages response"
-        if ($resp.Body) { Write-Warn $resp.Body }
+        if ($resp.Body) { Write-Warn (Redact-SensitiveText -Text $resp.Body) }
         exit 1
     }
 }
@@ -57,6 +59,8 @@ function Select-PageInteractive {
 
 function Invoke-Ingest {
     param([string]$BaseUrl, [string]$Page, [switch]$VerboseOutput)
+
+    $BaseUrl = Assert-ValidBaseUrl -BaseUrl $BaseUrl
 
     $pageId = $Page
     $pageName = $Page

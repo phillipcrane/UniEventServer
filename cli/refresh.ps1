@@ -5,7 +5,10 @@
 function Invoke-Refresh {
     param([string]$BaseUrl, [string]$Page, [switch]$VerboseOutput)
 
+    $BaseUrl = Assert-ValidBaseUrl -BaseUrl $BaseUrl
+
     if ($Page) {
+        Assert-NonEmpty -Name "Page ID" -Value $Page
         Write-Info "Refreshing token for page: $Page"
         $encodedPage = [System.Uri]::EscapeDataString("$Page")
         $resp = Invoke-AdminRequest -Method "POST" -Url "$BaseUrl/admin/tools/refresh-tokens/$encodedPage" -VerboseOutput:$VerboseOutput

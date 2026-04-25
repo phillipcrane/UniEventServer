@@ -5,6 +5,8 @@
 function Invoke-Seed {
     param([string]$BaseUrl, [switch]$Wipe, [switch]$VerboseOutput)
 
+    $BaseUrl = Assert-ValidBaseUrl -BaseUrl $BaseUrl
+
     if ($Wipe) {
         Write-Info "Clearing seed data..."
         $resp = Invoke-AdminRequest -Method "DELETE" -Url "$BaseUrl/admin/tools/seed" -VerboseOutput:$VerboseOutput

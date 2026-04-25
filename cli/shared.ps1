@@ -19,7 +19,8 @@ function Redact-SensitiveText {
         '(?im)((?:token|password|secret|authorization|client_secret|access_token|refresh_token)\s*[:=]\s*)([^\s,;]+)',
         '(?im)("(?:token|password|secret|authorization|client_secret|access_token|refresh_token)"\s*:\s*")([^"]+)(")',
         '(?im)(Bearer\s+)([A-Za-z0-9\-\._~\+/=]+)',
-        '(?im)((?:VAULT_TOKEN|VAULT_ROOT_TOKEN|VAULT_UNSEAL_TOKEN)\s*=\s*)([^\s]+)'
+        '(?im)((?:VAULT_TOKEN|VAULT_ROOT_TOKEN|VAULT_UNSEAL_TOKEN|confirmationToken|inviteKey|invitationKey)\s*[:=]\s*)([^\s,;]+)',
+        '(?im)("(?:confirmationToken|inviteKey|invitationKey)"\s*:\s*")([^"]+)(")'
     )
 
     foreach ($pattern in $patterns) {
@@ -27,6 +28,71 @@ function Redact-SensitiveText {
     }
 
     return $redacted
+}
+
+function Resolve-BaseUrl {
+    param([string]$RawBaseUrl)
+
+    $candidate = if ($RawBaseUrl) { $RawBaseUrl.Trim() } else { "" }
+    if (-not $candidate) {
+        throw "Base URL cannot be empty"
+    }
+
+    $uri = $null
+    if (-not [System.Uri]::TryCreate($candidate, [System.UriKind]::Absolute, [ref]$uri)) {
+        throw "Invalid URL format: '$candidate'"
+    }
+
+    if ($uri.Scheme -ne "http" -and $uri.Scheme -ne "https") {
+        throw "Unsupported URL scheme '$($uri.Scheme)'. Use http:// or https://"
+    }
+
+    if ($uri.Scheme -eq "http") {
+        $host = $uri.Host.ToLowerInvariant()
+        $isLocal = ($host -eq "localhost" -or $host -eq "127.0.0.1" -or $host -eq "::1")
+        if (-not $isLocal) {
+            throw "Refusing insecure HTTP for non-localhost target '$candidate'. Use HTTPS."
+        }
+    }
+
+    $builder = New-Object System.UriBuilder($uri)
+    $builder.Path = ""
+    $builder.Query = ""
+    $builder.Fragment = ""
+
+    return $builder.Uri.AbsoluteUri.TrimEnd('/')
+}
+
+function Assert-ValidBaseUrl {
+    param([string]$BaseUrl)
+
+    try {
+        return Resolve-BaseUrl -RawBaseUrl $BaseUrl
+    } catch {
+        Write-Err "Invalid base URL: $($_.Exception.Message)"
+        exit 1
+    }
+}
+
+function Assert-NonEmpty {
+    param([string]$Name, [string]$Value)
+
+    if (-not $Value -or -not $Value.Trim()) {
+        Write-Err "$Name must not be empty"
+        exit 1
+    }
+}
+
+function Test-ValidEmail {
+    param([string]$Email)
+
+    if (-not $Email) { return $false }
+    try {
+        $mail = [System.Net.Mail.MailAddress]::new($Email)
+        return ($mail.Address -eq $Email)
+    } catch {
+        return $false
+    }
 }
 
 function Show-Help {
@@ -262,12 +328,16 @@ function Test-ServerHealth {
     return $false
 }
 
-$script:_adminToken = $null
+$script:_adminTokenByBaseUrl = @{}
 
 function Get-AdminToken {
     param([string]$BaseUrl)
 
-    if ($script:_adminToken) { return $script:_adminToken }
+    $BaseUrl = Assert-ValidBaseUrl -BaseUrl $BaseUrl
+
+    if ($script:_adminTokenByBaseUrl.ContainsKey($BaseUrl) -and $script:_adminTokenByBaseUrl[$BaseUrl]) {
+        return $script:_adminTokenByBaseUrl[$BaseUrl]
+    }
 
     $envVars  = Load-DotEnv
     $password = $envVars["ADMIN_PASSWORD"]
@@ -280,7 +350,10 @@ function Get-AdminToken {
 
     $email = "cli@unievent.internal"
 
-    $loginBody = "{`"email`":`"$email`",`"password`":`"$password`"}"
+    $loginBody = @{
+        email = $email
+        password = $password
+    } | ConvertTo-Json -Compress
     try {
         $resp  = Invoke-Web -Uri "$BaseUrl/api/auth/login" -Method "POST" `
             -Headers @{ "Content-Type" = "application/json" } -Body $loginBody -TimeoutSec 15
@@ -296,14 +369,19 @@ function Get-AdminToken {
         exit 1
     }
 
-    $script:_adminToken = $token
+    $script:_adminTokenByBaseUrl[$BaseUrl] = $token
     return $token
 }
 
 function Invoke-AdminRequest {
     param([string]$Method, [string]$Url, [switch]$VerboseOutput)
 
-    $uri     = [System.Uri]$Url
+    $uri = $null
+    if (-not [System.Uri]::TryCreate($Url, [System.UriKind]::Absolute, [ref]$uri)) {
+        Write-Err "Invalid request URL: $Url"
+        exit 1
+    }
+
     $baseUrl = "$($uri.Scheme)://$($uri.Authority)"
     $token   = Get-AdminToken -BaseUrl $baseUrl
 
@@ -317,13 +395,27 @@ function Invoke-AdminRequest {
         $resp = Invoke-Web -Uri $Url -Method $Method -Headers $headers -TimeoutSec 120
         return @{ StatusCode = $resp.StatusCode; Body = $resp.Content }
     } catch [System.Net.WebException] {
-        $statusCode = [int]$_.Exception.Response.StatusCode
-        $body = ""
-        if ($null -ne $_.Exception.Response) {
-            $stream = $_.Exception.Response.GetResponseStream()
-            $reader = New-Object System.IO.StreamReader($stream)
-            $body = $reader.ReadToEnd()
+        $response = $_.Exception.Response
+        if ($null -eq $response) {
+            Write-Err "Request failed: $($_.Exception.Message)"
+            exit 1
         }
+
+        $statusCode = [int]$response.StatusCode
+        $body = ""
+        $stream = $null
+        $reader = $null
+        try {
+            $stream = $response.GetResponseStream()
+            if ($null -ne $stream) {
+                $reader = New-Object System.IO.StreamReader($stream)
+                $body = $reader.ReadToEnd()
+            }
+        } finally {
+            if ($null -ne $reader) { $reader.Dispose() }
+            if ($null -ne $stream) { $stream.Dispose() }
+        }
+
         return @{ StatusCode = $statusCode; Body = $body }
     } catch {
         # PS7 wraps non-2xx in HttpResponseException. The Response content stream is

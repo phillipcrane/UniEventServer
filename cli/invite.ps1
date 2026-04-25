@@ -11,7 +11,14 @@ function Invoke-TestOrganizerKey {
         [switch]$VerboseOutput
     )
 
-    $BaseUrl = $BaseUrl.TrimEnd("/")
+        $BaseUrl = Assert-ValidBaseUrl -BaseUrl $BaseUrl
+
+        if (-not (Test-ValidEmail -Email $Email)) {
+            Write-Err "Invalid email address: $Email"
+            exit 1
+        }
+
+        Assert-NonEmpty -Name "Organization name" -Value $OrgName
     
     Write-Step "Testing Organizer Key Registration Flow"
     Write-Info "Target: $BaseUrl"
@@ -48,7 +55,8 @@ function Invoke-TestOrganizerKey {
         if ($VerboseOutput) {
             Write-Host ""
             Write-Info "Response:"
-            Write-Host ($body | ConvertTo-Json) -ForegroundColor Gray
+            $responseText = $body | ConvertTo-Json -Depth 5
+            Write-Host (Redact-SensitiveText -Text $responseText) -ForegroundColor Gray
         }
     } catch {
         Write-Err "Failed to generate organizer key: $($_.Exception.Message)"
@@ -60,12 +68,12 @@ function Invoke-TestOrganizerKey {
     Write-Host ""
     Write-Info "Check your inbox at: $Email"
     Write-Info "Look for subject: 'You're Invited to Organize Events on UniEvent!'"
-    Write-Info "Copy the 32-character invitation key from the email"
+    Write-Info "Copy the 32-character invitation key from the email (letters and numbers)"
     Write-Host ""
     $keyValue = Read-Host "Paste the key here"
     
-    if (-not $keyValue -or $keyValue.Length -ne 32) {
-        Write-Err "Invalid key format. Key should be 32 characters."
+    if (-not $keyValue -or $keyValue.Length -ne 32 -or $keyValue -notmatch '^[A-Za-z0-9]{32}$') {
+        Write-Err "Invalid key format. Key must be exactly 32 alphanumeric characters."
         exit 1
     }
     Write-Ok "Key received"
@@ -81,8 +89,11 @@ function Invoke-TestOrganizerKey {
 
     if ($regMethod -eq "1") {
         Invoke-RegistrationInTool -BaseUrl $BaseUrl -Email $Email -KeyValue $keyValue -VerboseOutput:$VerboseOutput
-    } else {
+    } elseif ($regMethod -eq "2") {
         Invoke-RegistrationOnWebsite -Email $Email -KeyValue $keyValue
+    } else {
+        Write-Err "Invalid choice '$regMethod'. Expected 1 or 2."
+        exit 1
     }
 
     Write-Sep
@@ -95,6 +106,16 @@ function Invoke-RegistrationInTool {
         [string]$KeyValue,
         [switch]$VerboseOutput
     )
+
+        $BaseUrl = Assert-ValidBaseUrl -BaseUrl $BaseUrl
+        if (-not (Test-ValidEmail -Email $Email)) {
+            Write-Err "Invalid email address: $Email"
+            exit 1
+        }
+        if (-not $KeyValue -or $KeyValue -notmatch '^[A-Za-z0-9]{32}$') {
+            Write-Err "Invalid organizer key format"
+            exit 1
+        }
 
     Write-Step "[1/3] Verifying organizer key..."
     
@@ -123,6 +144,7 @@ function Invoke-RegistrationInTool {
     Write-Host ""
     Write-Step "[2/3] Enter registration details"
     $username = Read-Host "Username (3-50 characters)"
+    Assert-NonEmpty -Name "Username" -Value $username
     
     if ($username.Length -lt 3 -or $username.Length -gt 50) {
         Write-Err "Username must be 3-50 characters"
@@ -130,9 +152,13 @@ function Invoke-RegistrationInTool {
     }
 
     $password = Read-Host "Password (12-100 characters, keep secure)" -AsSecureString
-    $passwordPlain = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto(
-        [System.Runtime.InteropServices.Marshal]::SecureStringToCoTaskMemUnicode($password)
-    )
+    $bstr = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($password)
+    $passwordPlain = $null
+    try {
+        $passwordPlain = [System.Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr)
+    } finally {
+        [System.Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr)
+    }
 
     if ($passwordPlain.Length -lt 12 -or $passwordPlain.Length -gt 100) {
         Write-Err "Password must be 12-100 characters"
@@ -167,6 +193,10 @@ function Invoke-RegistrationInTool {
     } catch {
         Write-Err "Registration failed: $($_.Exception.Message)"
         exit 1
+    } finally {
+        if ($null -ne $passwordPlain) {
+            $passwordPlain = ""
+        }
     }
 
     Write-Host ""
@@ -198,7 +228,14 @@ function Invoke-RegistrationOnWebsite {
     Write-Host ""
     
     if ($KeyValue) {
-        Write-Host "   Invitation Key: $KeyValue" -ForegroundColor Yellow
+        $maskedKey = ""
+        if ($KeyValue.Length -ge 8) {
+            $maskedKey = "$($KeyValue.Substring(0,4))************************$($KeyValue.Substring($KeyValue.Length - 4, 4))"
+        } else {
+            $maskedKey = "(hidden)"
+        }
+
+        Write-Host "   Invitation Key: $maskedKey" -ForegroundColor Yellow
         Write-Host "   (Key already available - copy and paste above)"
     } else {
         Write-Host "   Get the key from your email at: $Email" -ForegroundColor Yellow
