@@ -15,6 +15,8 @@ import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.filter.ForwardedHeaderFilter;
 
+import dk.unievent.app.infrastructure.filter.CookieAuthenticationFilter;
+import dk.unievent.app.infrastructure.filter.CsrfValidationFilter;
 import dk.unievent.app.infrastructure.filter.JwtAuthenticationFilter;
 
 import java.util.Arrays;
@@ -63,7 +65,12 @@ public class SecurityConfig {
     }
 
     @Bean
-    public SecurityFilterChain filterChain(HttpSecurity http, JwtAuthenticationFilter jwtAuthenticationFilter) throws Exception {
+    public SecurityFilterChain filterChain(
+            HttpSecurity http,
+            CookieAuthenticationFilter cookieAuthenticationFilter,
+            JwtAuthenticationFilter jwtAuthenticationFilter,
+            CsrfValidationFilter csrfValidationFilter
+    ) throws Exception {
         boolean devProfile = Arrays.asList(environment.getActiveProfiles()).contains("dev");
 
         http
@@ -92,6 +99,7 @@ public class SecurityConfig {
             })
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .cors(cors -> {})
+            // Custom CSRF filter is used to validate cookie-authenticated state-changing requests.
             .csrf(csrf -> csrf.disable())
             .httpBasic(basic -> basic.disable())
             .headers(headers -> headers
@@ -100,7 +108,9 @@ public class SecurityConfig {
                     .maxAgeInSeconds(31536000)
                 )
             )
-            .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+            .addFilterBefore(cookieAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+            .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+            .addFilterAfter(csrfValidationFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }

@@ -3,12 +3,14 @@ package dk.unievent.app.api.controller;
 import dk.unievent.app.api.dto.OrganizerKeyVerifyResponse;
 import dk.unievent.app.api.handler.GlobalExceptionHandler;
 import dk.unievent.app.application.dto.UserDTO;
+import dk.unievent.app.application.service.CsrfTokenService;
 import dk.unievent.app.application.service.EmailService;
 import dk.unievent.app.application.service.OrganizerKeyService;
 import dk.unievent.app.application.service.RefreshTokenService;
 import dk.unievent.app.application.service.UserService;
 import dk.unievent.app.db.model.UserEntity;
 import dk.unievent.app.db.repository.UserRepository;
+import dk.unievent.app.infrastructure.config.CookieConfig;
 import dk.unievent.app.infrastructure.exception.InvalidConfirmationTokenException;
 import dk.unievent.app.infrastructure.exception.OrganizerKeyAlreadyUsedException;
 import dk.unievent.app.infrastructure.exception.OrganizerKeyExpiredException;
@@ -33,6 +35,7 @@ import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -59,6 +62,12 @@ class AuthControllerTests {
 
     @Mock
     private EmailService emailService;
+
+    @Mock
+    private CsrfTokenService csrfTokenService;
+
+    @Mock
+    private CookieConfig cookieConfig;
 
     @InjectMocks
     private AuthController authController;
@@ -104,6 +113,18 @@ class AuthControllerTests {
             "admin@unievent.internal", null,
             List.of(new SimpleGrantedAuthority("ROLE_ADMIN"))
         );
+
+        lenient().when(csrfTokenService.generateToken()).thenReturn("csrf-token-value");
+        lenient().when(cookieConfig.getAccessName()).thenReturn("auth_access");
+        lenient().when(cookieConfig.getRefreshName()).thenReturn("auth_refresh");
+        lenient().when(cookieConfig.getCsrfName()).thenReturn("csrf_token");
+        lenient().when(cookieConfig.getAccessMaxAge()).thenReturn(3600);
+        lenient().when(cookieConfig.getRefreshMaxAge()).thenReturn(86400);
+        lenient().when(cookieConfig.getCsrfMaxAge()).thenReturn(3600);
+        lenient().when(cookieConfig.getPath()).thenReturn("/");
+        lenient().when(cookieConfig.getSameSite()).thenReturn("Strict");
+        lenient().when(cookieConfig.isSecure()).thenReturn(false);
+        lenient().when(cookieConfig.getDomain()).thenReturn("");
     }
 
     @AfterEach

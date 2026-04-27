@@ -6,5 +6,6 @@ public record AuthResponse(
 	String username,
 	String email,
 	long accessTokenExpiresInMs,
-	long refreshTokenExpiresInMs
+	long refreshTokenExpiresInMs,
+	String csrfToken
 ) {}

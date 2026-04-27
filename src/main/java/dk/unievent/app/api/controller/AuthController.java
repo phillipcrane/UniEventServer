@@ -4,6 +4,7 @@ import dk.unievent.app.application.dto.UserDTO;
 import dk.unievent.app.application.service.RefreshTokenService;
 import dk.unievent.app.application.service.UserService;
 import dk.unievent.app.application.service.OrganizerKeyService;
+import dk.unievent.app.application.service.CsrfTokenService;
 import dk.unievent.app.db.model.UserEntity;
 import dk.unievent.app.api.dto.AuthResponse;
 import dk.unievent.app.api.dto.LogoutRequest;
@@ -15,6 +16,7 @@ import dk.unievent.app.api.dto.OrganizerKeyVerifyResponse;
 import dk.unievent.app.api.dto.OrganizerRegisterWithKeyRequest;
 import dk.unievent.app.api.dto.GenerateOrganizerKeyRequest;
 import dk.unievent.app.api.dto.GenerateOrganizerKeyResponse;
+import dk.unievent.app.infrastructure.config.CookieConfig;
 import dk.unievent.app.infrastructure.security.UserDetailsAdapter;
 import dk.unievent.app.application.service.EmailService;
 import dk.unievent.app.infrastructure.config.RoleConstants;
@@ -24,9 +26,12 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.ResponseCookie;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -37,6 +42,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.util.WebUtils;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -49,6 +55,8 @@ public class AuthController {
     private final AuthenticationManager authenticationManager;
     private final OrganizerKeyService organizerKeyService;
     private final EmailService emailService;
+        private final CsrfTokenService csrfTokenService;
+        private final CookieConfig cookieConfig;
 
     @PostMapping("/register")
     @Operation(summary = "Register a new user", description = "Create a new user account with email, username, and password. All self-registered users get the 'user' role. To register as an organizer, use the invitation key flow.")
@@ -57,16 +65,19 @@ public class AuthController {
             @ApiResponse(responseCode = "400", description = "Invalid request body"),
             @ApiResponse(responseCode = "409", description = "User already exists")
     })
-    public ResponseEntity<AuthResponse> register(@Valid @RequestBody RegisterRequest request) {
+    public ResponseEntity<AuthResponse> register(@Valid @RequestBody RegisterRequest request, HttpServletResponse response) {
         UserEntity user = userService.register(new UserDTO(request.username(), request.email(), request.password(), RoleConstants.USER));
         RefreshTokenService.TokenPair tokenPair = refreshTokenService.issueTokenPair(user);
+        String csrfToken = csrfTokenService.generateToken();
+        writeAuthCookies(response, tokenPair, csrfToken);
         return ResponseEntity.ok(new AuthResponse(
                 tokenPair.accessToken(),
                 tokenPair.refreshToken(),
                 user.getUsername(),
                 user.getEmail(),
                 tokenPair.accessTokenExpiresInMs(),
-                tokenPair.refreshTokenExpiresInMs()
+                tokenPair.refreshTokenExpiresInMs(),
+                csrfToken
         ));
     }
 
@@ -78,19 +89,22 @@ public class AuthController {
             @ApiResponse(responseCode = "401", description = "Invalid credentials"),
             @ApiResponse(responseCode = "404", description = "User not found")
     })
-    public ResponseEntity<AuthResponse> login(@Valid @RequestBody LoginRequest request) {
+    public ResponseEntity<AuthResponse> login(@Valid @RequestBody LoginRequest request, HttpServletResponse response) {
         Authentication auth = authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(request.email(), request.password())
         );
         UserEntity user = ((UserDetailsAdapter) auth.getPrincipal()).getUser();
         RefreshTokenService.TokenPair tokenPair = refreshTokenService.issueTokenPair(user);
+        String csrfToken = csrfTokenService.generateToken();
+        writeAuthCookies(response, tokenPair, csrfToken);
         return ResponseEntity.ok(new AuthResponse(
                 tokenPair.accessToken(),
                 tokenPair.refreshToken(),
                 user.getUsername(),
                 user.getEmail(),
                 tokenPair.accessTokenExpiresInMs(),
-                tokenPair.refreshTokenExpiresInMs()
+                tokenPair.refreshTokenExpiresInMs(),
+                csrfToken
         ));
     }
 
@@ -101,18 +115,23 @@ public class AuthController {
             @ApiResponse(responseCode = "400", description = "Invalid request body"),
             @ApiResponse(responseCode = "401", description = "Invalid or expired refresh token")
     })
-    public ResponseEntity<AuthResponse> refresh(@Valid @RequestBody RefreshRequest request,
-                                                HttpServletRequest httpRequest) {
+    public ResponseEntity<AuthResponse> refresh(@RequestBody(required = false) RefreshRequest request,
+                                                HttpServletRequest httpRequest,
+                                                HttpServletResponse response) {
+        String refreshToken = resolveRefreshToken(httpRequest, request);
         String userAgent = httpRequest.getHeader("User-Agent");
         String ipAddress = httpRequest.getRemoteAddr();
-        RefreshTokenService.TokenPair tokenPair = refreshTokenService.rotate(request.refreshToken(), userAgent, ipAddress);
+        RefreshTokenService.TokenPair tokenPair = refreshTokenService.rotate(refreshToken, userAgent, ipAddress);
+        String csrfToken = csrfTokenService.generateToken();
+        writeAuthCookies(response, tokenPair, csrfToken);
         return ResponseEntity.ok(new AuthResponse(
                 tokenPair.accessToken(),
                 tokenPair.refreshToken(),
                 tokenPair.username(),
                 tokenPair.email(),
                 tokenPair.accessTokenExpiresInMs(),
-                tokenPair.refreshTokenExpiresInMs()
+                tokenPair.refreshTokenExpiresInMs(),
+                csrfToken
         ));
     }
 
@@ -122,8 +141,12 @@ public class AuthController {
             @ApiResponse(responseCode = "204", description = "User successfully logged out"),
             @ApiResponse(responseCode = "400", description = "Invalid request body")
     })
-    public ResponseEntity<Void> logout(@Valid @RequestBody LogoutRequest request) {
-        refreshTokenService.logout(request.refreshToken());
+        public ResponseEntity<Void> logout(@RequestBody(required = false) LogoutRequest request,
+                                                                           HttpServletRequest httpRequest,
+                                                                           HttpServletResponse response) {
+                String refreshToken = resolveRefreshToken(httpRequest, request);
+                refreshTokenService.logout(refreshToken);
+                clearAuthCookies(response);
         return ResponseEntity.noContent().build();
     }
 
@@ -173,7 +196,8 @@ public class AuthController {
             @ApiResponse(responseCode = "422", description = "Confirmation token already used")
     })
     public ResponseEntity<AuthResponse> registerOrganizerWithKey(
-            @Valid @RequestBody OrganizerRegisterWithKeyRequest request) {
+            @Valid @RequestBody OrganizerRegisterWithKeyRequest request,
+            HttpServletResponse response) {
         UserEntity organizer = organizerKeyService.completeOrganizerRegistration(
                 request.confirmationToken(),
                 request.username(),
@@ -181,13 +205,80 @@ public class AuthController {
                 request.email()
         );
         RefreshTokenService.TokenPair tokenPair = refreshTokenService.issueTokenPair(organizer);
+        String csrfToken = csrfTokenService.generateToken();
+        writeAuthCookies(response, tokenPair, csrfToken);
         return ResponseEntity.status(HttpStatus.CREATED).body(new AuthResponse(
                 tokenPair.accessToken(),
                 tokenPair.refreshToken(),
                 organizer.getUsername(),
                 organizer.getEmail(),
                 tokenPair.accessTokenExpiresInMs(),
-                tokenPair.refreshTokenExpiresInMs()
+                tokenPair.refreshTokenExpiresInMs(),
+                csrfToken
         ));
+    }
+
+    private String resolveRefreshToken(HttpServletRequest request, RefreshRequest refreshRequest) {
+        jakarta.servlet.http.Cookie refreshCookie = WebUtils.getCookie(request, cookieConfig.getRefreshName());
+        if (refreshCookie != null && !refreshCookie.getValue().isBlank()) {
+            return refreshCookie.getValue();
+        }
+        if (refreshRequest != null && refreshRequest.refreshToken() != null && !refreshRequest.refreshToken().isBlank()) {
+            return refreshRequest.refreshToken();
+        }
+        throw new IllegalArgumentException("Refresh token is required.");
+    }
+
+    private String resolveRefreshToken(HttpServletRequest request, LogoutRequest logoutRequest) {
+        jakarta.servlet.http.Cookie refreshCookie = WebUtils.getCookie(request, cookieConfig.getRefreshName());
+        if (refreshCookie != null && !refreshCookie.getValue().isBlank()) {
+            return refreshCookie.getValue();
+        }
+        if (logoutRequest != null && logoutRequest.refreshToken() != null && !logoutRequest.refreshToken().isBlank()) {
+            return logoutRequest.refreshToken();
+        }
+        throw new IllegalArgumentException("Refresh token is required.");
+    }
+
+    private void writeAuthCookies(HttpServletResponse response, RefreshTokenService.TokenPair tokenPair, String csrfToken) {
+        addCookie(response, cookieConfig.getAccessName(), tokenPair.accessToken(), cookieConfig.getAccessMaxAge(), true);
+        addCookie(response, cookieConfig.getRefreshName(), tokenPair.refreshToken(), cookieConfig.getRefreshMaxAge(), true);
+        addCookie(response, cookieConfig.getCsrfName(), csrfToken, cookieConfig.getCsrfMaxAge(), false);
+    }
+
+    private void clearAuthCookies(HttpServletResponse response) {
+        clearCookie(response, cookieConfig.getAccessName(), true);
+        clearCookie(response, cookieConfig.getRefreshName(), true);
+        clearCookie(response, cookieConfig.getCsrfName(), false);
+    }
+
+    private void addCookie(HttpServletResponse response, String name, String value, long maxAgeSeconds, boolean httpOnly) {
+        ResponseCookie.ResponseCookieBuilder builder = ResponseCookie.from(name, value)
+                .path(cookieConfig.getPath())
+                .httpOnly(httpOnly)
+                .secure(cookieConfig.isSecure())
+                .sameSite(cookieConfig.getSameSite())
+                .maxAge(maxAgeSeconds);
+
+        if (cookieConfig.getDomain() != null && !cookieConfig.getDomain().isBlank()) {
+            builder.domain(cookieConfig.getDomain());
+        }
+
+        response.addHeader(HttpHeaders.SET_COOKIE, builder.build().toString());
+    }
+
+    private void clearCookie(HttpServletResponse response, String name, boolean httpOnly) {
+        ResponseCookie.ResponseCookieBuilder builder = ResponseCookie.from(name, "")
+                .path(cookieConfig.getPath())
+                .httpOnly(httpOnly)
+                .secure(cookieConfig.isSecure())
+                .sameSite(cookieConfig.getSameSite())
+                .maxAge(0);
+
+        if (cookieConfig.getDomain() != null && !cookieConfig.getDomain().isBlank()) {
+            builder.domain(cookieConfig.getDomain());
+        }
+
+        response.addHeader(HttpHeaders.SET_COOKIE, builder.build().toString());
     }
 }
