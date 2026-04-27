@@ -1,5 +1,6 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef } from 'react';
 import type { Page } from '../types';
+import { useClickOutside } from '../hooks/useClickOutside';
 
 export function MultiSelectFilter({
   pages,
@@ -13,16 +14,7 @@ export function MultiSelectFilter({
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
-        setIsOpen(false);
-      }
-    }
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+  useClickOutside(containerRef, isOpen, () => setIsOpen(false));
 
   const handleToggle = (pageId: string) => {
     const updated = selectedIds.includes(pageId)

@@ -40,6 +40,10 @@ export interface Place {
     location?: Location;
 }
 
+// Controls how events are ordered on the main listing page.
+// "upcoming" = soonest first; "newest" = most recently added first; "all" = no future-only filter, sorted upcoming.
+export type SortMode = 'upcoming' | 'newest' | 'all';
+
 // Event Page Component Props
 export interface EventHeaderProps {
     onBack: () => void;

@@ -7,10 +7,10 @@ import { Footer } from '../components/Footer';
 import { HeaderLogoLink } from '../components/HeaderLogoLink';
 import { UserMenu } from '../components/UserMenu';
 import { getEvents, getPages } from '../services/dal';
-import { getAuthToken, mapAuthError, signOutCurrentUser } from '../services/auth';
+import { mapAuthError, signOutCurrentUser } from '../services/auth';
 import { getFacebookAuthUrl } from '../services/facebook';
 import { parseDateOnly, startOfDayMs, endOfDayMs } from '../utils/dateUtils';
-import type { Event as EventType, Page } from '../types';
+import type { Event as EventType, Page, SortMode } from '../types';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { CalendarDays, LayoutList } from 'lucide-react';
@@ -31,7 +31,7 @@ export function MainPage() {
   const [debouncedQuery, setDebouncedQuery] = useState<string>('');
   const [fromDate, setFromDate] = useState<string>('');
   const [toDate, setToDate] = useState<string>('');
-  const [sortMode, setSortMode] = useState<'newest' | 'upcoming' | 'all'>('upcoming');
+  const [sortMode, setSortMode] = useState<SortMode>('upcoming');
   const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list');
 
   useEffect(() => {
@@ -77,21 +77,24 @@ export function MainPage() {
       setFbMessage({ kind: 'success', text: `Facebook connected - ${pages ?? '0'} page(s) linked.` });
       window.history.replaceState({}, '', window.location.pathname);
     } else if (fbError) {
-      setFbMessage({ kind: 'error', text: `Facebook error: ${fbError}` });
+      // Map known OAuth error codes to friendly messages instead of surfacing raw
+      // provider strings. Unknown codes get a generic fallback.
+      const FB_ERROR_MESSAGES: Record<string, string> = {
+        access_denied: 'Facebook access was denied. Please try again and accept the required permissions.',
+        server_error: 'Facebook encountered a server error. Please try again later.',
+        temporarily_unavailable: 'Facebook is temporarily unavailable. Please try again later.',
+      };
+      const friendlyError = FB_ERROR_MESSAGES[fbError] ?? 'Could not connect Facebook. Please try again.';
+      setFbMessage({ kind: 'error', text: friendlyError });
       window.history.replaceState({}, '', window.location.pathname);
     }
   }, []);
 
   async function handleFacebookConnect() {
-    const token = getAuthToken();
-    if (!token) {
-      setFbMessage({ kind: 'error', text: 'You must be logged in to connect Facebook.' });
-      return;
-    }
     try {
       setFbConnecting(true);
       setFbMessage(null);
-      const url = await getFacebookAuthUrl(token);
+      const url = await getFacebookAuthUrl();
       window.location.href = url;
     } catch (err) {
       setFbMessage({ kind: 'error', text: err instanceof Error ? err.message : 'Could not start Facebook login.' });

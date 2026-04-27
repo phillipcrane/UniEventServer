@@ -38,9 +38,64 @@ function notifyListeners(user: AuthUser | null): void {
     listeners.forEach((cb) => cb(user));
 }
 
+function normalizeRole(value: unknown): AccountRole | undefined {
+    if (typeof value !== 'string') return undefined;
+    const normalized = value.trim().toUpperCase();
+    if (normalized === 'ORGANIZER' || normalized === 'ROLE_ORGANIZER') return 'organizer';
+    if (normalized === 'USER' || normalized === 'ROLE_USER') return 'user';
+    return undefined;
+}
+
+function resolveAccountRole(
+    roleCandidate: unknown,
+    organizerNamesCandidate: unknown,
+    fallback: AccountRole = 'user',
+): AccountRole {
+    const normalizedRole = normalizeRole(roleCandidate);
+    if (normalizedRole) return normalizedRole;
+
+    if (Array.isArray(organizerNamesCandidate) && organizerNamesCandidate.length > 0) {
+        return 'organizer';
+    }
+
+    return fallback;
+}
+
+function getRoleFromJwt(token: string): AccountRole | undefined {
+    try {
+        const [, payloadBase64] = token.split('.');
+        if (!payloadBase64) return undefined;
+
+        const padded = payloadBase64.padEnd(payloadBase64.length + ((4 - (payloadBase64.length % 4)) % 4), '=');
+        const payloadJson = atob(padded.replace(/-/g, '+').replace(/_/g, '/'));
+        const payload = JSON.parse(payloadJson) as { roles?: unknown; role?: unknown };
+
+        if (Array.isArray(payload.roles)) {
+            for (const roleValue of payload.roles) {
+                if (normalizeRole(roleValue) === 'organizer') return 'organizer';
+            }
+            for (const roleValue of payload.roles) {
+                if (normalizeRole(roleValue) === 'user') return 'user';
+            }
+        }
+
+        return normalizeRole(payload.role);
+    } catch {
+        return undefined;
+    }
+}
+
 function persistUser(user: AuthUser): void {
     localStorage.setItem(TOKEN_KEY, user.token);
-    localStorage.setItem(USER_KEY, JSON.stringify({ username: user.username, email: user.email }));
+    localStorage.setItem(USER_KEY, JSON.stringify({
+        username: user.username,
+        email: user.email,
+        uid: user.uid,
+        displayName: user.displayName,
+        photoURL: user.photoURL,
+        role: user.role,
+        organizerNames: user.organizerNames,
+    }));
 }
 
 function clearUser(): void {
@@ -53,8 +108,30 @@ export function getCurrentUser(): AuthUser | null {
     const raw = localStorage.getItem(USER_KEY);
     if (!token || !raw) return null;
     try {
-        const { username, email } = JSON.parse(raw) as { username: string; email: string };
-        return { username, email, token, uid: username, displayName: username };
+        const stored = JSON.parse(raw) as {
+            username: string;
+            email: string;
+            uid?: string;
+            displayName?: string;
+            photoURL?: string | null;
+            role?: AccountRole;
+            organizerNames?: string[];
+        };
+
+        const roleFromToken = getRoleFromJwt(token);
+
+        const organizerNames = Array.isArray(stored.organizerNames) ? stored.organizerNames : undefined;
+
+        return {
+            username: stored.username,
+            email: stored.email,
+            token,
+            uid: stored.uid ?? stored.username,
+            displayName: stored.displayName ?? stored.username,
+            photoURL: stored.photoURL,
+            role: resolveAccountRole(roleFromToken ?? stored.role, organizerNames),
+            organizerNames,
+        };
     } catch {
         return null;
     }
@@ -80,7 +157,14 @@ export async function loginWithEmail(email: string, password: string): Promise<A
     }
 
     const data = await response.json() as { token: string; username: string; email: string };
-    const user: AuthUser = { token: data.token, username: data.username, email: data.email, uid: data.username, displayName: data.username };
+    const user: AuthUser = {
+        token: data.token,
+        username: data.username,
+        email: data.email,
+        uid: data.username,
+        displayName: data.username,
+        role: getRoleFromJwt(data.token),
+    };
     persistUser(user);
     notifyListeners(user);
     return user;
@@ -108,7 +192,7 @@ export async function signupWithEmail({ username, email, password, role, organiz
         email: data.email,
         uid: data.username,
         displayName: data.username,
-        role,
+        role: getRoleFromJwt(data.token) ?? role,
         organizerNames: organizerNames ? [...organizerNames] : undefined,
     };
     persistUser(user);
@@ -153,6 +237,9 @@ export async function getAccountProfile(uid?: string): Promise<{ role: AccountRo
         return { role: 'user', organizerNames: [] };
     }
 
+    const fallbackRole = resolveAccountRole(user.role ?? getRoleFromJwt(user.token), user.organizerNames);
+    const fallbackOrganizerNames = Array.isArray(user.organizerNames) ? [...user.organizerNames] : [];
+
     const response = await fetch(`${BACKEND_URL}/api/auth/profile`, {
         headers: {
             'Content-Type': 'application/json',
@@ -161,15 +248,14 @@ export async function getAccountProfile(uid?: string): Promise<{ role: AccountRo
     });
 
     if (!response.ok) {
-        const body = await response.json().catch(() => ({})) as Record<string, unknown>;
-        const message = (body['message'] as string | undefined) ?? response.statusText;
-        throw createHttpError(response.status, message);
+        return { role: fallbackRole, organizerNames: fallbackOrganizerNames };
     }
 
-    const data = await response.json() as { role?: AccountRole; organizerNames?: string[] };
+    const data = await response.json() as { role?: string; organizerNames?: string[] };
+    const profileOrganizerNames = Array.isArray(data.organizerNames) ? data.organizerNames : fallbackOrganizerNames;
     const profile = {
-        role: data.role ?? 'user',
-        organizerNames: Array.isArray(data.organizerNames) ? data.organizerNames : [],
+        role: resolveAccountRole(data.role, profileOrganizerNames, fallbackRole),
+        organizerNames: profileOrganizerNames,
     };
 
     const updatedUser: AuthUser = {

@@ -89,7 +89,7 @@ export function ProfilePage() {
     const navigate = useNavigate();
     const { currentUser } = useAuth();
     const { likedIds } = useLikes();
-    const [accountRole, setAccountRole] = useState<AccountRole>('user');
+    const [accountRole, setAccountRole] = useState<AccountRole>(currentUser?.role ?? 'user');
     const [organizerNames, setOrganizerNames] = useState<string[]>([]);
     const [isSigningOut, setIsSigningOut] = useState(false);
     const [allEvents, setAllEvents] = useState<EventType[]>([]);
@@ -121,16 +121,30 @@ export function ProfilePage() {
     const profileImage = currentUser?.photoURL;
 
     useEffect(() => {
+        setAccountRole(currentUser?.role ?? 'user');
+        setOrganizerNames(Array.isArray(currentUser?.organizerNames) ? currentUser.organizerNames : []);
+    }, [currentUser?.role, currentUser?.organizerNames]);
+
+    useEffect(() => {
         let cancelled = false;
 
         const loadAccountProfile = async () => {
-            const profile = await getAccountProfile(currentUser?.uid);
-            if (cancelled) {
-                return;
-            }
+            try {
+                const profile = await getAccountProfile(currentUser?.uid);
+                if (cancelled) {
+                    return;
+                }
 
-            setAccountRole(profile.role);
-            setOrganizerNames(profile.organizerNames);
+                setAccountRole(profile.role);
+                setOrganizerNames(profile.organizerNames);
+            } catch {
+                if (cancelled) {
+                    return;
+                }
+
+                setAccountRole(currentUser?.role ?? 'user');
+                setOrganizerNames(Array.isArray(currentUser?.organizerNames) ? currentUser.organizerNames : []);
+            }
         };
 
         void loadAccountProfile();
@@ -138,7 +152,7 @@ export function ProfilePage() {
         return () => {
             cancelled = true;
         };
-    }, [currentUser?.uid]);
+    }, [currentUser?.uid, currentUser?.role, currentUser?.organizerNames]);
 
     useEffect(() => {
         let cancelled = false;

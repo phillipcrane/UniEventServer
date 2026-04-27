@@ -3,6 +3,10 @@ import { createContext, useContext, useEffect, useState, useCallback, type React
 import { useAuth } from './AuthContext';
 import { getLikedEventIdsAsync, toggleLikedEvent } from '../services/likes';
 
+// A context is a REACT-particular way to share state across various REACT components without having to
+// manually pass down variables through components. It obviously makes sense to do this for authentication,
+// but also here in the case of likes
+
 type LikesContextValue = {
   likedIds: Set<string>;
   isLiked: (eventId: string) => boolean;

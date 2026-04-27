@@ -38,7 +38,7 @@ async function chooseUserRole(user: ReturnType<typeof userEvent.setup>) {
 }
 
 async function chooseOrganizerRole(user: ReturnType<typeof userEvent.setup>) {
-    await user.click(screen.getByRole('button', { name: 'Organisor' }));
+    await user.click(screen.getByRole('button', { name: 'Organizer' }));
 }
 
 describe('SignupPage', () => {
@@ -65,7 +65,7 @@ describe('SignupPage', () => {
         renderPage();
 
         expect(screen.getByRole('dialog')).toBeInTheDocument();
-        expect(screen.getByText('Do you want to sign up as User or Organisor?')).toBeInTheDocument();
+        expect(screen.getByText('Do you want to sign up as User or Organizer?')).toBeInTheDocument();
         expect(mockSignupWithEmail).not.toHaveBeenCalled();
     });
 
@@ -82,7 +82,7 @@ describe('SignupPage', () => {
         const user = userEvent.setup();
         renderPage();
 
-        await user.click(screen.getByText('Do you want to sign up as User or Organisor?'));
+        await user.click(screen.getByText('Do you want to sign up as User or Organizer?'));
 
         expect(mockNavigate).not.toHaveBeenCalled();
     });
@@ -145,7 +145,7 @@ describe('SignupPage', () => {
         expect(screen.getByText('This email is already in use.')).toBeInTheDocument();
     });
 
-    it('requires organizer access password when role is Organisor', async () => {
+    it('requires organizer access password when role is Organizer', async () => {
         const user = userEvent.setup();
         renderPage();
 
@@ -155,7 +155,7 @@ describe('SignupPage', () => {
         await user.type(screen.getByLabelText('Confirm Password'), '123456');
 
         await chooseOrganizerRole(user);
-        await user.click(screen.getByRole('button', { name: 'Sign Up as Organisor' }));
+        await user.click(screen.getByRole('button', { name: 'Sign Up as Organizer' }));
 
         expect(screen.getByText('Please enter at least one organizer access password.')).toBeInTheDocument();
         expect(mockSignupWithEmail).not.toHaveBeenCalled();
@@ -179,7 +179,7 @@ describe('SignupPage', () => {
         const codeInputs = screen.getAllByPlaceholderText('Enter organizer access password');
         await user.type(codeInputs[1], 'campus-events-2026');
 
-        await user.click(screen.getByRole('button', { name: 'Sign Up as Organisor' }));
+        await user.click(screen.getByRole('button', { name: 'Sign Up as Organizer' }));
 
         expect(mockSignupWithEmail).toHaveBeenCalledWith({
             username: 'org-admin',

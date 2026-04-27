@@ -8,6 +8,23 @@ import type { Event, Page, Place } from '../types';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL ?? '';
 
+function getMediaBaseUrl(): string {
+  if (BACKEND_URL) {
+    return BACKEND_URL;
+  }
+
+  // local dev
+  if (
+    typeof window !== 'undefined' &&
+    (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') &&
+    window.location.port === '3000'
+  ) {
+    return `http://${window.location.hostname}:8080`;
+  }
+
+  return window.location.origin;
+}
+
 function buildBackendUrl(path: string): URL {
   return new URL(path, BACKEND_URL || window.location.origin);
 }
@@ -60,7 +77,9 @@ function mapEventResponse(data: EventApiResponse): Event {
     startTime: data.startTime,
     endTime: data.endTime,
     place: data.place,
-    coverImageUrl: data.coverImageId ? buildBackendUrlString(`/media/${data.coverImageId}`) : undefined,
+    coverImageUrl: data.coverImageId
+      ? new URL(`/media/${data.coverImageId}`, getMediaBaseUrl()).toString()
+      : undefined,
     eventURL: data.eventUrl,
     createdAt: data.createdAt,
     updatedAt: data.updatedAt,

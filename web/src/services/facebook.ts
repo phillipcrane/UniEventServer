@@ -1,3 +1,5 @@
+import { getAuthToken } from './auth';
+
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL ?? '';
 
 export function buildFacebookLoginUrl(): string {
@@ -8,7 +10,10 @@ export function buildFacebookLoginUrl(): string {
     return `https://www.facebook.com/v25.0/dialog/oauth?client_id=${FB_APP_ID}&redirect_uri=${FB_REDIRECT_URI}&scope=${FB_SCOPES}`;
 }
 
-export async function getFacebookAuthUrl(token: string): Promise<string> {
+export async function getFacebookAuthUrl(): Promise<string> {
+    const token = getAuthToken();
+    if (!token) throw new Error('You must be logged in to connect Facebook.');
+
     const response = await fetch(`${BACKEND_URL}/api/facebook/auth`, {
         headers: { Authorization: `Bearer ${token}` },
     });

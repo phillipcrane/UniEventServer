@@ -1,6 +1,8 @@
-import type { Page } from '../types';
+import { useMemo } from 'react';
+import type { Page, SortMode } from '../types';
 import { MultiSelectFilter } from './MultiSelectFilter';
 import { CalendarRange, Search, SlidersHorizontal, X } from 'lucide-react';
+import { toInputDateString, addDays, addMonths } from '../utils/dateUtils';
 
 // render a multi-select dropdown for pages
 function PageFilter({ pages, pageIds, setPageIds }: { pages: Page[]; pageIds: string[]; setPageIds: (v: string[]) => void }) {
@@ -54,31 +56,9 @@ function SearchBox({ query, setQuery, count }: { query: string; setQuery: (v: st
   );
 }
 
-function toInputDateString(date: Date): string {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-}
-
-function addDays(date: Date, days: number): Date {
-  const next = new Date(date);
-  next.setDate(next.getDate() + days);
-  return next;
-}
-
-function addMonths(date: Date, months: number): Date {
-  const next = new Date(date);
-  next.setMonth(next.getMonth() + months);
-  return next;
-}
-
 // date range with quick presets + custom dates
 function DateRangeFilter({ fromDate, setFromDate, toDate, setToDate }: { fromDate: string; setFromDate: (v: string) => void; toDate: string; setToDate: (v: string) => void }) {
-  const today = toInputDateString(new Date());
-
   const applyPreset = (preset: '7d' | '30d' | '3m') => {
-
     const start = new Date();
     const end = preset === '7d'
       ? addDays(start, 7)
@@ -90,16 +70,14 @@ function DateRangeFilter({ fromDate, setFromDate, toDate, setToDate }: { fromDat
     setToDate(toInputDateString(end));
   };
 
-  const activePreset: '7d' | '30d' | '3m' | null =
-    fromDate !== today
-      ? null
-      : toDate === toInputDateString(addDays(new Date(), 7))
-        ? '7d'
-        : toDate === toInputDateString(addDays(new Date(), 30))
-          ? '30d'
-          : toDate === toInputDateString(addMonths(new Date(), 3))
-            ? '3m'
-            : null;
+  const activePreset = useMemo((): '7d' | '30d' | '3m' | null => {
+    const today = toInputDateString(new Date());
+    if (fromDate !== today) return null;
+    if (toDate === toInputDateString(addDays(new Date(), 7))) return '7d';
+    if (toDate === toInputDateString(addDays(new Date(), 30))) return '30d';
+    if (toDate === toInputDateString(addMonths(new Date(), 3))) return '3m';
+    return null;
+  }, [fromDate, toDate]);
 
   return (
     <div className="flex min-w-0 flex-col gap-2">
@@ -173,9 +151,7 @@ function DateRangeFilter({ fromDate, setFromDate, toDate, setToDate }: { fromDat
   );
 }
 
-export type SortMode = 'upcoming' | 'newest' | 'all';
-
-// upcoming/newest filter 
+// upcoming/newest filter
 function SortFilter({ sortMode, setSortMode }: { sortMode: SortMode; setSortMode: (v: SortMode) => void }) {
   return (
     <div className="flex flex-col gap-2">

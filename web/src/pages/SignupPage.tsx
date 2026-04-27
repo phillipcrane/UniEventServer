@@ -7,7 +7,7 @@ import { ThemeToggle } from '../components/ThemeToggle';
 import { Footer } from '../components/Footer';
 import { Plus, UserPlus } from 'lucide-react';
 import { mapAuthError, signupWithEmail, type AccountRole } from '../services/auth';
-import '../styles/SignupPage.css';
+import { isValidEmail } from '../utils/validationUtils';
 
 const DEFAULT_ORGANIZER_CODE_TO_ORG: Record<string, string> = {
     'organizer-test-2026': 'UniEvent Core Team',
@@ -34,10 +34,6 @@ export function SignupPage() {
     const [isRoleModalOpen, setIsRoleModalOpen] = useState(true);
     const [isLoading, setIsLoading] = useState(false);
     const [errorMessage, setErrorMessage] = useState('');
-
-    function isValidEmail(value: string) {
-        return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
-    }
 
     function updateOrganizerCode(index: number, value: string) {
         setOrganizerPasswords((current) => current.map((code, codeIndex) => (codeIndex === index ? value : code)));
@@ -128,89 +124,89 @@ export function SignupPage() {
             </header>
 
             <main className="flex-1 px-6 md:px-8 pb-8 max-w-6xl mx-auto w-full">
-                <section className="signup-shell">
-                    <div className="signup-card">
-                        <div className="signup-card-glow" aria-hidden="true" />
+                <section className="relative flex min-h-[62vh] items-center justify-center">
+                    <div className="auth-card relative w-full max-w-[680px] overflow-hidden rounded-[28px] border border-[var(--panel-border)]">
+                        <div className="auth-card-glow pointer-events-none absolute inset-0" aria-hidden="true" />
 
-                        <div className="signup-card-content">
-                            <p className="signup-eyebrow">NEW ACCOUNT</p>
-                            <h2 className="signup-title">Sign up to get started</h2>
-                            <p className="signup-description">Create your account with a username and password.</p>
-                            <p className="signup-helper">Already have an account? Log in from the link below.</p>
-                            <p className="signup-role-indicator">
-                                Account type: {accountRole === 'organizer' ? 'Organisor' : accountRole === 'user' ? 'User' : 'Not selected'}
+                        <div className="relative z-[1] px-6 py-8 sm:px-9 sm:py-[2.3rem]">
+                            <p className="m-0 text-xs font-bold tracking-[0.12em] text-[var(--text-subtle)]">NEW ACCOUNT</p>
+                            <h2 className="mt-1.5 text-[clamp(1.55rem,2.7vw,2rem)] font-black leading-tight text-[var(--text-primary)]">Sign up to get started</h2>
+                            <p className="mt-3 text-[0.95rem] text-[var(--text-subtle)]">Create your account with a username and password.</p>
+                            <p className="mt-2 text-[0.9rem] font-semibold text-[var(--link-primary)]">Already have an account? Log in from the link below.</p>
+                            <p className="mt-2 text-[0.85rem] font-bold text-[var(--text-subtle)]">
+                                Account type: {accountRole === 'organizer' ? 'Organizer' : accountRole === 'user' ? 'User' : 'Not selected'}
                             </p>
-                            <p className="signup-role-indicator signup-role-indicator-subtle">
+                            <p className="mt-1 text-[0.85rem] font-semibold text-[var(--text-subtle)]">
                                 Test codes: organizer-test-2026, campus-events-2026, student-hub-2026
                             </p>
 
-                            <form className="signup-form" onSubmit={handleSubmit} noValidate>
-                                <label className="signup-label" htmlFor="signup-username">Username</label>
+                            <form className="mt-6 grid gap-3" onSubmit={handleSubmit} noValidate>
+                                <label className="text-[0.85rem] font-bold uppercase tracking-[0.06em] text-[var(--text-primary)]" htmlFor="signup-username">Username</label>
                                 <input
                                     id="signup-username"
                                     name="username"
                                     type="text"
                                     autoComplete="username"
                                     placeholder="Choose a username"
-                                    className="signup-input"
+                                    className="auth-input"
                                     value={username}
                                     onChange={(event) => setUsername(event.target.value)}
                                 />
 
-                                <label className="signup-label" htmlFor="signup-email">Email</label>
+                                <label className="text-[0.85rem] font-bold uppercase tracking-[0.06em] text-[var(--text-primary)]" htmlFor="signup-email">Email</label>
                                 <input
                                     id="signup-email"
                                     name="email"
                                     type="email"
                                     autoComplete="email"
                                     placeholder="Enter your email"
-                                    className="signup-input"
+                                    className="auth-input"
                                     value={email}
                                     onChange={(event) => setEmail(event.target.value)}
                                 />
 
-                                <label className="signup-label" htmlFor="signup-password">Password</label>
+                                <label className="text-[0.85rem] font-bold uppercase tracking-[0.06em] text-[var(--text-primary)]" htmlFor="signup-password">Password</label>
                                 <input
                                     id="signup-password"
                                     name="password"
                                     type="password"
                                     autoComplete="new-password"
                                     placeholder="Create a password"
-                                    className="signup-input"
+                                    className="auth-input"
                                     value={password}
                                     onChange={(event) => setPassword(event.target.value)}
                                 />
 
-                                <label className="signup-label" htmlFor="signup-confirm-password">Confirm Password</label>
+                                <label className="text-[0.85rem] font-bold uppercase tracking-[0.06em] text-[var(--text-primary)]" htmlFor="signup-confirm-password">Confirm Password</label>
                                 <input
                                     id="signup-confirm-password"
                                     name="confirmPassword"
                                     type="password"
                                     autoComplete="new-password"
                                     placeholder="Type your password again"
-                                    className="signup-input"
+                                    className="auth-input"
                                     value={confirmPassword}
                                     onChange={(event) => setConfirmPassword(event.target.value)}
                                 />
 
                                 {accountRole === 'organizer' && (
                                     <>
-                                        <label className="signup-label" htmlFor="signup-organizer-password-0">Organizer Access Password(s)</label>
+                                        <label className="text-[0.85rem] font-bold uppercase tracking-[0.06em] text-[var(--text-primary)]" htmlFor="signup-organizer-password-0">Organizer Access Password(s)</label>
                                         {organizerPasswords.map((code, index) => (
-                                            <div key={index} className="signup-organizer-row">
+                                            <div key={index} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
                                                 <input
                                                     id={`signup-organizer-password-${index}`}
                                                     name={`organizerPassword-${index}`}
                                                     type="password"
                                                     autoComplete="off"
                                                     placeholder="Enter organizer access password"
-                                                    className="signup-input"
+                                                    className="auth-input"
                                                     value={code}
                                                     onChange={(event) => updateOrganizerCode(index, event.target.value)}
                                                 />
                                                 <button
                                                     type="button"
-                                                    className="signup-code-add-btn"
+                                                    className="inline-flex h-[42px] w-[42px] items-center justify-center rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] text-[var(--text-primary)] transition hover:-translate-y-px hover:border-[var(--input-focus-border)] hover:bg-[var(--button-hover)]"
                                                     aria-label="Add organizer code field"
                                                     onClick={addOrganizerCodeField}
                                                 >
@@ -218,29 +214,27 @@ export function SignupPage() {
                                                 </button>
                                             </div>
                                         ))}
-                                        <div className="signup-helper signup-helper-soft">
+                                        <div className="mt-1 text-[0.8rem] font-semibold text-[var(--text-subtle)]">
                                             {TEST_ORGANIZER_CODES.map(([codeText, organization]) => (
-                                                <p key={codeText}>Code: {codeText}{' -> '}{organization}</p>
+                                                <p key={codeText} className="mt-1">Code: {codeText}{' -> '}{organization}</p>
                                             ))}
                                         </div>
                                     </>
                                 )}
 
-                                {errorMessage && <p className="signup-status signup-status-error">{errorMessage}</p>}
+                                {errorMessage && <p className="mt-0.5 text-[0.9rem] font-semibold text-[var(--dtu-accent)]">{errorMessage}</p>}
 
-                                <div className="signup-actions">
-                                    <button type="submit" className="signup-btn signup-btn-primary" disabled={isLoading}>
+                                <div className="mt-3 grid gap-3">
+                                    <button type="submit" className="auth-btn auth-btn-primary" disabled={isLoading}>
                                         <UserPlus size={18} />
-                                        {isLoading ? 'Signing Up...' : accountRole ? `Sign Up as ${accountRole === 'organizer' ? 'Organisor' : 'User'}` : 'Sign Up'}
+                                        {isLoading ? 'Signing Up...' : accountRole ? `Sign Up as ${accountRole === 'organizer' ? 'Organizer' : 'User'}` : 'Sign Up'}
                                     </button>
-
-
                                 </div>
                             </form>
 
-                            <div className="signup-links-row">
-                                <Link to="/login" className="signup-link">Already have an account? Log In</Link>
-                                <Link to="/" className="signup-link">← Back to Events</Link>
+                            <div className="mt-5 flex flex-wrap justify-center gap-4">
+                                <Link to="/login" className="font-bold text-[var(--link-primary)] no-underline hover:text-[var(--link-primary-hover)] hover:underline">Already have an account? Log In</Link>
+                                <Link to="/" className="font-bold text-[var(--link-primary)] no-underline hover:text-[var(--link-primary-hover)] hover:underline">← Back to Events</Link>
                             </div>
                         </div>
                     </div>
@@ -248,20 +242,20 @@ export function SignupPage() {
 
                 {isRoleModalOpen && (
                     <div
-                        className="signup-role-modal-overlay"
+                        className="fixed inset-0 z-[70] flex items-center justify-center bg-[rgba(8,12,24,0.55)] p-4 backdrop-blur"
                         role="dialog"
                         aria-modal="true"
                         aria-labelledby="signup-role-modal-title"
                         onClick={() => navigate('/login', { replace: true })}
                     >
-                        <div className="signup-role-modal" onClick={(event) => event.stopPropagation()}>
-                            <h3 id="signup-role-modal-title" className="signup-role-modal-title">Choose account type</h3>
-                            <p className="signup-role-modal-text">Do you want to sign up as User or Organisor?</p>
+                        <div className="w-full max-w-[460px] rounded-[20px] border border-[var(--panel-border)] bg-[var(--panel-bg)] p-5 shadow-[0_24px_46px_rgba(0,0,0,0.28)]" onClick={(event) => event.stopPropagation()}>
+                            <h3 id="signup-role-modal-title" className="m-0 text-[1.2rem] font-extrabold text-[var(--text-primary)]">Choose account type</h3>
+                            <p className="mt-2 text-[0.95rem] text-[var(--text-subtle)]">Do you want to sign up as User or Organizer?</p>
 
-                            <div className="signup-role-modal-actions">
+                            <div className="mt-4 grid grid-cols-2 gap-3">
                                 <button
                                     type="button"
-                                    className="signup-btn signup-btn-primary"
+                                    className="auth-btn auth-btn-primary"
                                     onClick={() => {
                                         setAccountRole('user');
                                         setOrganizerPasswords(['']);
@@ -273,17 +267,16 @@ export function SignupPage() {
 
                                 <button
                                     type="button"
-                                    className="signup-btn signup-btn-facebook"
+                                    className="auth-btn auth-btn-secondary"
                                     onClick={() => {
                                         setAccountRole('organizer');
                                         setOrganizerPasswords((current) => (current.length ? current : ['']));
                                         setIsRoleModalOpen(false);
                                     }}
                                 >
-                                    Organisor
+                                    Organizer
                                 </button>
                             </div>
-
                         </div>
                     </div>
                 )}
