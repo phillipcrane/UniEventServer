@@ -2,6 +2,7 @@ package dk.unievent.app.application.service;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
@@ -22,29 +23,39 @@ public class CsrfTokenService {
     public String generateToken() {
         String nonce = UUID.randomUUID().toString();
         String signature = signNonce(nonce);
-        return nonce + "." + signature;
+        return nonce + "-" + signature;
     }
 
-    public boolean isTokenValid(String providedToken, String cookieToken) {
-        if (providedToken == null || providedToken.isBlank() || cookieToken == null || cookieToken.isBlank()) {
+    @Transactional(readOnly = true)
+    public boolean validateToken(String providedToken, String expectedToken) {
+        if (providedToken == null || providedToken.isBlank() || expectedToken == null || expectedToken.isBlank()) {
             return false;
         }
 
-        if (!constantTimeEquals(providedToken, cookieToken)) {
+        if (!constantTimeEquals(providedToken, expectedToken)) {
             return false;
         }
 
         return isSignatureValid(providedToken);
     }
 
+    public boolean isTokenValid(String providedToken, String expectedToken) {
+        return validateToken(providedToken, expectedToken);
+    }
+
     private boolean isSignatureValid(String token) {
-        int delimiter = token.lastIndexOf('.');
+        int delimiter = token.lastIndexOf('-');
         if (delimiter <= 0 || delimiter == token.length() - 1) {
             return false;
         }
 
         String nonce = token.substring(0, delimiter);
         String providedSignature = token.substring(delimiter + 1);
+        try {
+            UUID.fromString(nonce);
+        } catch (IllegalArgumentException ex) {
+            return false;
+        }
         String expectedSignature = signNonce(nonce);
 
         return constantTimeEquals(providedSignature, expectedSignature);

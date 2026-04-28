@@ -11,19 +11,23 @@ import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 import org.springframework.web.util.WebUtils;
 
 import java.io.IOException;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 
 @Component
+@Order(1)
 @RequiredArgsConstructor
 public class CsrfValidationFilter extends OncePerRequestFilter {
 
@@ -48,7 +52,7 @@ public class CsrfValidationFilter extends OncePerRequestFilter {
         Cookie csrfCookie = WebUtils.getCookie(request, cookieConfig.getCsrfName());
         String cookieToken = csrfCookie == null ? null : csrfCookie.getValue();
 
-        if (!csrfTokenService.isTokenValid(headerToken, cookieToken)) {
+        if (!csrfTokenService.validateToken(headerToken, cookieToken)) {
             log.warn("CSRF validation failed for {} {}", request.getMethod(), request.getRequestURI());
             writeForbiddenResponse(response);
             return;
@@ -58,7 +62,7 @@ public class CsrfValidationFilter extends OncePerRequestFilter {
     }
 
     private boolean requiresValidation(HttpServletRequest request) {
-        if (HttpMethod.OPTIONS.matches(request.getMethod())) {
+        if (isSafeMethod(request.getMethod())) {
             return false;
         }
 
@@ -66,8 +70,15 @@ public class CsrfValidationFilter extends OncePerRequestFilter {
             return false;
         }
 
-        Cookie accessCookie = WebUtils.getCookie(request, cookieConfig.getAccessName());
-        return accessCookie != null;
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        return authentication != null && authentication.isAuthenticated();
+    }
+
+    private boolean isSafeMethod(String method) {
+        return HttpMethod.GET.matches(method)
+                || HttpMethod.HEAD.matches(method)
+                || HttpMethod.OPTIONS.matches(method)
+                || HttpMethod.TRACE.matches(method);
     }
 
     private void writeForbiddenResponse(HttpServletResponse response) throws IOException {
@@ -75,7 +86,7 @@ public class CsrfValidationFilter extends OncePerRequestFilter {
         response.setContentType(MediaType.APPLICATION_JSON_VALUE);
 
         Map<String, Object> body = new HashMap<>();
-        body.put("timestamp", LocalDateTime.now());
+        body.put("timestamp", Instant.now().toString());
         body.put("status", HttpServletResponse.SC_FORBIDDEN);
         body.put("error", "Forbidden");
         body.put("message", "CSRF token validation failed.");

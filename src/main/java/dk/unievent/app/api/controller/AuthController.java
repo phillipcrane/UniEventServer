@@ -7,9 +7,7 @@ import dk.unievent.app.application.service.OrganizerKeyService;
 import dk.unievent.app.application.service.CsrfTokenService;
 import dk.unievent.app.db.model.UserEntity;
 import dk.unievent.app.api.dto.AuthResponse;
-import dk.unievent.app.api.dto.LogoutRequest;
 import dk.unievent.app.api.dto.LoginRequest;
-import dk.unievent.app.api.dto.RefreshRequest;
 import dk.unievent.app.api.dto.RegisterRequest;
 import dk.unievent.app.api.dto.OrganizerKeyVerifyRequest;
 import dk.unievent.app.api.dto.OrganizerKeyVerifyResponse;
@@ -30,6 +28,8 @@ import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseCookie;
 import org.springframework.http.HttpStatus;
@@ -44,19 +44,23 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.util.WebUtils;
 
+import java.util.List;
+
 @RestController
 @RequestMapping("/api/auth")
 @RequiredArgsConstructor
 @Tag(name = "Authentication", description = "Authentication and authorization endpoints")
 public class AuthController {
 
+    private static final Logger log = LoggerFactory.getLogger(AuthController.class);
+
     private final UserService userService;
     private final RefreshTokenService refreshTokenService;
     private final AuthenticationManager authenticationManager;
     private final OrganizerKeyService organizerKeyService;
     private final EmailService emailService;
-        private final CsrfTokenService csrfTokenService;
-        private final CookieConfig cookieConfig;
+    private final CsrfTokenService csrfTokenService;
+    private final CookieConfig cookieConfig;
 
     @PostMapping("/register")
     @Operation(summary = "Register a new user", description = "Create a new user account with email, username, and password. All self-registered users get the 'user' role. To register as an organizer, use the invitation key flow.")
@@ -70,15 +74,7 @@ public class AuthController {
         RefreshTokenService.TokenPair tokenPair = refreshTokenService.issueTokenPair(user);
         String csrfToken = csrfTokenService.generateToken();
         writeAuthCookies(response, tokenPair, csrfToken);
-        return ResponseEntity.ok(new AuthResponse(
-                tokenPair.accessToken(),
-                tokenPair.refreshToken(),
-                user.getUsername(),
-                user.getEmail(),
-                tokenPair.accessTokenExpiresInMs(),
-                tokenPair.refreshTokenExpiresInMs(),
-                csrfToken
-        ));
+        return ResponseEntity.ok(buildAuthResponse(user, csrfToken));
     }
 
     @PostMapping("/login")
@@ -97,15 +93,7 @@ public class AuthController {
         RefreshTokenService.TokenPair tokenPair = refreshTokenService.issueTokenPair(user);
         String csrfToken = csrfTokenService.generateToken();
         writeAuthCookies(response, tokenPair, csrfToken);
-        return ResponseEntity.ok(new AuthResponse(
-                tokenPair.accessToken(),
-                tokenPair.refreshToken(),
-                user.getUsername(),
-                user.getEmail(),
-                tokenPair.accessTokenExpiresInMs(),
-                tokenPair.refreshTokenExpiresInMs(),
-                csrfToken
-        ));
+        return ResponseEntity.ok(buildAuthResponse(user, csrfToken));
     }
 
     @PostMapping("/refresh")
@@ -115,24 +103,16 @@ public class AuthController {
             @ApiResponse(responseCode = "400", description = "Invalid request body"),
             @ApiResponse(responseCode = "401", description = "Invalid or expired refresh token")
     })
-    public ResponseEntity<AuthResponse> refresh(@RequestBody(required = false) RefreshRequest request,
-                                                HttpServletRequest httpRequest,
+    public ResponseEntity<AuthResponse> refresh(HttpServletRequest httpRequest,
                                                 HttpServletResponse response) {
-        String refreshToken = resolveRefreshToken(httpRequest, request);
+        String refreshToken = resolveRefreshTokenFromCookie(httpRequest);
         String userAgent = httpRequest.getHeader("User-Agent");
         String ipAddress = httpRequest.getRemoteAddr();
         RefreshTokenService.TokenPair tokenPair = refreshTokenService.rotate(refreshToken, userAgent, ipAddress);
         String csrfToken = csrfTokenService.generateToken();
         writeAuthCookies(response, tokenPair, csrfToken);
-        return ResponseEntity.ok(new AuthResponse(
-                tokenPair.accessToken(),
-                tokenPair.refreshToken(),
-                tokenPair.username(),
-                tokenPair.email(),
-                tokenPair.accessTokenExpiresInMs(),
-                tokenPair.refreshTokenExpiresInMs(),
-                csrfToken
-        ));
+        UserEntity user = userService.findByEmail(tokenPair.email());
+        return ResponseEntity.ok(buildAuthResponse(user, csrfToken));
     }
 
     @PostMapping("/logout")
@@ -141,13 +121,20 @@ public class AuthController {
             @ApiResponse(responseCode = "204", description = "User successfully logged out"),
             @ApiResponse(responseCode = "400", description = "Invalid request body")
     })
-        public ResponseEntity<Void> logout(@RequestBody(required = false) LogoutRequest request,
-                                                                           HttpServletRequest httpRequest,
-                                                                           HttpServletResponse response) {
-                String refreshToken = resolveRefreshToken(httpRequest, request);
-                refreshTokenService.logout(refreshToken);
-                clearAuthCookies(response);
-        return ResponseEntity.noContent().build();
+        public ResponseEntity<Void> logout(HttpServletRequest httpRequest,
+                                           HttpServletResponse response) {
+            String refreshToken = resolveOptionalRefreshToken(httpRequest);
+            if (refreshToken != null && !refreshToken.isBlank()) {
+                try {
+                    refreshTokenService.logout(refreshToken);
+                } catch (Exception ex) {
+                    log.debug("Logout refresh token invalid or already revoked", ex);
+                }
+            }
+            clearAuthCookies(response);
+            log.info("User logout processed from ip={}, userAgent={}",
+                    httpRequest.getRemoteAddr(), httpRequest.getHeader("User-Agent"));
+            return ResponseEntity.noContent().build();
     }
 
     @PostMapping("/organizer-key/generate")
@@ -207,37 +194,23 @@ public class AuthController {
         RefreshTokenService.TokenPair tokenPair = refreshTokenService.issueTokenPair(organizer);
         String csrfToken = csrfTokenService.generateToken();
         writeAuthCookies(response, tokenPair, csrfToken);
-        return ResponseEntity.status(HttpStatus.CREATED).body(new AuthResponse(
-                tokenPair.accessToken(),
-                tokenPair.refreshToken(),
-                organizer.getUsername(),
-                organizer.getEmail(),
-                tokenPair.accessTokenExpiresInMs(),
-                tokenPair.refreshTokenExpiresInMs(),
-                csrfToken
-        ));
+        return ResponseEntity.status(HttpStatus.CREATED).body(buildAuthResponse(organizer, csrfToken));
     }
 
-    private String resolveRefreshToken(HttpServletRequest request, RefreshRequest refreshRequest) {
+    private String resolveRefreshTokenFromCookie(HttpServletRequest request) {
         jakarta.servlet.http.Cookie refreshCookie = WebUtils.getCookie(request, cookieConfig.getRefreshName());
         if (refreshCookie != null && !refreshCookie.getValue().isBlank()) {
             return refreshCookie.getValue();
         }
-        if (refreshRequest != null && refreshRequest.refreshToken() != null && !refreshRequest.refreshToken().isBlank()) {
-            return refreshRequest.refreshToken();
-        }
-        throw new IllegalArgumentException("Refresh token is required.");
+        throw new IllegalArgumentException("Refresh token cookie is required.");
     }
 
-    private String resolveRefreshToken(HttpServletRequest request, LogoutRequest logoutRequest) {
+    private String resolveOptionalRefreshToken(HttpServletRequest request) {
         jakarta.servlet.http.Cookie refreshCookie = WebUtils.getCookie(request, cookieConfig.getRefreshName());
         if (refreshCookie != null && !refreshCookie.getValue().isBlank()) {
             return refreshCookie.getValue();
         }
-        if (logoutRequest != null && logoutRequest.refreshToken() != null && !logoutRequest.refreshToken().isBlank()) {
-            return logoutRequest.refreshToken();
-        }
-        throw new IllegalArgumentException("Refresh token is required.");
+        return null;
     }
 
     private void writeAuthCookies(HttpServletResponse response, RefreshTokenService.TokenPair tokenPair, String csrfToken) {
@@ -280,5 +253,25 @@ public class AuthController {
         }
 
         response.addHeader(HttpHeaders.SET_COOKIE, builder.build().toString());
+    }
+
+    private AuthResponse buildAuthResponse(UserEntity user, String csrfToken) {
+        return new AuthResponse(
+                user.getUsername(),
+                user.getEmail(),
+                List.of(normalizeRole(user.getRole())),
+                csrfToken
+        );
+    }
+
+    private String normalizeRole(String role) {
+        if (role == null || role.isBlank()) {
+            return "ROLE_USER";
+        }
+        String trimmed = role.trim();
+        if (trimmed.startsWith("ROLE_")) {
+            return trimmed;
+        }
+        return "ROLE_" + trimmed.toUpperCase();
     }
 }

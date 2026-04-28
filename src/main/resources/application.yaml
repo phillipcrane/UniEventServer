@@ -69,18 +69,18 @@ unievent:
       allow-credentials: true
       max-age: 3600
     cookies:
-      access-name: ${UNIEVENT_SECURITY_COOKIE_ACCESS_NAME:auth_access}
-      refresh-name: ${UNIEVENT_SECURITY_COOKIE_REFRESH_NAME:auth_refresh}
-      csrf-name: ${UNIEVENT_SECURITY_COOKIE_CSRF_NAME:csrf_token}
-      access-max-age: ${UNIEVENT_SECURITY_COOKIE_ACCESS_MAX_AGE:86400}
-      refresh-max-age: ${UNIEVENT_SECURITY_COOKIE_REFRESH_MAX_AGE:604800}
-      csrf-max-age: ${UNIEVENT_SECURITY_COOKIE_CSRF_MAX_AGE:3600}
-      secure: ${UNIEVENT_SECURITY_COOKIE_SECURE:true}
-      same-site: ${UNIEVENT_SECURITY_COOKIE_SAME_SITE:Strict}
+      access-name: auth_access
+      refresh-name: auth_refresh
+      csrf-name: csrf_token
+      access-max-age: 86400
+      refresh-max-age: 604800
+      csrf-max-age: 3600
+      secure: true
+      same-site: Strict
       domain: ${UNIEVENT_COOKIE_DOMAIN:}
       path: /
     csrf:
-      secret: ${UNIEVENT_SECURITY_CSRF_SECRET:dev-csrf-secret-key-change-in-production}
+      secret: ${UNIEVENT_SECURITY_CSRF_SECRET}
     jwt:
       secret: ${UNIEVENT_SECURITY_JWT_SECRET}
       expiration-ms: ${UNIEVENT_SECURITY_JWT_EXPIRATION_MS:86400000}

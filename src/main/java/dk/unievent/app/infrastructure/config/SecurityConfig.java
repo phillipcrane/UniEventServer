@@ -13,11 +13,12 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
+import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
 import org.springframework.web.filter.ForwardedHeaderFilter;
 
 import dk.unievent.app.infrastructure.filter.CookieAuthenticationFilter;
 import dk.unievent.app.infrastructure.filter.CsrfValidationFilter;
-import dk.unievent.app.infrastructure.filter.JwtAuthenticationFilter;
 
 import java.util.Arrays;
 
@@ -68,10 +69,16 @@ public class SecurityConfig {
     public SecurityFilterChain filterChain(
             HttpSecurity http,
             CookieAuthenticationFilter cookieAuthenticationFilter,
-            JwtAuthenticationFilter jwtAuthenticationFilter,
-            CsrfValidationFilter csrfValidationFilter
+            CsrfValidationFilter csrfValidationFilter,
+            CookieConfig cookieConfig
     ) throws Exception {
         boolean devProfile = Arrays.asList(environment.getActiveProfiles()).contains("dev");
+        CookieCsrfTokenRepository csrfTokenRepository = CookieCsrfTokenRepository.withHttpOnlyFalse();
+        csrfTokenRepository.setCookieName(cookieConfig.getCsrfName());
+        csrfTokenRepository.setHeaderName("X-CSRF-Token");
+
+        CsrfTokenRequestAttributeHandler csrfRequestHandler = new CsrfTokenRequestAttributeHandler();
+        csrfRequestHandler.setCsrfRequestAttributeName("_csrf");
 
         http
             .authorizeHttpRequests(authz -> {
@@ -99,18 +106,23 @@ public class SecurityConfig {
             })
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .cors(cors -> {})
-            // Custom CSRF filter is used to validate cookie-authenticated state-changing requests.
-            .csrf(csrf -> csrf.disable())
+            // Cookie-backed CSRF tokens are used alongside the custom validation filter.
+            .csrf(csrf -> csrf
+                .csrfTokenRepository(csrfTokenRepository)
+                .csrfTokenRequestHandler(csrfRequestHandler)
+            )
             .httpBasic(basic -> basic.disable())
             .headers(headers -> headers
                 .httpStrictTransportSecurity(hsts -> hsts
                     .includeSubDomains(true)
                     .maxAgeInSeconds(31536000)
                 )
+                .addHeaderWriter((request, response) ->
+                    response.setHeader("X-CSRF-Token", "required")
+                )
             )
             .addFilterBefore(cookieAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
-            .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
-            .addFilterAfter(csrfValidationFilter, UsernamePasswordAuthenticationFilter.class);
+            .addFilterAfter(csrfValidationFilter, CookieAuthenticationFilter.class);
 
         return http.build();
     }
