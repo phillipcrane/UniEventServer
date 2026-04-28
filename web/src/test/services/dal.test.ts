@@ -185,7 +185,7 @@ describe('dal service', () => {
     it('throws a fetch status error when loading events fails', async () => {
         mockFetch.mockResolvedValueOnce(jsonResponse({ message: 'boom' }, 500, 'Internal Server Error'));
 
-        await expect(getEvents()).rejects.toThrow('Failed to fetch events: Internal Server Error');
+        await expect(getEvents()).rejects.toThrow('Failed to fetch events: 500 Internal Server Error - boom');
     });
 
     it('returns null when event does not exist', async () => {

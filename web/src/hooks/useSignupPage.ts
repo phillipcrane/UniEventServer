@@ -3,21 +3,8 @@ import type { FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { signupWithEmail } from '../handlers/signup';
 import { mapAuthError, isValidEmail } from '../utils/authUtils';
+import { verifyOrganizerKey } from '../services/dal';
 import type { AccountRole } from '../types';
-
-const DEFAULT_ORGANIZER_CODE_TO_ORG: Record<string, string> = {
-    'organizer-test-2026': 'UniEvent Core Team',
-    'campus-events-2026': 'DTU Campus Events',
-    'student-hub-2026': 'Student Hub Society',
-};
-
-const organizerCodesFromEnv = import.meta.env.VITE_ORGANIZER_SIGNUP_PASSWORD?.trim();
-
-export const ORGANIZER_CODE_TO_ORG: Record<string, string> = organizerCodesFromEnv
-    ? { [organizerCodesFromEnv]: 'UniEvent Core Team' }
-    : DEFAULT_ORGANIZER_CODE_TO_ORG;
-
-export const TEST_ORGANIZER_CODES = Object.entries(DEFAULT_ORGANIZER_CODE_TO_ORG);
 
 export function useSignupPage() {
     const navigate = useNavigate();
@@ -68,24 +55,32 @@ export function useSignupPage() {
             return;
         }
 
-        let organizerNames: string[] = [];
+        // Sync check before hitting the network: at least one code must be entered
+        let enteredCodes: string[] = [];
         if (accountRole === 'organizer') {
-            const enteredCodes = organizerPasswords.map((c) => c.trim()).filter(Boolean);
+            enteredCodes = organizerPasswords.map((c) => c.trim()).filter(Boolean);
             if (!enteredCodes.length) {
                 setErrorMessage('Please enter at least one organizer access password.');
                 return;
             }
-            const firstInvalidCode = enteredCodes.find((c) => !ORGANIZER_CODE_TO_ORG[c]);
-            if (firstInvalidCode) {
-                setErrorMessage(`Organizer access password is incorrect: ${firstInvalidCode}`);
-                return;
-            }
-            organizerNames = [...new Set(enteredCodes.map((c) => ORGANIZER_CODE_TO_ORG[c]))];
         }
 
         try {
             setIsLoading(true);
-            await signupWithEmail({ username: trimmedUsername, email: trimmedEmail, password, role: accountRole, organizerNames });
+
+            let organizerKey: string | undefined;
+            if (accountRole === 'organizer') {
+                for (const code of enteredCodes) {
+                    const valid = await verifyOrganizerKey(code);
+                    if (!valid) {
+                        setErrorMessage(`Organizer access password is incorrect: ${code}`);
+                        return;
+                    }
+                }
+                organizerKey = enteredCodes[0];
+            }
+
+            await signupWithEmail({ username: trimmedUsername, email: trimmedEmail, password, role: accountRole, organizerKey });
             navigate('/', { replace: true });
         } catch (error) {
             setErrorMessage(mapAuthError(error));

@@ -1,17 +1,24 @@
 import type { Event } from '../types';
 import { NEW_EVENT_THRESHOLD_DAYS } from '../constants';
 import { DEFAULT_EVENT_COVER_IMAGE_URL, formatEventStart, getEventCoverImageUrl } from '../utils/eventUtils';
-import { useEventCard } from '../hooks/useEventCard';
 import { FacebookLinkButton } from './FacebookLinkButton';
 import { LikeButton } from './LikeButton';
 import { ChevronDown } from 'lucide-react';
 import { useRef, useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 // small presentational card. Receives one event and renders a link + metadata.
 export function EventCard({ event }: { event: Event }) {
-  const { isExpanded, toggleExpanded, handleCardClick } = useEventCard();
-  // eventCard can now expand and collapse. Controlled via isExpanded and toggleExpanded.
-  // functionality is in useEventCard hook.
+  const [isExpanded, setIsExpanded] = useState(false);
+  const navigate = useNavigate();
+
+  // () => ("arrow function") means when "called, do this". Actually its a shorthand that
+  // TS/JS has for defining functions; instead of writing "function toggleExpanded() { ... }",
+  // we can write "const toggleExpanded = () => { ... }". The missing stuff is implied
+  // and JS/TS understands it automatically (and will complain if it dont). Its a nice
+  // piece of "syntactic sugar" (kinda like ? :).
+  const toggleExpanded = () => setIsExpanded(!isExpanded);
+  const handleCardClick = (eventId: string) => navigate(`/events/${eventId}`);
 
   const descriptionRef = useRef<HTMLDivElement>(null);
   const [hasMoreDescription, setHasMoreDescription] = useState(false);
@@ -50,7 +57,7 @@ export function EventCard({ event }: { event: Event }) {
       // split chevron and card clicks
       onClick={() => { // () = > means when clicking the card
         if (!isExpanded) { // if not expanded, navigate to detail page
-          handleCardClick(event.id); // in useEventCard hook
+          handleCardClick(event.id);
         }
       }}
     >
@@ -95,7 +102,7 @@ export function EventCard({ event }: { event: Event }) {
         {/* if expanded and has description, show it with size h 32 (about 8 lines). Otherwise show 3 lines */}
         {event.description && (
           <div className="mt-4 px-4">
-            <div 
+            <div
               ref={descriptionRef}
               className={`text-sm text-[var(--text-body)] overflow-hidden transition-all duration-300 ${
                 isExpanded ? 'max-h-32 line-clamp-6' : 'line-clamp-3'
@@ -109,7 +116,7 @@ export function EventCard({ event }: { event: Event }) {
         {/* bottom section: link button and chevron */}
         <div className="flex items-center justify-between mt-4 gap-2 px-4 pb-4">
           <FacebookLinkButton event={event} />
-          
+
           {/* chevron button in bottom right - only show if description can be expanded */}
           {/* chevron means an arrow minus the stick so just the arrowhead */}
           {hasMoreDescription && (
@@ -133,5 +140,3 @@ export function EventCard({ event }: { event: Event }) {
     </div>
   );
 }
-
-

@@ -27,7 +27,7 @@ function authResponse(overrides: Partial<{ username: string; email: string; role
     };
 }
 
-import { _resetForTesting, getCurrentUser, onAuthUserChanged } from '../../services/auth';
+import { _resetForTesting, getCurrentUser, onUserChanged } from '../../services/auth';
 import { loginWithEmail } from '../../handlers/login';
 import { signupWithEmail } from '../../handlers/signup';
 import { signOutCurrentUser } from '../../handlers/logout';
@@ -112,14 +112,14 @@ describe('auth service', () => {
         expect(getCurrentUser()).toMatchObject({ username: 'carol', email: 'carol@x.com', role: 'user' });
     });
 
-    // ── onAuthUserChanged ────────────────────────────────────────────────────
+    // ── onUserChanged ────────────────────────────────────────────────────────
 
     it('fires immediately with current user when already logged in', async () => {
         mockFetch.mockResolvedValueOnce(jsonResponse(authResponse({ username: 'dave', email: 'dave@x.com' })));
         await loginWithEmail('dave@x.com', 'pw');
 
         const callback = vi.fn();
-        const unsubscribe = onAuthUserChanged(callback);
+        const unsubscribe = onUserChanged(callback);
 
         expect(callback).toHaveBeenCalledOnce();
         expect(callback.mock.calls[0][0]).toMatchObject({ username: 'dave', email: 'dave@x.com' });
@@ -128,7 +128,7 @@ describe('auth service', () => {
 
     it('fires immediately with null when not logged in', () => {
         const callback = vi.fn();
-        const unsubscribe = onAuthUserChanged(callback);
+        const unsubscribe = onUserChanged(callback);
 
         expect(callback).toHaveBeenCalledWith(null);
         unsubscribe();
@@ -138,7 +138,7 @@ describe('auth service', () => {
         mockFetch.mockResolvedValueOnce(jsonResponse(authResponse({ username: 'eve', email: 'eve@x.com' })));
 
         const callback = vi.fn();
-        const unsubscribe = onAuthUserChanged(callback);
+        const unsubscribe = onUserChanged(callback);
         callback.mockClear();
 
         await loginWithEmail('eve@x.com', 'pw');
@@ -151,7 +151,7 @@ describe('auth service', () => {
         mockFetch.mockResolvedValueOnce(jsonResponse(authResponse({ username: 'u', email: 'u@x.com' })));
 
         const callback = vi.fn();
-        const unsubscribe = onAuthUserChanged(callback);
+        const unsubscribe = onUserChanged(callback);
         unsubscribe();
         callback.mockClear();
 
@@ -167,7 +167,7 @@ describe('auth service', () => {
         await loginWithEmail('u@x.com', 'pw');
 
         const callback = vi.fn();
-        const unsubscribe = onAuthUserChanged(callback);
+        const unsubscribe = onUserChanged(callback);
         callback.mockClear();
 
         mockFetch.mockResolvedValueOnce(new Response(null, { status: 204 }));

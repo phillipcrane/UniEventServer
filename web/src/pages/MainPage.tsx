@@ -135,20 +135,22 @@ export function MainPage() {
 
           {viewMode === 'list' ? <EventList list={list} /> : <CalendarView events={list} />}
 
-          <div className="flex flex-col items-center gap-2">
-            {fbMessage && (
-              <p className={`text-sm font-medium ${fbMessage.kind === 'success' ? 'text-green-600' : 'text-red-600'}`}>
-                {fbMessage.text}
-              </p>
-            )}
-            <button
-              onClick={handleFacebookConnect}
-              disabled={fbConnecting}
-              className="bg-[var(--link-primary)] hover:bg-[var(--link-primary-hover)] text-white font-semibold px-6 py-3 rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105 disabled:opacity-60 disabled:cursor-not-allowed disabled:transform-none"
-            >
-              {fbConnecting ? 'Connecting…' : 'Connect Facebook Page'}
-            </button>
-          </div>
+          {currentUser?.role === 'organizer' && (
+            <div className="flex flex-col items-center gap-2">
+              {fbMessage && (
+                <p className={`text-sm font-medium ${fbMessage.kind === 'success' ? 'text-green-600' : 'text-red-600'}`}>
+                  {fbMessage.text}
+                </p>
+              )}
+              <button
+                onClick={handleFacebookConnect}
+                disabled={fbConnecting}
+                className="bg-[var(--link-primary)] hover:bg-[var(--link-primary-hover)] text-white font-semibold px-6 py-3 rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105 disabled:opacity-60 disabled:cursor-not-allowed disabled:transform-none"
+              >
+                {fbConnecting ? 'Connecting…' : 'Connect Facebook Page'}
+              </button>
+            </div>
+          )}
         </div>
       </div>
 

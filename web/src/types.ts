@@ -63,7 +63,7 @@ export type SignupRequest = {
     email: string;
     password: string;
     role?: AccountRole;
-    organizerNames?: string[];
+    organizerKey?: string;
 };
 
 export type HttpError = Error & { status: number };

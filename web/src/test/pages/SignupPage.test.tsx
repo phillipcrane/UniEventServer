@@ -8,6 +8,7 @@ import { SignupPage } from '../../pages/SignupPage';
 const mockNavigate = vi.fn();
 const mockSignupWithEmail = vi.fn();
 const mockMapAuthError = vi.fn();
+const mockVerifyOrganizerKey = vi.fn();
 
 // We replace real navigation with our fake one, so no page actually changes.
 vi.mock('react-router-dom', async () => {
@@ -25,6 +26,11 @@ vi.mock('../../handlers/signup', () => ({
 vi.mock('../../utils/authUtils', () => ({
     mapAuthError: (...args: unknown[]) => mockMapAuthError(...args),
     createHttpError: (status: number, message: string) => Object.assign(new Error(message), { status }),
+    isValidEmail: (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v),
+}));
+
+vi.mock('../../services/dal', () => ({
+    verifyOrganizerKey: (...args: unknown[]) => mockVerifyOrganizerKey(...args),
 }));
 
 // Small helper to open the page in a test-safe router.
@@ -50,6 +56,7 @@ describe('SignupPage', () => {
         mockNavigate.mockReset();
         mockSignupWithEmail.mockReset();
         mockMapAuthError.mockReset();
+        mockVerifyOrganizerKey.mockReset();
     });
 
     it('shows an error when fields are empty', async () => {
@@ -124,7 +131,7 @@ describe('SignupPage', () => {
             email: 'alice@example.com',
             password: '123456',
             role: 'user',
-            organizerNames: [],
+            organizerKey: undefined,
         });
         expect(mockNavigate).toHaveBeenCalledWith('/', { replace: true });
     });
@@ -144,7 +151,7 @@ describe('SignupPage', () => {
         await chooseUserRole(user);
         await user.click(screen.getByRole('button', { name: 'Sign Up as User' }));
 
-        expect(mockMapAuthError).toHaveBeenCalledWith(error, 'signup');
+        expect(mockMapAuthError).toHaveBeenCalledWith(error);
         expect(screen.getByText('This email is already in use.')).toBeInTheDocument();
     });
 
@@ -164,9 +171,11 @@ describe('SignupPage', () => {
         expect(mockSignupWithEmail).not.toHaveBeenCalled();
     });
 
-    it('allows multiple organizer codes and sends matched organizations', async () => {
+    it('verifies organizer key via API and passes it to signup', async () => {
+        // Keys are validated server-side now, no hardcoded codes in the bundle.
         const user = userEvent.setup();
         mockSignupWithEmail.mockResolvedValueOnce({ uid: 'new-organizer-user' });
+        mockVerifyOrganizerKey.mockResolvedValue(true);
         renderPage();
 
         await user.type(screen.getByLabelText('Username'), 'org-admin');
@@ -175,22 +184,35 @@ describe('SignupPage', () => {
         await user.type(screen.getByLabelText('Confirm Password'), '123456');
 
         await chooseOrganizerRole(user);
-
-        await user.type(screen.getByLabelText('Organizer Access Password(s)'), 'organizer-test-2026');
-
-        await user.click(screen.getByRole('button', { name: 'Add organizer code field' }));
-        const codeInputs = screen.getAllByPlaceholderText('Enter organizer access password');
-        await user.type(codeInputs[1], 'campus-events-2026');
-
+        await user.type(screen.getByLabelText('Organizer Access Password(s)'), 'my-invite-key');
         await user.click(screen.getByRole('button', { name: 'Sign Up as Organizer' }));
 
+        expect(mockVerifyOrganizerKey).toHaveBeenCalledWith('my-invite-key');
         expect(mockSignupWithEmail).toHaveBeenCalledWith({
             username: 'org-admin',
             email: 'org@example.com',
             password: '123456',
             role: 'organizer',
-            organizerNames: ['UniEvent Core Team', 'DTU Campus Events'],
+            organizerKey: 'my-invite-key',
         });
         expect(mockNavigate).toHaveBeenCalledWith('/', { replace: true });
+    });
+
+    it('shows error and does not sign up when organizer key is rejected by server', async () => {
+        const user = userEvent.setup();
+        mockVerifyOrganizerKey.mockResolvedValue(false);
+        renderPage();
+
+        await user.type(screen.getByLabelText('Username'), 'org-admin');
+        await user.type(screen.getByLabelText('Email'), 'org@example.com');
+        await user.type(screen.getByLabelText('Password'), '123456');
+        await user.type(screen.getByLabelText('Confirm Password'), '123456');
+
+        await chooseOrganizerRole(user);
+        await user.type(screen.getByLabelText('Organizer Access Password(s)'), 'bad-key');
+        await user.click(screen.getByRole('button', { name: 'Sign Up as Organizer' }));
+
+        expect(screen.getByText('Organizer access password is incorrect: bad-key')).toBeInTheDocument();
+        expect(mockSignupWithEmail).not.toHaveBeenCalled();
     });
 });

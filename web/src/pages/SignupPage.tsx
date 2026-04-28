@@ -4,7 +4,7 @@ import { HeaderLogoLink } from '../components/HeaderLogoLink';
 import { ThemeToggle } from '../components/ThemeToggle';
 import { Footer } from '../components/Footer';
 import { Plus, UserPlus } from 'lucide-react';
-import { useSignupPage, TEST_ORGANIZER_CODES } from '../hooks/useSignupPage';
+import { useSignupPage } from '../hooks/useSignupPage';
 
 export function SignupPage() {
     const navigate = useNavigate();
@@ -52,9 +52,7 @@ export function SignupPage() {
                             <p className="mt-2 text-[0.85rem] font-bold text-[var(--text-subtle)]">
                                 Account type: {accountRole === 'organizer' ? 'Organizer' : accountRole === 'user' ? 'User' : 'Not selected'}
                             </p>
-                            <p className="mt-1 text-[0.85rem] font-semibold text-[var(--text-subtle)]">
-                                Test codes: organizer-test-2026, campus-events-2026, student-hub-2026
-                            </p>
+
 
                             <form className="mt-6 grid gap-3" onSubmit={handleSubmit} noValidate>
                                 <label className="text-[0.85rem] font-bold uppercase tracking-[0.06em] text-[var(--text-primary)]" htmlFor="signup-username">Username</label>
@@ -130,11 +128,7 @@ export function SignupPage() {
                                                 </button>
                                             </div>
                                         ))}
-                                        <div className="mt-1 text-[0.8rem] font-semibold text-[var(--text-subtle)]">
-                                            {TEST_ORGANIZER_CODES.map(([codeText, organization]) => (
-                                                <p key={codeText} className="mt-1">Code: {codeText}{' -> '}{organization}</p>
-                                            ))}
-                                        </div>
+
                                     </>
                                 )}
 

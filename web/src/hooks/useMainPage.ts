@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { getEvents, getPages } from '../services/dal';
 import { signOutCurrentUser } from '../handlers/logout';
 import { redirectToFacebookAuth } from '../handlers/facebookLogin';
@@ -13,6 +13,14 @@ const FB_ERROR_MESSAGES: Record<string, string> = {
     server_error: 'Facebook encountered a server error. Please try again later.',
     temporarily_unavailable: 'Facebook is temporarily unavailable. Please try again later.',
 };
+
+function getCreatedMs(e: EventType): number {
+    type LegacyEvent = EventType & { createdTime?: string; postedTime?: string; insertedAt?: string; addedAt?: string };
+    const le = e as LegacyEvent;
+    const maybe = le.createdTime ?? le.createdAt ?? le.postedTime ?? le.insertedAt ?? le.addedAt ?? le.startTime;
+    const ms = Date.parse(maybe);
+    return isNaN(ms) ? new Date(e.startTime).getTime() : ms;
+}
 
 export function useMainPage() {
     const { currentUser } = useAuth();
@@ -97,48 +105,47 @@ export function useMainPage() {
 
     const userLabel = currentUser?.username || currentUser?.email || 'My Profile';
 
-    const filteredByPage = pageIds.length > 0
-        ? events.filter((e) => pageIds.includes(e.pageId))
-        : events;
+    const filteredByPage = useMemo(
+        () => pageIds.length > 0 ? events.filter((e) => pageIds.includes(e.pageId)) : events,
+        [events, pageIds],
+    );
 
-    const textFiltered = debouncedQuery
-        ? filteredByPage.filter((event) =>
-            ((event.title || '') + ' ' + (event.description || '') + ' ' + (event.place?.name || ''))
-                .toLowerCase()
-                .includes(debouncedQuery)
-          )
-        : filteredByPage;
+    const textFiltered = useMemo(
+        () => debouncedQuery
+            ? filteredByPage.filter((event) =>
+                ((event.title || '') + ' ' + (event.description || '') + ' ' + (event.place?.name || ''))
+                    .toLowerCase()
+                    .includes(debouncedQuery)
+              )
+            : filteredByPage,
+        [filteredByPage, debouncedQuery],
+    );
 
-    const fromObj = parseDateOnly(fromDate);
-    const toObj = parseDateOnly(toDate);
+    const fromObj = useMemo(() => parseDateOnly(fromDate), [fromDate]);
+    const toObj = useMemo(() => parseDateOnly(toDate), [toDate]);
     const invalidRange = !!(fromObj && toObj && toObj < fromObj);
-    const effectiveToObj = invalidRange ? undefined : toObj;
 
-    const dateFiltered = textFiltered.filter((event) => {
+    const dateFiltered = useMemo(() => textFiltered.filter((event) => {
         const eventMs = new Date(event.startTime).getTime();
         if (fromObj && eventMs < startOfDayMs(fromObj)) return false;
+        const effectiveToObj = invalidRange ? undefined : toObj;
         if (effectiveToObj && eventMs > endOfDayMs(effectiveToObj)) return false;
         return true;
-    });
+    }), [textFiltered, fromObj, toObj, invalidRange]);
 
-    const getCreatedMs = (e: EventType) => {
-        type LegacyEvent = EventType & { createdTime?: string; postedTime?: string; insertedAt?: string; addedAt?: string };
-        const le = e as LegacyEvent;
-        const maybe = le.createdTime ?? le.createdAt ?? le.postedTime ?? le.insertedAt ?? le.addedAt ?? le.startTime;
-        const ms = Date.parse(maybe);
-        return isNaN(ms) ? new Date(e.startTime).getTime() : ms;
-    };
-
-    let list = [...dateFiltered];
-    if (sortMode !== 'all') {
-        const now = Date.now();
-        list = list.filter((event) => new Date(event.startTime).getTime() >= now);
-    }
-    if (sortMode === 'upcoming') {
-        list = list.sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
-    } else if (sortMode === 'newest') {
-        list = list.sort((a, b) => getCreatedMs(b) - getCreatedMs(a));
-    }
+    const list = useMemo(() => {
+        let result = [...dateFiltered];
+        if (sortMode !== 'all') {
+            const now = Date.now();
+            result = result.filter((event) => new Date(event.startTime).getTime() >= now);
+        }
+        if (sortMode === 'upcoming') {
+            result.sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
+        } else if (sortMode === 'newest') {
+            result.sort((a, b) => getCreatedMs(b) - getCreatedMs(a));
+        }
+        return result;
+    }, [dateFiltered, sortMode]);
 
     return {
         currentUser,

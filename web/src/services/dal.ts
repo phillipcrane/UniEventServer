@@ -148,7 +148,7 @@ export async function searchPages(query: string, page: number = 0, size: number 
 
   const response = await fetch(url.toString());
   if (!response.ok) {
-    throw new Error(`Failed to search pages: ${response.statusText}`);
+    throw await createFetchError(response, 'Failed to search pages');
   }
 
   const data: ApiResponse<PageApiResponse> = await response.json();
@@ -166,7 +166,7 @@ export async function getEvents(page: number = 0, size: number = 100): Promise<E
 
   const response = await fetch(url.toString());
   if (!response.ok) {
-    throw new Error(`Failed to fetch events: ${response.statusText}`);
+    throw await createFetchError(response, 'Failed to fetch events');
   }
 
   const data: ApiResponse<EventApiResponse> = await response.json();
@@ -183,7 +183,7 @@ export async function getFutureEvents(page: number = 0, size: number = 100): Pro
 
   const response = await fetch(url.toString());
   if (!response.ok) {
-    throw new Error(`Failed to fetch future events: ${response.statusText}`);
+    throw await createFetchError(response, 'Failed to fetch future events');
   }
 
   const data: ApiResponse<EventApiResponse> = await response.json();
@@ -201,7 +201,7 @@ export async function getEventById(id: string): Promise<Event | null> {
     return null;
   }
   if (!response.ok) {
-    throw new Error(`Failed to fetch event: ${response.statusText}`);
+    throw await createFetchError(response, 'Failed to fetch event');
   }
 
   const data: EventApiResponse = await response.json();
@@ -218,7 +218,7 @@ export async function getEventsByPageId(pageId: string, page: number = 0, size: 
 
   const response = await fetch(url.toString());
   if (!response.ok) {
-    throw new Error(`Failed to fetch events for page: ${response.statusText}`);
+    throw await createFetchError(response, 'Failed to fetch events for page');
   }
 
   const data: ApiResponse<EventApiResponse> = await response.json();
@@ -235,7 +235,7 @@ export async function getFutureEventsByPageId(pageId: string, page: number = 0, 
 
   const response = await fetch(url.toString());
   if (!response.ok) {
-    throw new Error(`Failed to fetch future events for page: ${response.statusText}`);
+    throw await createFetchError(response, 'Failed to fetch future events for page');
   }
 
   const data: ApiResponse<EventApiResponse> = await response.json();
@@ -252,9 +252,24 @@ export async function getEventsByPlaceId(placeId: string, page: number = 0, size
 
   const response = await fetch(url.toString());
   if (!response.ok) {
-    throw new Error(`Failed to fetch events for place: ${response.statusText}`);
+    throw await createFetchError(response, 'Failed to fetch events for place');
   }
 
   const data: ApiResponse<EventApiResponse> = await response.json();
   return data.content.map(mapEventResponse);
+}
+
+/**
+ * Verify an organizer invite key against the backend.
+ * Returns true if the key is valid, false if the backend rejects it.
+ * Throws on network error.
+ */
+export async function verifyOrganizerKey(key: string): Promise<boolean> {
+  const url = buildBackendUrlString('/api/auth/organizer-key/verify');
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ key }),
+  });
+  return response.ok;
 }

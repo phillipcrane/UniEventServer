@@ -1,6 +1,7 @@
+import { useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { CircleUserRound, LogOut } from 'lucide-react';
-import { useProfileMenu } from '../hooks/useProfileMenu';
+import { useClickOutside } from '../hooks/useClickOutside';
 
 type UserMenuProps = {
   userLabel: string;
@@ -9,7 +10,9 @@ type UserMenuProps = {
 };
 
 export function UserMenu({ userLabel, onSignOut, isSigningOut }: UserMenuProps) {
-  const { isOpen, setIsOpen, menuRef } = useProfileMenu();
+  const [isOpen, setIsOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement | null>(null);
+  useClickOutside(menuRef, isOpen, () => setIsOpen(false));
 
   return (
     <div className="relative" ref={menuRef}>
