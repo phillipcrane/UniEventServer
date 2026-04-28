@@ -1,11 +1,9 @@
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL ?? '';
-const USER_KEY = 'unievent_user';
-const TOKEN_EXPIRES_AT_KEY = 'unievent_token_expires_at';
 const CSRF_COOKIE_NAME = 'csrf_token';
 
-// In-memory CSRF token, populated on login/register/refresh.
-// On page reload it falls back to reading the readable CSRF cookie directly.
 let _csrfToken: string | null = null;
+let _currentUser: AuthUser | null = null;
+let _tokenExpiresAt: number | null = null;
 
 export type AuthUser = {
     username: string;
@@ -35,7 +33,6 @@ function createHttpError(status: number, message: string): HttpError {
     return Object.assign(new Error(message), { status });
 }
 
-// Module-level listener list for auth state subscriptions
 const listeners: Array<(user: AuthUser | null) => void> = [];
 
 function notifyListeners(user: AuthUser | null): void {
@@ -75,66 +72,50 @@ export function getCsrfToken(): string | null {
     return _csrfToken ?? getCsrfFromCookie();
 }
 
-function persistUser(user: AuthUser): void {
-    localStorage.setItem(USER_KEY, JSON.stringify({
-        username: user.username,
-        email: user.email,
-        uid: user.uid,
-        displayName: user.displayName,
-        photoURL: user.photoURL,
-        role: user.role,
-        organizerNames: user.organizerNames,
-    }));
+function setCurrentUser(user: AuthUser): void {
+    _currentUser = user;
 }
 
-function clearUser(): void {
-    localStorage.removeItem(USER_KEY);
-    localStorage.removeItem(TOKEN_EXPIRES_AT_KEY);
+function clearCurrentUser(): void {
+    _currentUser = null;
+    _tokenExpiresAt = null;
 }
 
 function storeTokenExpiry(accessTokenExpiresInMs: number): void {
-    localStorage.setItem(TOKEN_EXPIRES_AT_KEY, String(Date.now() + accessTokenExpiresInMs));
+    _tokenExpiresAt = Date.now() + accessTokenExpiresInMs;
 }
 
 export function getTokenExpiresAt(): number | null {
-    const raw = localStorage.getItem(TOKEN_EXPIRES_AT_KEY);
-    return raw ? Number(raw) : null;
+    return _tokenExpiresAt;
 }
 
 export function isTokenExpiredOrExpiringSoon(thresholdMs = 60_000): boolean {
-    const expiresAt = getTokenExpiresAt();
-    if (expiresAt === null) return false;
-    return Date.now() >= expiresAt - thresholdMs;
+    if (_tokenExpiresAt === null) return false;
+    return Date.now() >= _tokenExpiresAt - thresholdMs;
 }
 
 export function getCurrentUser(): AuthUser | null {
-    const raw = localStorage.getItem(USER_KEY);
-    if (!raw) return null;
-    try {
-        const stored = JSON.parse(raw) as {
-            username: string;
-            email: string;
-            uid?: string;
-            displayName?: string;
-            photoURL?: string | null;
-            role?: AccountRole;
-            organizerNames?: string[];
-        };
+    return _currentUser;
+}
 
-        const organizerNames = Array.isArray(stored.organizerNames) ? stored.organizerNames : undefined;
+type AuthApiResponse = {
+    username: string;
+    email: string;
+    roles: string[];
+    csrfToken: string;
+    accessTokenExpiresInMs: number;
+};
 
-        return {
-            username: stored.username,
-            email: stored.email,
-            uid: stored.uid ?? stored.username,
-            displayName: stored.displayName ?? stored.username,
-            photoURL: stored.photoURL,
-            role: resolveAccountRole(stored.role, organizerNames),
-            organizerNames,
-        };
-    } catch {
-        return null;
-    }
+function buildUserFromResponse(data: AuthApiResponse, existing?: AuthUser | null): AuthUser {
+    return {
+        username: data.username,
+        email: data.email,
+        uid: existing?.uid ?? data.username,
+        displayName: existing?.displayName ?? data.username,
+        photoURL: existing?.photoURL,
+        role: resolveAccountRole(data.roles?.[0], existing?.organizerNames),
+        organizerNames: existing?.organizerNames,
+    };
 }
 
 export async function loginWithEmail(email: string, password: string): Promise<AuthUser> {
@@ -153,17 +134,11 @@ export async function loginWithEmail(email: string, password: string): Promise<A
         );
     }
 
-    const data = await response.json() as { username: string; email: string; roles: string[]; csrfToken: string; accessTokenExpiresInMs: number };
+    const data = await response.json() as AuthApiResponse;
     _csrfToken = data.csrfToken;
     storeTokenExpiry(data.accessTokenExpiresInMs);
-    const user: AuthUser = {
-        username: data.username,
-        email: data.email,
-        uid: data.username,
-        displayName: data.username,
-        role: resolveAccountRole(data.roles?.[0], undefined),
-    };
-    persistUser(user);
+    const user = buildUserFromResponse(data);
+    setCurrentUser(user);
     notifyListeners(user);
     return user;
 }
@@ -184,26 +159,22 @@ export async function signupWithEmail({ username, email, password, role, organiz
         );
     }
 
-    const data = await response.json() as { username: string; email: string; roles: string[]; csrfToken: string; accessTokenExpiresInMs: number };
+    const data = await response.json() as AuthApiResponse;
     _csrfToken = data.csrfToken;
     storeTokenExpiry(data.accessTokenExpiresInMs);
     const user: AuthUser = {
-        username: data.username,
-        email: data.email,
-        uid: data.username,
-        displayName: data.username,
-        role: resolveAccountRole(data.roles?.[0], undefined) ?? role,
+        ...buildUserFromResponse(data),
+        role: resolveAccountRole(data.roles?.[0], organizerNames) ?? role,
         organizerNames: organizerNames ? [...organizerNames] : undefined,
     };
-    persistUser(user);
+    setCurrentUser(user);
     notifyListeners(user);
     return user;
 }
 
 export function onAuthUserChanged(callback: (user: AuthUser | null) => void): () => void {
     listeners.push(callback);
-    // fire immediately with current state
-    callback(getCurrentUser());
+    callback(_currentUser);
     return () => {
         const idx = listeners.indexOf(callback);
         if (idx !== -1) listeners.splice(idx, 1);
@@ -222,26 +193,18 @@ export async function refreshTokens(): Promise<void> {
     });
 
     if (!response.ok) {
-        // Refresh failed - session has fully expired, log out locally.
         _csrfToken = null;
-        clearUser();
+        clearCurrentUser();
         notifyListeners(null);
         return;
     }
 
-    const data = await response.json() as { username: string; email: string; roles: string[]; csrfToken: string; accessTokenExpiresInMs: number };
+    const data = await response.json() as AuthApiResponse;
     _csrfToken = data.csrfToken;
     storeTokenExpiry(data.accessTokenExpiresInMs);
-
-    const current = getCurrentUser();
-    if (current) {
-        const updated: AuthUser = {
-            ...current,
-            role: resolveAccountRole(data.role, current.organizerNames),
-        };
-        persistUser(updated);
-        notifyListeners(updated);
-    }
+    const user = buildUserFromResponse(data, _currentUser);
+    setCurrentUser(user);
+    notifyListeners(user);
 }
 
 export async function signOutCurrentUser(): Promise<void> {
@@ -259,12 +222,12 @@ export async function signOutCurrentUser(): Promise<void> {
         // ignore network errors - local state is cleared regardless
     }
     _csrfToken = null;
-    clearUser();
+    clearCurrentUser();
     notifyListeners(null);
 }
 
 export function getStoredAccountRole(uid: string): AccountRole {
-    const user = getCurrentUser();
+    const user = _currentUser;
     if (!user || (uid && user.uid !== uid)) {
         return 'user';
     }
@@ -272,7 +235,7 @@ export function getStoredAccountRole(uid: string): AccountRole {
 }
 
 export function getStoredOrganizerNames(uid: string): string[] {
-    const user = getCurrentUser();
+    const user = _currentUser;
     if (!user || (uid && user.uid !== uid)) {
         return [];
     }
@@ -280,7 +243,7 @@ export function getStoredOrganizerNames(uid: string): string[] {
 }
 
 export async function getAccountProfile(uid?: string): Promise<{ role: AccountRole; organizerNames: string[] }> {
-    const user = getCurrentUser();
+    const user = _currentUser;
     if (!user || (uid && user.uid !== uid)) {
         return { role: 'user', organizerNames: [] };
     }
@@ -309,7 +272,7 @@ export async function getAccountProfile(uid?: string): Promise<{ role: AccountRo
         role: profile.role,
         organizerNames: [...profile.organizerNames],
     };
-    persistUser(updatedUser);
+    setCurrentUser(updatedUser);
     notifyListeners(updatedUser);
 
     return profile;
@@ -328,10 +291,16 @@ export function mapAuthError(error: unknown, _context?: AuthErrorContext): strin
         if (e.status === 400) {
             return e.message ?? 'Invalid input. Please check your details.';
         }
-        // Only surface the message when it came from our backend (has a known status code).
         if (e.status !== undefined && e.message) {
             return e.message;
         }
     }
     return 'Something went wrong. Please try again.';
+}
+
+export function _resetForTesting(): void {
+    _currentUser = null;
+    _tokenExpiresAt = null;
+    _csrfToken = null;
+    listeners.length = 0;
 }

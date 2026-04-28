@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
-import { getCurrentUser, isTokenExpiredOrExpiringSoon, onAuthUserChanged, refreshTokens, type AuthUser } from '../services/auth';
+import { isTokenExpiredOrExpiringSoon, onAuthUserChanged, refreshTokens, type AuthUser } from '../services/auth';
 
 // A context is a REACT-particular thing to share state and just data in general across various REACT components
 // accross the entire app without having to pass state "props" (i.e. parameters, properties) down through 
@@ -21,6 +21,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
 
     useEffect(() => {
+        // Restore session from HttpOnly cookies on page load.
+        // If the refresh cookie is valid the server issues fresh tokens and
+        // populates in-memory state; if not, the user stays logged out.
+        refreshTokens();
         const unsubscribe = onAuthUserChanged(setCurrentUser);
         return unsubscribe;
     }, []);
@@ -30,7 +34,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // never gets a surprise 401 mid-session. Empty deps keeps the interval
         // stable - getCurrentUser() reads the latest state on each tick.
         async function checkAndRefresh() {
-            if (getCurrentUser() && isTokenExpiredOrExpiringSoon(REFRESH_THRESHOLD_MS)) {
+            if (isTokenExpiredOrExpiringSoon(REFRESH_THRESHOLD_MS)) {
                 await refreshTokens();
             }
         }

@@ -1,18 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-// Use global fetch mock provided by jsdom.
 const mockFetch = vi.fn();
 
-// Provide a full localStorage mock that works across Node/jsdom environments.
-const localStorageStore: Record<string, string> = {};
-const localStorageMock = {
-    getItem: (key: string) => localStorageStore[key] ?? null,
-    setItem: (key: string, value: string) => { localStorageStore[key] = value; },
-    removeItem: (key: string) => { delete localStorageStore[key]; },
-    clear: () => { Object.keys(localStorageStore).forEach((k) => delete localStorageStore[k]); },
-};
-
-// Helper: build a successful JSON fetch response.
 function jsonResponse(body: unknown, status = 200): Response {
     return new Response(JSON.stringify(body), {
         status,
@@ -20,7 +9,6 @@ function jsonResponse(body: unknown, status = 200): Response {
     });
 }
 
-// Helper: build a failing JSON fetch response.
 function errorResponse(body: unknown, status: number): Response {
     return new Response(JSON.stringify(body), {
         status,
@@ -28,7 +16,19 @@ function errorResponse(body: unknown, status: number): Response {
     });
 }
 
+function authResponse(overrides: Partial<{ username: string; email: string; roles: string[]; csrfToken: string; accessTokenExpiresInMs: number }> = {}): unknown {
+    return {
+        username: 'alice',
+        email: 'alice@example.com',
+        roles: ['ROLE_USER'],
+        csrfToken: 'csrf-token',
+        accessTokenExpiresInMs: 3600000,
+        ...overrides,
+    };
+}
+
 import {
+    _resetForTesting,
     getCurrentUser,
     loginWithEmail,
     mapAuthError,
@@ -39,34 +39,28 @@ import {
 
 describe('auth service', () => {
     beforeEach(() => {
-        localStorageMock.clear();
+        _resetForTesting();
         mockFetch.mockReset();
         vi.stubGlobal('fetch', mockFetch);
-        vi.stubGlobal('localStorage', localStorageMock);
     });
 
     afterEach(() => {
         vi.unstubAllGlobals();
     });
 
-    afterEach(() => {
-        localStorageMock.clear();
-    });
-
     // ── loginWithEmail ──────────────────────────────────────────────────────
 
-    it('logs in and stores user metadata in localStorage', async () => {
-        mockFetch.mockResolvedValueOnce(jsonResponse({ username: 'alice', email: 'alice@example.com', role: 'user', csrfToken: 'csrf-1' }));
+    it('logs in and stores user metadata in memory', async () => {
+        mockFetch.mockResolvedValueOnce(jsonResponse(authResponse({ username: 'alice', email: 'alice@example.com' })));
 
         const user = await loginWithEmail('alice@example.com', 'secret123');
 
         expect(user).toMatchObject({ username: 'alice', email: 'alice@example.com', role: 'user' });
-        expect(localStorage.getItem('unievent_token')).toBeNull();
-        expect(localStorage.getItem('unievent_user')).not.toBeNull();
+        expect(getCurrentUser()).toMatchObject({ username: 'alice', email: 'alice@example.com' });
     });
 
     it('sends credentials and includes credentials:include', async () => {
-        mockFetch.mockResolvedValueOnce(jsonResponse({ username: 'u', email: 'u@x.com', role: 'user', csrfToken: 'csrf' }));
+        mockFetch.mockResolvedValueOnce(jsonResponse(authResponse({ username: 'u', email: 'u@x.com' })));
 
         await loginWithEmail('u@x.com', 'pass');
 
@@ -84,17 +78,17 @@ describe('auth service', () => {
 
     // ── signupWithEmail ─────────────────────────────────────────────────────
 
-    it('registers and stores user metadata in localStorage', async () => {
-        mockFetch.mockResolvedValueOnce(jsonResponse({ username: 'bob', email: 'bob@example.com', role: 'user', csrfToken: 'csrf-2' }));
+    it('registers and stores user metadata in memory', async () => {
+        mockFetch.mockResolvedValueOnce(jsonResponse(authResponse({ username: 'bob', email: 'bob@example.com' })));
 
         const user = await signupWithEmail({ username: 'bob', email: 'bob@example.com', password: 'secret123' });
 
         expect(user).toMatchObject({ username: 'bob', email: 'bob@example.com', role: 'user' });
-        expect(localStorage.getItem('unievent_token')).toBeNull();
+        expect(getCurrentUser()).toMatchObject({ username: 'bob' });
     });
 
     it('sends signup payload to the correct endpoint', async () => {
-        mockFetch.mockResolvedValueOnce(jsonResponse({ username: 'bob', email: 'bob@x.com', role: 'user', csrfToken: 'csrf' }));
+        mockFetch.mockResolvedValueOnce(jsonResponse(authResponse({ username: 'bob', email: 'bob@x.com' })));
 
         await signupWithEmail({ username: 'bob', email: 'bob@x.com', password: 'secret123' });
 
@@ -111,12 +105,12 @@ describe('auth service', () => {
 
     // ── getCurrentUser ──────────────────────────────────────────────────────
 
-    it('returns null when nothing is stored', () => {
+    it('returns null when no session exists', () => {
         expect(getCurrentUser()).toBeNull();
     });
 
-    it('returns stored user after login', async () => {
-        mockFetch.mockResolvedValueOnce(jsonResponse({ username: 'carol', email: 'carol@x.com', role: 'user', csrfToken: 'csrf-3' }));
+    it('returns the user after login', async () => {
+        mockFetch.mockResolvedValueOnce(jsonResponse(authResponse({ username: 'carol', email: 'carol@x.com' })));
         await loginWithEmail('carol@x.com', 'pw');
 
         expect(getCurrentUser()).toMatchObject({ username: 'carol', email: 'carol@x.com', role: 'user' });
@@ -124,8 +118,9 @@ describe('auth service', () => {
 
     // ── onAuthUserChanged ────────────────────────────────────────────────────
 
-    it('fires immediately with current user state', () => {
-        localStorage.setItem('unievent_user', JSON.stringify({ username: 'dave', email: 'dave@x.com', role: 'user' }));
+    it('fires immediately with current user when already logged in', async () => {
+        mockFetch.mockResolvedValueOnce(jsonResponse(authResponse({ username: 'dave', email: 'dave@x.com' })));
+        await loginWithEmail('dave@x.com', 'pw');
 
         const callback = vi.fn();
         const unsubscribe = onAuthUserChanged(callback);
@@ -144,11 +139,11 @@ describe('auth service', () => {
     });
 
     it('notifies listeners on login', async () => {
-        mockFetch.mockResolvedValueOnce(jsonResponse({ username: 'eve', email: 'eve@x.com', role: 'user', csrfToken: 'csrf' }));
+        mockFetch.mockResolvedValueOnce(jsonResponse(authResponse({ username: 'eve', email: 'eve@x.com' })));
 
         const callback = vi.fn();
         const unsubscribe = onAuthUserChanged(callback);
-        callback.mockClear(); // ignore the immediate fire
+        callback.mockClear();
 
         await loginWithEmail('eve@x.com', 'pw');
 
@@ -157,7 +152,7 @@ describe('auth service', () => {
     });
 
     it('returns a working unsubscribe function', async () => {
-        mockFetch.mockResolvedValueOnce(jsonResponse({ username: 'u', email: 'u@x.com', role: 'user', csrfToken: 'csrf' }));
+        mockFetch.mockResolvedValueOnce(jsonResponse(authResponse({ username: 'u', email: 'u@x.com' })));
 
         const callback = vi.fn();
         const unsubscribe = onAuthUserChanged(callback);
@@ -172,7 +167,7 @@ describe('auth service', () => {
     // ── signOutCurrentUser ───────────────────────────────────────────────────
 
     it('calls logout endpoint, clears user state, and notifies listeners', async () => {
-        mockFetch.mockResolvedValueOnce(jsonResponse({ username: 'u', email: 'u@x.com', role: 'user', csrfToken: 'csrf' }));
+        mockFetch.mockResolvedValueOnce(jsonResponse(authResponse({ username: 'u', email: 'u@x.com' })));
         await loginWithEmail('u@x.com', 'pw');
 
         const callback = vi.fn();
@@ -190,7 +185,7 @@ describe('auth service', () => {
     });
 
     it('clears local state even when logout endpoint fails', async () => {
-        mockFetch.mockResolvedValueOnce(jsonResponse({ username: 'u', email: 'u@x.com', role: 'user', csrfToken: 'csrf' }));
+        mockFetch.mockResolvedValueOnce(jsonResponse(authResponse({ username: 'u', email: 'u@x.com' })));
         await loginWithEmail('u@x.com', 'pw');
 
         mockFetch.mockRejectedValueOnce(new Error('network error'));
