@@ -1,4 +1,4 @@
-import { getAuthToken } from './auth';
+import { getCsrfToken } from './auth';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL ?? '';
 
@@ -11,11 +11,12 @@ export function buildFacebookLoginUrl(): string {
 }
 
 export async function getFacebookAuthUrl(): Promise<string> {
-    const token = getAuthToken();
-    if (!token) throw new Error('You must be logged in to connect Facebook.');
+    const csrf = getCsrfToken();
+    if (!csrf) throw new Error('You must be logged in to connect Facebook.');
 
     const response = await fetch(`${BACKEND_URL}/api/facebook/auth`, {
-        headers: { Authorization: `Bearer ${token}` },
+        credentials: 'include',
+        headers: csrf ? { 'X-CSRF-Token': csrf } : {},
     });
 
     if (!response.ok) {

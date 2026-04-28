@@ -30,7 +30,6 @@ function errorResponse(body: unknown, status: number): Response {
 
 import {
     getCurrentUser,
-    getAuthToken,
     loginWithEmail,
     mapAuthError,
     onAuthUserChanged,
@@ -56,23 +55,24 @@ describe('auth service', () => {
 
     // ── loginWithEmail ──────────────────────────────────────────────────────
 
-    it('logs in and stores token + user in localStorage', async () => {
-        mockFetch.mockResolvedValueOnce(jsonResponse({ token: 'tok-1', username: 'alice', email: 'alice@example.com' }));
+    it('logs in and stores user metadata in localStorage', async () => {
+        mockFetch.mockResolvedValueOnce(jsonResponse({ username: 'alice', email: 'alice@example.com', role: 'user', csrfToken: 'csrf-1' }));
 
         const user = await loginWithEmail('alice@example.com', 'secret123');
 
-        expect(user).toMatchObject({ token: 'tok-1', username: 'alice', email: 'alice@example.com' });
-        expect(localStorage.getItem('unievent_token')).toBe('tok-1');
-        expect(getAuthToken()).toBe('tok-1');
+        expect(user).toMatchObject({ username: 'alice', email: 'alice@example.com', role: 'user' });
+        expect(localStorage.getItem('unievent_token')).toBeNull();
+        expect(localStorage.getItem('unievent_user')).not.toBeNull();
     });
 
-    it('sends credentials to the correct endpoint', async () => {
-        mockFetch.mockResolvedValueOnce(jsonResponse({ token: 't', username: 'u', email: 'u@x.com' }));
+    it('sends credentials and includes credentials:include', async () => {
+        mockFetch.mockResolvedValueOnce(jsonResponse({ username: 'u', email: 'u@x.com', role: 'user', csrfToken: 'csrf' }));
 
         await loginWithEmail('u@x.com', 'pass');
 
         const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
         expect(url).toContain('/api/auth/login');
+        expect((init as RequestInit & { credentials: string }).credentials).toBe('include');
         expect(JSON.parse(init.body as string)).toEqual({ email: 'u@x.com', password: 'pass' });
     });
 
@@ -84,17 +84,17 @@ describe('auth service', () => {
 
     // ── signupWithEmail ─────────────────────────────────────────────────────
 
-    it('registers and stores token + user in localStorage', async () => {
-        mockFetch.mockResolvedValueOnce(jsonResponse({ token: 'tok-2', username: 'bob', email: 'bob@example.com' }));
+    it('registers and stores user metadata in localStorage', async () => {
+        mockFetch.mockResolvedValueOnce(jsonResponse({ username: 'bob', email: 'bob@example.com', role: 'user', csrfToken: 'csrf-2' }));
 
         const user = await signupWithEmail({ username: 'bob', email: 'bob@example.com', password: 'secret123' });
 
-        expect(user).toMatchObject({ token: 'tok-2', username: 'bob', email: 'bob@example.com' });
-        expect(localStorage.getItem('unievent_token')).toBe('tok-2');
+        expect(user).toMatchObject({ username: 'bob', email: 'bob@example.com', role: 'user' });
+        expect(localStorage.getItem('unievent_token')).toBeNull();
     });
 
     it('sends signup payload to the correct endpoint', async () => {
-        mockFetch.mockResolvedValueOnce(jsonResponse({ token: 't', username: 'bob', email: 'bob@x.com' }));
+        mockFetch.mockResolvedValueOnce(jsonResponse({ username: 'bob', email: 'bob@x.com', role: 'user', csrfToken: 'csrf' }));
 
         await signupWithEmail({ username: 'bob', email: 'bob@x.com', password: 'secret123' });
 
@@ -109,25 +109,23 @@ describe('auth service', () => {
         await expect(signupWithEmail({ username: 'bob', email: 'dup@x.com', password: 'secret' })).rejects.toMatchObject({ status: 409 });
     });
 
-    // ── getCurrentUser / getAuthToken ───────────────────────────────────────
+    // ── getCurrentUser ──────────────────────────────────────────────────────
 
     it('returns null when nothing is stored', () => {
         expect(getCurrentUser()).toBeNull();
-        expect(getAuthToken()).toBeNull();
     });
 
     it('returns stored user after login', async () => {
-        mockFetch.mockResolvedValueOnce(jsonResponse({ token: 'tok-3', username: 'carol', email: 'carol@x.com' }));
+        mockFetch.mockResolvedValueOnce(jsonResponse({ username: 'carol', email: 'carol@x.com', role: 'user', csrfToken: 'csrf-3' }));
         await loginWithEmail('carol@x.com', 'pw');
 
-        expect(getCurrentUser()).toMatchObject({ token: 'tok-3', username: 'carol', email: 'carol@x.com' });
+        expect(getCurrentUser()).toMatchObject({ username: 'carol', email: 'carol@x.com', role: 'user' });
     });
 
     // ── onAuthUserChanged ────────────────────────────────────────────────────
 
     it('fires immediately with current user state', () => {
-        localStorage.setItem('unievent_token', 'existing-tok');
-        localStorage.setItem('unievent_user', JSON.stringify({ username: 'dave', email: 'dave@x.com' }));
+        localStorage.setItem('unievent_user', JSON.stringify({ username: 'dave', email: 'dave@x.com', role: 'user' }));
 
         const callback = vi.fn();
         const unsubscribe = onAuthUserChanged(callback);
@@ -146,7 +144,7 @@ describe('auth service', () => {
     });
 
     it('notifies listeners on login', async () => {
-        mockFetch.mockResolvedValueOnce(jsonResponse({ token: 't', username: 'eve', email: 'eve@x.com' }));
+        mockFetch.mockResolvedValueOnce(jsonResponse({ username: 'eve', email: 'eve@x.com', role: 'user', csrfToken: 'csrf' }));
 
         const callback = vi.fn();
         const unsubscribe = onAuthUserChanged(callback);
@@ -154,12 +152,12 @@ describe('auth service', () => {
 
         await loginWithEmail('eve@x.com', 'pw');
 
-        expect(callback).toHaveBeenCalledWith(expect.objectContaining({ token: 't', username: 'eve', email: 'eve@x.com' }));
+        expect(callback).toHaveBeenCalledWith(expect.objectContaining({ username: 'eve', email: 'eve@x.com' }));
         unsubscribe();
     });
 
     it('returns a working unsubscribe function', async () => {
-        mockFetch.mockResolvedValueOnce(jsonResponse({ token: 't', username: 'u', email: 'u@x.com' }));
+        mockFetch.mockResolvedValueOnce(jsonResponse({ username: 'u', email: 'u@x.com', role: 'user', csrfToken: 'csrf' }));
 
         const callback = vi.fn();
         const unsubscribe = onAuthUserChanged(callback);
@@ -173,21 +171,35 @@ describe('auth service', () => {
 
     // ── signOutCurrentUser ───────────────────────────────────────────────────
 
-    it('clears localStorage and notifies listeners on sign out', async () => {
-        mockFetch.mockResolvedValueOnce(jsonResponse({ token: 'tok', username: 'u', email: 'u@x.com' }));
+    it('calls logout endpoint, clears user state, and notifies listeners', async () => {
+        mockFetch.mockResolvedValueOnce(jsonResponse({ username: 'u', email: 'u@x.com', role: 'user', csrfToken: 'csrf' }));
         await loginWithEmail('u@x.com', 'pw');
 
         const callback = vi.fn();
         const unsubscribe = onAuthUserChanged(callback);
         callback.mockClear();
 
+        mockFetch.mockResolvedValueOnce(new Response(null, { status: 204 }));
         await signOutCurrentUser();
 
-        expect(getAuthToken()).toBeNull();
+        const [url] = mockFetch.mock.lastCall as [string, RequestInit];
+        expect(url).toContain('/api/auth/logout');
         expect(getCurrentUser()).toBeNull();
         expect(callback).toHaveBeenCalledWith(null);
         unsubscribe();
     });
+
+    it('clears local state even when logout endpoint fails', async () => {
+        mockFetch.mockResolvedValueOnce(jsonResponse({ username: 'u', email: 'u@x.com', role: 'user', csrfToken: 'csrf' }));
+        await loginWithEmail('u@x.com', 'pw');
+
+        mockFetch.mockRejectedValueOnce(new Error('network error'));
+        await signOutCurrentUser();
+
+        expect(getCurrentUser()).toBeNull();
+    });
+
+    // ── mapAuthError ─────────────────────────────────────────────────────────
 
     it('returns "Invalid email or password" for 401', () => {
         expect(mapAuthError({ status: 401 }, 'login')).toBe('Invalid email or password.');

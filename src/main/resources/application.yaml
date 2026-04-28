@@ -74,9 +74,10 @@ unievent:
       csrf-name: csrf_token
       access-max-age: 86400
       refresh-max-age: 604800
-      csrf-max-age: 3600
+      csrf-max-age: 86400
       secure: true
-      same-site: Strict
+      same-site: Lax
+    
       domain: ${UNIEVENT_COOKIE_DOMAIN:}
       path: /
     csrf:

@@ -41,7 +41,7 @@ public class RefreshTokenService {
 
         refreshTokenRepository.save(buildRefreshToken(user, userDetails.getUsername(), refreshTokenId, familyId, refreshToken, null));
 
-        return new TokenPair(accessToken, refreshToken, jwtConfig.getExpirationMs(), jwtConfig.getRefreshExpirationMs(), user.getUsername(), user.getEmail());
+        return new TokenPair(accessToken, refreshToken, jwtConfig.getExpirationMs(), jwtConfig.getRefreshExpirationMs(), user.getUsername(), user.getEmail(), user.getRole());
     }
 
     @Transactional
@@ -89,7 +89,7 @@ public class RefreshTokenService {
 
         refreshTokenRepository.save(buildRefreshToken(user, userEmail, nextTokenId, familyId, nextRefreshToken, userAgent, ipAddress));
 
-        return new TokenPair(accessToken, nextRefreshToken, jwtConfig.getExpirationMs(), jwtConfig.getRefreshExpirationMs(), user.getUsername(), user.getEmail());
+        return new TokenPair(accessToken, nextRefreshToken, jwtConfig.getExpirationMs(), jwtConfig.getRefreshExpirationMs(), user.getUsername(), user.getEmail(), user.getRole());
     }
 
     @Transactional
@@ -159,6 +159,7 @@ public class RefreshTokenService {
             long accessTokenExpiresInMs,
             long refreshTokenExpiresInMs,
             String username,
-            String email
+            String email,
+            String role
     ) {}
 }

@@ -1,11 +1,15 @@
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL ?? '';
-const TOKEN_KEY = 'unievent_token';
 const USER_KEY = 'unievent_user';
+const TOKEN_EXPIRES_AT_KEY = 'unievent_token_expires_at';
+const CSRF_COOKIE_NAME = 'csrf_token';
+
+// In-memory CSRF token, populated on login/register/refresh.
+// On page reload it falls back to reading the readable CSRF cookie directly.
+let _csrfToken: string | null = null;
 
 export type AuthUser = {
     username: string;
     email: string;
-    token: string;
     uid?: string;
     displayName?: string;
     photoURL?: string | null;
@@ -61,32 +65,17 @@ function resolveAccountRole(
     return fallback;
 }
 
-function getRoleFromJwt(token: string): AccountRole | undefined {
-    try {
-        const [, payloadBase64] = token.split('.');
-        if (!payloadBase64) return undefined;
+function getCsrfFromCookie(): string | null {
+    if (typeof document === 'undefined') return null;
+    const match = document.cookie.split('; ').find(row => row.startsWith(`${CSRF_COOKIE_NAME}=`));
+    return match ? decodeURIComponent(match.slice(CSRF_COOKIE_NAME.length + 1)) : null;
+}
 
-        const padded = payloadBase64.padEnd(payloadBase64.length + ((4 - (payloadBase64.length % 4)) % 4), '=');
-        const payloadJson = atob(padded.replace(/-/g, '+').replace(/_/g, '/'));
-        const payload = JSON.parse(payloadJson) as { roles?: unknown; role?: unknown };
-
-        if (Array.isArray(payload.roles)) {
-            for (const roleValue of payload.roles) {
-                if (normalizeRole(roleValue) === 'organizer') return 'organizer';
-            }
-            for (const roleValue of payload.roles) {
-                if (normalizeRole(roleValue) === 'user') return 'user';
-            }
-        }
-
-        return normalizeRole(payload.role);
-    } catch {
-        return undefined;
-    }
+export function getCsrfToken(): string | null {
+    return _csrfToken ?? getCsrfFromCookie();
 }
 
 function persistUser(user: AuthUser): void {
-    localStorage.setItem(TOKEN_KEY, user.token);
     localStorage.setItem(USER_KEY, JSON.stringify({
         username: user.username,
         email: user.email,
@@ -99,14 +88,28 @@ function persistUser(user: AuthUser): void {
 }
 
 function clearUser(): void {
-    localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(USER_KEY);
+    localStorage.removeItem(TOKEN_EXPIRES_AT_KEY);
+}
+
+function storeTokenExpiry(accessTokenExpiresInMs: number): void {
+    localStorage.setItem(TOKEN_EXPIRES_AT_KEY, String(Date.now() + accessTokenExpiresInMs));
+}
+
+export function getTokenExpiresAt(): number | null {
+    const raw = localStorage.getItem(TOKEN_EXPIRES_AT_KEY);
+    return raw ? Number(raw) : null;
+}
+
+export function isTokenExpiredOrExpiringSoon(thresholdMs = 60_000): boolean {
+    const expiresAt = getTokenExpiresAt();
+    if (expiresAt === null) return false;
+    return Date.now() >= expiresAt - thresholdMs;
 }
 
 export function getCurrentUser(): AuthUser | null {
-    const token = localStorage.getItem(TOKEN_KEY);
     const raw = localStorage.getItem(USER_KEY);
-    if (!token || !raw) return null;
+    if (!raw) return null;
     try {
         const stored = JSON.parse(raw) as {
             username: string;
@@ -118,18 +121,15 @@ export function getCurrentUser(): AuthUser | null {
             organizerNames?: string[];
         };
 
-        const roleFromToken = getRoleFromJwt(token);
-
         const organizerNames = Array.isArray(stored.organizerNames) ? stored.organizerNames : undefined;
 
         return {
             username: stored.username,
             email: stored.email,
-            token,
             uid: stored.uid ?? stored.username,
             displayName: stored.displayName ?? stored.username,
             photoURL: stored.photoURL,
-            role: resolveAccountRole(roleFromToken ?? stored.role, organizerNames),
+            role: resolveAccountRole(stored.role, organizerNames),
             organizerNames,
         };
     } catch {
@@ -137,13 +137,10 @@ export function getCurrentUser(): AuthUser | null {
     }
 }
 
-export function getAuthToken(): string | null {
-    return localStorage.getItem(TOKEN_KEY);
-}
-
 export async function loginWithEmail(email: string, password: string): Promise<AuthUser> {
     const response = await fetch(`${BACKEND_URL}/api/auth/login`, {
         method: 'POST',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
     });
@@ -156,14 +153,15 @@ export async function loginWithEmail(email: string, password: string): Promise<A
         );
     }
 
-    const data = await response.json() as { token: string; username: string; email: string };
+    const data = await response.json() as { username: string; email: string; role: string; csrfToken: string; accessTokenExpiresInMs: number };
+    _csrfToken = data.csrfToken;
+    storeTokenExpiry(data.accessTokenExpiresInMs);
     const user: AuthUser = {
-        token: data.token,
         username: data.username,
         email: data.email,
         uid: data.username,
         displayName: data.username,
-        role: getRoleFromJwt(data.token),
+        role: resolveAccountRole(data.role, undefined),
     };
     persistUser(user);
     notifyListeners(user);
@@ -173,8 +171,9 @@ export async function loginWithEmail(email: string, password: string): Promise<A
 export async function signupWithEmail({ username, email, password, role, organizerNames }: SignupInput): Promise<AuthUser> {
     const response = await fetch(`${BACKEND_URL}/api/auth/register`, {
         method: 'POST',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, email, password, role, organizerNames }),
+        body: JSON.stringify({ username, email, password }),
     });
 
     if (!response.ok) {
@@ -185,14 +184,15 @@ export async function signupWithEmail({ username, email, password, role, organiz
         );
     }
 
-    const data = await response.json() as { token: string; username: string; email: string };
+    const data = await response.json() as { username: string; email: string; role: string; csrfToken: string; accessTokenExpiresInMs: number };
+    _csrfToken = data.csrfToken;
+    storeTokenExpiry(data.accessTokenExpiresInMs);
     const user: AuthUser = {
-        token: data.token,
         username: data.username,
         email: data.email,
         uid: data.username,
         displayName: data.username,
-        role: getRoleFromJwt(data.token) ?? role,
+        role: resolveAccountRole(data.role, undefined) ?? role,
         organizerNames: organizerNames ? [...organizerNames] : undefined,
     };
     persistUser(user);
@@ -210,7 +210,55 @@ export function onAuthUserChanged(callback: (user: AuthUser | null) => void): ()
     };
 }
 
+export async function refreshTokens(): Promise<void> {
+    const csrf = getCsrfToken();
+    const response = await fetch(`${BACKEND_URL}/api/auth/refresh`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+            'Content-Type': 'application/json',
+            ...(csrf ? { 'X-CSRF-Token': csrf } : {}),
+        },
+    });
+
+    if (!response.ok) {
+        // Refresh failed - session has fully expired, log out locally.
+        _csrfToken = null;
+        clearUser();
+        notifyListeners(null);
+        return;
+    }
+
+    const data = await response.json() as { username: string; email: string; role: string; csrfToken: string; accessTokenExpiresInMs: number };
+    _csrfToken = data.csrfToken;
+    storeTokenExpiry(data.accessTokenExpiresInMs);
+
+    const current = getCurrentUser();
+    if (current) {
+        const updated: AuthUser = {
+            ...current,
+            role: resolveAccountRole(data.role, current.organizerNames),
+        };
+        persistUser(updated);
+        notifyListeners(updated);
+    }
+}
+
 export async function signOutCurrentUser(): Promise<void> {
+    const csrf = getCsrfToken();
+    try {
+        await fetch(`${BACKEND_URL}/api/auth/logout`, {
+            method: 'POST',
+            credentials: 'include',
+            headers: {
+                'Content-Type': 'application/json',
+                ...(csrf ? { 'X-CSRF-Token': csrf } : {}),
+            },
+        });
+    } catch {
+        // ignore network errors - local state is cleared regardless
+    }
+    _csrfToken = null;
     clearUser();
     notifyListeners(null);
 }
@@ -233,18 +281,16 @@ export function getStoredOrganizerNames(uid: string): string[] {
 
 export async function getAccountProfile(uid?: string): Promise<{ role: AccountRole; organizerNames: string[] }> {
     const user = getCurrentUser();
-    if (!user || !user.token || (uid && user.uid !== uid)) {
+    if (!user || (uid && user.uid !== uid)) {
         return { role: 'user', organizerNames: [] };
     }
 
-    const fallbackRole = resolveAccountRole(user.role ?? getRoleFromJwt(user.token), user.organizerNames);
+    const fallbackRole = resolveAccountRole(user.role, user.organizerNames);
     const fallbackOrganizerNames = Array.isArray(user.organizerNames) ? [...user.organizerNames] : [];
 
     const response = await fetch(`${BACKEND_URL}/api/auth/profile`, {
-        headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${user.token}`,
-        },
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
     });
 
     if (!response.ok) {

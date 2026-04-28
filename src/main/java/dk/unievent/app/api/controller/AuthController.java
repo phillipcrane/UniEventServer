@@ -75,6 +75,15 @@ public class AuthController {
         String csrfToken = csrfTokenService.generateToken();
         writeAuthCookies(response, tokenPair, csrfToken);
         return ResponseEntity.ok(buildAuthResponse(user, csrfToken));
+        /*return ResponseEntity.ok(new AuthResponse(
+                user.getUsername(),
+                user.getEmail(),
+                user.getRole(),
+                tokenPair.accessTokenExpiresInMs(),
+                tokenPair.refreshTokenExpiresInMs(),
+                csrfToken,
+                tokenPair.accessToken()
+        ));*/
     }
 
     @PostMapping("/login")
@@ -94,6 +103,15 @@ public class AuthController {
         String csrfToken = csrfTokenService.generateToken();
         writeAuthCookies(response, tokenPair, csrfToken);
         return ResponseEntity.ok(buildAuthResponse(user, csrfToken));
+        /*return ResponseEntity.ok(new AuthResponse(
+                user.getUsername(),
+                user.getEmail(),
+                user.getRole(),
+                tokenPair.accessTokenExpiresInMs(),
+                tokenPair.refreshTokenExpiresInMs(),
+                csrfToken,
+                tokenPair.accessToken()
+        ));*/
     }
 
     @PostMapping("/refresh")
@@ -113,6 +131,15 @@ public class AuthController {
         writeAuthCookies(response, tokenPair, csrfToken);
         UserEntity user = userService.findByEmail(tokenPair.email());
         return ResponseEntity.ok(buildAuthResponse(user, csrfToken));
+        /*return ResponseEntity.ok(new AuthResponse(
+                tokenPair.username(),
+                tokenPair.email(),
+                tokenPair.role(),
+                tokenPair.accessTokenExpiresInMs(),
+                tokenPair.refreshTokenExpiresInMs(),
+                csrfToken,
+                tokenPair.accessToken()
+        ));*/
     }
 
     @PostMapping("/logout")
@@ -203,6 +230,15 @@ public class AuthController {
             return refreshCookie.getValue();
         }
         throw new IllegalArgumentException("Refresh token cookie is required.");
+        /*return ResponseEntity.status(HttpStatus.CREATED).body(new AuthResponse(
+                organizer.getUsername(),
+                organizer.getEmail(),
+                organizer.getRole(),
+                tokenPair.accessTokenExpiresInMs(),
+                tokenPair.refreshTokenExpiresInMs(),
+                csrfToken,
+                tokenPair.accessToken()
+        ));*/
     }
 
     private String resolveOptionalRefreshToken(HttpServletRequest request) {
@@ -210,7 +246,8 @@ public class AuthController {
         if (refreshCookie != null && !refreshCookie.getValue().isBlank()) {
             return refreshCookie.getValue();
         }
-        return null;
+        //return null;
+        throw new IllegalArgumentException("Refresh token is required.");
     }
 
     private void writeAuthCookies(HttpServletResponse response, RefreshTokenService.TokenPair tokenPair, String csrfToken) {

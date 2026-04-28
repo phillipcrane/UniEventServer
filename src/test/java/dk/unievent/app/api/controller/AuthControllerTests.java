@@ -24,6 +24,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import jakarta.servlet.http.Cookie;
 import org.springframework.http.MediaType;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -98,7 +99,8 @@ class AuthControllerTests {
             3600000L,
             86400000L,
             "testuser",
-            "test@example.com"
+            "test@example.com",
+            "user"
         );
 
         adminUser = UserEntity.builder()
@@ -141,6 +143,7 @@ class AuthControllerTests {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"username\":\"testuser\",\"email\":\"test@example.com\",\"password\":\"password123456\"}"))
             .andExpect(status().isOk())
+            //.andExpect(jsonPath("$.token").value("access-token-value"))
             .andExpect(jsonPath("$.username").value("testuser"))
             .andExpect(jsonPath("$.email").value("test@example.com"))
             .andExpect(jsonPath("$.roles[0]").value("ROLE_USER"))
@@ -214,7 +217,10 @@ class AuthControllerTests {
 
         mockMvc.perform(post("/api/auth/refresh")
                 .cookie(new jakarta.servlet.http.Cookie("auth_refresh", "old-refresh-token")))
+                //.cookie(new Cookie("auth_refresh", "old-refresh-token")))
             .andExpect(status().isOk())
+            //.andExpect(jsonPath("$.token").value("access-token-value"))
+            .andExpect(jsonPath("$.refreshToken").value("refresh-token-value"))
             .andExpect(jsonPath("$.username").value("testuser"))
             .andExpect(jsonPath("$.email").value("test@example.com"))
             .andExpect(jsonPath("$.roles[0]").value("ROLE_USER"))
@@ -225,6 +231,8 @@ class AuthControllerTests {
     void refreshShouldReturn400WhenTokenBlank() throws Exception {
         mockMvc.perform(post("/api/auth/refresh")
                 .contentType(MediaType.APPLICATION_JSON))
+    /*void refreshShouldReturn400WhenNoCookie() throws Exception {
+        mockMvc.perform(post("/api/auth/refresh"))*/
             .andExpect(status().isBadRequest());
     }
 
@@ -232,6 +240,7 @@ class AuthControllerTests {
     void logoutShouldReturnNoContent() throws Exception {
         mockMvc.perform(post("/api/auth/logout")
                 .cookie(new jakarta.servlet.http.Cookie("auth_refresh", "some-refresh-token")))
+                //.cookie(new Cookie("auth_refresh", "some-refresh-token")))
             .andExpect(status().isNoContent());
 
         verify(refreshTokenService).logout("some-refresh-token");
@@ -242,6 +251,7 @@ class AuthControllerTests {
         mockMvc.perform(post("/api/auth/logout")
                 .contentType(MediaType.APPLICATION_JSON))
             .andExpect(status().isNoContent());
+            //.andExpect(status().isBadRequest());
     }
 
     // ── /organizer-key/generate ───────────────────────────────────────────────
@@ -337,7 +347,7 @@ class AuthControllerTests {
     @Test
     void registerWithKeyShouldReturn201OnSuccess() throws Exception {
         RefreshTokenService.TokenPair organizerPair = new RefreshTokenService.TokenPair(
-            "org-access-token", "org-refresh-token", 3600000L, 86400000L, "neworg", "organizer@example.com");
+            "org-access-token", "org-refresh-token", 3600000L, 86400000L, "neworg", "organizer@example.com", "organizer");
         UserEntity organizer = UserEntity.builder()
             .username("neworg").email("organizer@example.com").password("encoded").role("organizer").build();
         when(organizerKeyService.completeOrganizerRegistration(eq("valid-token"), eq("neworg"), eq("securepassword1"), eq("organizer@example.com")))

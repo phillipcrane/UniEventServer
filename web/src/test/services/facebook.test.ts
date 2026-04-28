@@ -1,11 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { getFacebookAuthUrl } from '../../services/facebook';
 
-// Mock the auth module so getAuthToken returns a controlled value without
-// touching localStorage. vi.mock is hoisted by Vitest before any imports,
+// Mock the auth module so getCsrfToken returns a controlled value without
+// touching cookies. vi.mock is hoisted by Vitest before any imports,
 // so the mocked version is in place when facebook.ts is first evaluated.
 vi.mock('../../services/auth', () => ({
-    getAuthToken: vi.fn(() => 'my-jwt'),
+    getCsrfToken: vi.fn(() => 'my-csrf-token'),
 }));
 
 const mockFetch = vi.fn();
@@ -29,7 +29,7 @@ function jsonResponse(body: unknown, status = 200) {
 }
 
 describe('getFacebookAuthUrl', () => {
-    it('calls /api/facebook/auth with Bearer token and returns url', async () => {
+    it('calls /api/facebook/auth with X-CSRF-Token header and credentials:include', async () => {
         const expectedUrl = 'https://www.facebook.com/dialog/oauth?client_id=123&state=abc';
         mockFetch.mockReturnValueOnce(jsonResponse({ url: expectedUrl, state: 'abc' }));
 
@@ -37,7 +37,10 @@ describe('getFacebookAuthUrl', () => {
 
         expect(mockFetch).toHaveBeenCalledWith(
             expect.stringContaining('/api/facebook/auth'),
-            expect.objectContaining({ headers: { Authorization: 'Bearer my-jwt' } })
+            expect.objectContaining({
+                credentials: 'include',
+                headers: { 'X-CSRF-Token': 'my-csrf-token' },
+            })
         );
         expect(result).toBe(expectedUrl);
     });
@@ -61,5 +64,12 @@ describe('getFacebookAuthUrl', () => {
         mockFetch.mockReturnValueOnce(jsonResponse({}, 500));
 
         await expect(getFacebookAuthUrl()).rejects.toThrow('Failed to get Facebook auth URL');
+    });
+
+    it('throws when no CSRF token is available', async () => {
+        const { getCsrfToken } = await import('../../services/auth');
+        vi.mocked(getCsrfToken).mockReturnValueOnce(null);
+
+        await expect(getFacebookAuthUrl()).rejects.toThrow('You must be logged in');
     });
 });

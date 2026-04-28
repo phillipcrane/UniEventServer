@@ -7,10 +7,12 @@ logging:
 unievent:
   media:
     ssrf:
-      extra-allowed-hosts: placehold.co
+      extra-allowed-hosts: localhost,127.0.0.1,placehold.co
   security:
     cookies:
       secure: false
+    csrf:
+      secret: dev-csrf-secret-key-change-in-production
     jwt:
       secret: dev-secret-key-this-must-be-changed-in-production
       refresh-secret: dev-refresh-secret-key-this-must-be-changed-in-production
