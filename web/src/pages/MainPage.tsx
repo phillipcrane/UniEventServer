@@ -7,7 +7,6 @@ import { Footer } from '../components/Footer';
 import { HeaderLogoLink } from '../components/HeaderLogoLink';
 import { UserMenu } from '../components/UserMenu';
 import { getEvents, getPages } from '../services/dal';
-import { mapAuthError, signOutCurrentUser } from '../services/auth';
 import { getFacebookAuthUrl } from '../services/facebook';
 import { parseDateOnly, startOfDayMs, endOfDayMs } from '../utils/dateUtils';
 import type { Event as EventType, Page, SortMode } from '../types';
@@ -16,7 +15,7 @@ import { useAuth } from '../context/AuthContext';
 import { CalendarDays, LayoutList } from 'lucide-react';
 
 export function MainPage() {
-  const { currentUser } = useAuth();
+  const { currentUser, logout, isLoading: authLoading } = useAuth();
   const [pages, setPages] = useState([] as Page[]);
   const [events, setEvents] = useState([] as EventType[]);
   const [loading, setLoading] = useState(true);
@@ -107,9 +106,9 @@ export function MainPage() {
     try {
       setIsSigningOut(true);
       setError('');
-      await signOutCurrentUser();
+      await logout();
     } catch (err) {
-      setError(mapAuthError(err));
+      setError(err instanceof Error ? err.message : 'Could not sign out.');
     } finally {
       setIsSigningOut(false);
     }
@@ -196,7 +195,7 @@ export function MainPage() {
             <UserMenu
               userLabel={userLabel}
               onSignOut={handleSignOut}
-              isSigningOut={isSigningOut}
+              isSigningOut={isSigningOut || authLoading}
             />
           ) : (
             <Link

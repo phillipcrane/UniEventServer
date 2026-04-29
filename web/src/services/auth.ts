@@ -1,11 +1,10 @@
+import { apiCall } from './fetchClient';
+
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL ?? '';
 const USER_KEY = 'unievent_user';
-const TOKEN_EXPIRES_AT_KEY = 'unievent_token_expires_at';
-const CSRF_COOKIE_NAME = 'csrf_token';
 
 // In-memory CSRF token, populated on login/register/refresh.
-// On page reload it falls back to reading the readable CSRF cookie directly.
-let _csrfToken: string | null = null;
+let csrfToken = '';
 
 export type AuthUser = {
     username: string;
@@ -65,14 +64,8 @@ function resolveAccountRole(
     return fallback;
 }
 
-function getCsrfFromCookie(): string | null {
-    if (typeof document === 'undefined') return null;
-    const match = document.cookie.split('; ').find(row => row.startsWith(`${CSRF_COOKIE_NAME}=`));
-    return match ? decodeURIComponent(match.slice(CSRF_COOKIE_NAME.length + 1)) : null;
-}
-
-export function getCsrfToken(): string | null {
-    return _csrfToken ?? getCsrfFromCookie();
+export function getCsrfToken(): string {
+    return csrfToken;
 }
 
 function persistUser(user: AuthUser): void {
@@ -89,22 +82,11 @@ function persistUser(user: AuthUser): void {
 
 function clearUser(): void {
     localStorage.removeItem(USER_KEY);
-    localStorage.removeItem(TOKEN_EXPIRES_AT_KEY);
-}
-
-function storeTokenExpiry(accessTokenExpiresInMs: number): void {
-    localStorage.setItem(TOKEN_EXPIRES_AT_KEY, String(Date.now() + accessTokenExpiresInMs));
-}
-
-export function getTokenExpiresAt(): number | null {
-    const raw = localStorage.getItem(TOKEN_EXPIRES_AT_KEY);
-    return raw ? Number(raw) : null;
 }
 
 export function isTokenExpiredOrExpiringSoon(thresholdMs = 60_000): boolean {
-    const expiresAt = getTokenExpiresAt();
-    if (expiresAt === null) return false;
-    return Date.now() >= expiresAt - thresholdMs;
+    void thresholdMs;
+    return false;
 }
 
 export function getCurrentUser(): AuthUser | null {
@@ -138,30 +120,47 @@ export function getCurrentUser(): AuthUser | null {
 }
 
 export async function loginWithEmail(email: string, password: string): Promise<AuthUser> {
-    const response = await fetch(`${BACKEND_URL}/api/auth/login`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
-    });
+    let response: Response;
+    try {
+        response = await apiCall(`${BACKEND_URL}/api/auth/login`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, password }),
+        });
+    } catch (error) {
+        if (error instanceof Error && error.message.includes('CSRF token not available')) {
+            throw createHttpError(403, 'CSRF validation failed. Please login again.');
+        }
+        throw new Error('Connection error, retry');
+    }
 
     if (!response.ok) {
         const body = await response.json().catch(() => ({})) as Record<string, unknown>;
+        if (response.status === 401) {
+            clearUser();
+            csrfToken = '';
+            notifyListeners(null);
+            if (typeof window !== 'undefined') {
+                window.location.assign('/login');
+            }
+        }
+        if (response.status === 403) {
+            throw createHttpError(response.status, 'CSRF validation failed. Please login again.');
+        }
         throw createHttpError(
             response.status,
             (body['message'] as string | undefined) ?? response.statusText,
         );
     }
 
-    const data = await response.json() as { username: string; email: string; role: string; csrfToken: string; accessTokenExpiresInMs: number };
-    _csrfToken = data.csrfToken;
-    storeTokenExpiry(data.accessTokenExpiresInMs);
+    const data = await response.json() as { username: string; email: string; role?: string; roles?: string[]; csrfToken: string };
+    csrfToken = data.csrfToken ?? '';
     const user: AuthUser = {
         username: data.username,
         email: data.email,
         uid: data.username,
         displayName: data.username,
-        role: resolveAccountRole(data.role, undefined),
+        role: resolveAccountRole(data.role ?? data.roles?.[0], undefined),
     };
     persistUser(user);
     notifyListeners(user);
@@ -169,30 +168,47 @@ export async function loginWithEmail(email: string, password: string): Promise<A
 }
 
 export async function signupWithEmail({ username, email, password, role, organizerNames }: SignupInput): Promise<AuthUser> {
-    const response = await fetch(`${BACKEND_URL}/api/auth/register`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, email, password }),
-    });
+    let response: Response;
+    try {
+        response = await apiCall(`${BACKEND_URL}/api/auth/register`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, email, password }),
+        });
+    } catch (error) {
+        if (error instanceof Error && error.message.includes('CSRF token not available')) {
+            throw createHttpError(403, 'CSRF validation failed. Please login again.');
+        }
+        throw new Error('Connection error, retry');
+    }
 
     if (!response.ok) {
         const body = await response.json().catch(() => ({})) as Record<string, unknown>;
+        if (response.status === 401) {
+            clearUser();
+            csrfToken = '';
+            notifyListeners(null);
+            if (typeof window !== 'undefined') {
+                window.location.assign('/login');
+            }
+        }
+        if (response.status === 403) {
+            throw createHttpError(response.status, 'CSRF validation failed. Please login again.');
+        }
         throw createHttpError(
             response.status,
             (body['message'] as string | undefined) ?? response.statusText,
         );
     }
 
-    const data = await response.json() as { username: string; email: string; role: string; csrfToken: string; accessTokenExpiresInMs: number };
-    _csrfToken = data.csrfToken;
-    storeTokenExpiry(data.accessTokenExpiresInMs);
+    const data = await response.json() as { username: string; email: string; role?: string; roles?: string[]; csrfToken: string };
+    csrfToken = data.csrfToken ?? '';
     const user: AuthUser = {
         username: data.username,
         email: data.email,
         uid: data.username,
         displayName: data.username,
-        role: resolveAccountRole(data.role, undefined) ?? role,
+        role: resolveAccountRole(data.role ?? data.roles?.[0], undefined) ?? role,
         organizerNames: organizerNames ? [...organizerNames] : undefined,
     };
     persistUser(user);
@@ -211,56 +227,63 @@ export function onAuthUserChanged(callback: (user: AuthUser | null) => void): ()
 }
 
 export async function refreshTokens(): Promise<void> {
-    const csrf = getCsrfToken();
-    const response = await fetch(`${BACKEND_URL}/api/auth/refresh`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: {
-            'Content-Type': 'application/json',
-            ...(csrf ? { 'X-CSRF-Token': csrf } : {}),
-        },
-    });
-
-    if (!response.ok) {
-        // Refresh failed - session has fully expired, log out locally.
-        _csrfToken = null;
-        clearUser();
-        notifyListeners(null);
-        return;
-    }
-
-    const data = await response.json() as { username: string; email: string; role: string; csrfToken: string; accessTokenExpiresInMs: number };
-    _csrfToken = data.csrfToken;
-    storeTokenExpiry(data.accessTokenExpiresInMs);
-
-    const current = getCurrentUser();
-    if (current) {
-        const updated: AuthUser = {
-            ...current,
-            role: resolveAccountRole(data.role, current.organizerNames),
-        };
-        persistUser(updated);
-        notifyListeners(updated);
+    try {
+        await refreshSession();
+    } catch {
+        // ignore refresh errors to keep legacy call sites non-throwing
     }
 }
 
 export async function signOutCurrentUser(): Promise<void> {
-    const csrf = getCsrfToken();
+    await logout();
+}
+
+export async function logout(): Promise<void> {
     try {
-        await fetch(`${BACKEND_URL}/api/auth/logout`, {
+        await apiCall(`${BACKEND_URL}/api/auth/logout`, {
             method: 'POST',
-            credentials: 'include',
-            headers: {
-                'Content-Type': 'application/json',
-                ...(csrf ? { 'X-CSRF-Token': csrf } : {}),
-            },
         });
     } catch {
         // ignore network errors - local state is cleared regardless
     }
-    _csrfToken = null;
+    csrfToken = '';
     clearUser();
     notifyListeners(null);
+}
+
+export async function refreshSession(): Promise<boolean> {
+    try {
+        const response = await apiCall(`${BACKEND_URL}/api/auth/refresh`, {
+            method: 'POST',
+        });
+
+        if (response.ok) {
+            const data = await response.json() as { csrfToken: string };
+            csrfToken = data.csrfToken ?? '';
+            return true;
+        }
+
+        if (response.status === 401) {
+            csrfToken = '';
+            clearUser();
+            notifyListeners(null);
+            if (typeof window !== 'undefined') {
+                window.location.assign('/login');
+            }
+        }
+
+        if (response.status === 403) {
+            throw createHttpError(response.status, 'CSRF validation failed. Please login again.');
+        }
+
+        return false;
+    } catch (error) {
+        if (error instanceof Error && error.message.includes('CSRF token not available')) {
+            throw createHttpError(403, 'CSRF validation failed. Please login again.');
+        }
+        console.error('Session refresh failed:', error);
+        throw new Error('Connection error, retry');
+    }
 }
 
 export function getStoredAccountRole(uid: string): AccountRole {
@@ -319,8 +342,11 @@ export async function getAccountProfile(uid?: string): Promise<{ role: AccountRo
 export function mapAuthError(error: unknown, _context?: AuthErrorContext): string {
     if (error && typeof error === 'object') {
         const e = error as { status?: number; message?: string };
-        if (e.status === 401 || e.status === 403) {
+        if (e.status === 401) {
             return 'Invalid email or password.';
+        }
+        if (e.status === 403 && e.message?.toLowerCase().includes('csrf')) {
+            return e.message;
         }
         if (e.status === 409 || (e.status !== undefined && e.message && e.message.toLowerCase().includes('already'))) {
             return e.message ?? 'Account already exists.';

@@ -74,7 +74,7 @@ public class AuthController {
         RefreshTokenService.TokenPair tokenPair = refreshTokenService.issueTokenPair(user);
         String csrfToken = csrfTokenService.generateToken();
         writeAuthCookies(response, tokenPair, csrfToken);
-        return ResponseEntity.ok(buildAuthResponse(user, csrfToken));
+        return ResponseEntity.ok(buildAuthResponse(user, tokenPair, csrfToken));
         /*return ResponseEntity.ok(new AuthResponse(
                 user.getUsername(),
                 user.getEmail(),
@@ -102,7 +102,7 @@ public class AuthController {
         RefreshTokenService.TokenPair tokenPair = refreshTokenService.issueTokenPair(user);
         String csrfToken = csrfTokenService.generateToken();
         writeAuthCookies(response, tokenPair, csrfToken);
-        return ResponseEntity.ok(buildAuthResponse(user, csrfToken));
+        return ResponseEntity.ok(buildAuthResponse(user, tokenPair, csrfToken));
         /*return ResponseEntity.ok(new AuthResponse(
                 user.getUsername(),
                 user.getEmail(),
@@ -130,7 +130,7 @@ public class AuthController {
         String csrfToken = csrfTokenService.generateToken();
         writeAuthCookies(response, tokenPair, csrfToken);
         UserEntity user = userService.findByEmail(tokenPair.email());
-        return ResponseEntity.ok(buildAuthResponse(user, csrfToken));
+        return ResponseEntity.ok(buildAuthResponse(user, tokenPair, csrfToken));
         /*return ResponseEntity.ok(new AuthResponse(
                 tokenPair.username(),
                 tokenPair.email(),
@@ -221,7 +221,7 @@ public class AuthController {
         RefreshTokenService.TokenPair tokenPair = refreshTokenService.issueTokenPair(organizer);
         String csrfToken = csrfTokenService.generateToken();
         writeAuthCookies(response, tokenPair, csrfToken);
-        return ResponseEntity.status(HttpStatus.CREATED).body(buildAuthResponse(organizer, csrfToken));
+        return ResponseEntity.status(HttpStatus.CREATED).body(buildAuthResponse(organizer, tokenPair, csrfToken));
     }
 
     private String resolveRefreshTokenFromCookie(HttpServletRequest request) {
@@ -246,8 +246,7 @@ public class AuthController {
         if (refreshCookie != null && !refreshCookie.getValue().isBlank()) {
             return refreshCookie.getValue();
         }
-        //return null;
-        throw new IllegalArgumentException("Refresh token is required.");
+        return null;
     }
 
     private void writeAuthCookies(HttpServletResponse response, RefreshTokenService.TokenPair tokenPair, String csrfToken) {
@@ -292,12 +291,15 @@ public class AuthController {
         response.addHeader(HttpHeaders.SET_COOKIE, builder.build().toString());
     }
 
-    private AuthResponse buildAuthResponse(UserEntity user, String csrfToken) {
+    private AuthResponse buildAuthResponse(UserEntity user, RefreshTokenService.TokenPair tokenPair, String csrfToken) {
+        String normalizedRole = normalizeRole(user.getRole());
         return new AuthResponse(
                 user.getUsername(),
                 user.getEmail(),
-                List.of(normalizeRole(user.getRole())),
-                csrfToken
+                normalizedRole,
+                List.of(normalizedRole),
+                csrfToken,
+                tokenPair.accessToken()
         );
     }
 

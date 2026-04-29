@@ -5,6 +5,7 @@
  */
 
 import type { Event, Page, Place } from '../types';
+import { apiCall } from './fetchClient';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL ?? '';
 
@@ -143,7 +144,7 @@ export async function getPages(page: number = 0, size: number = 100): Promise<Pa
   url.searchParams.append('page', page.toString());
   url.searchParams.append('size', size.toString());
 
-  const response = await fetch(url.toString());
+  const response = await apiCall(url.toString());
   if (!response.ok) {
     throw await createFetchError(response, 'Failed to fetch pages');
   }
@@ -160,7 +161,7 @@ export async function getActivePages(page: number = 0, size: number = 100): Prom
   url.searchParams.append('page', page.toString());
   url.searchParams.append('size', size.toString());
 
-  const response = await fetch(url.toString());
+  const response = await apiCall(url.toString());
   if (!response.ok) {
     throw await createFetchError(response, 'Failed to fetch active pages');
   }
@@ -178,7 +179,7 @@ export async function searchPages(query: string, page: number = 0, size: number 
   url.searchParams.append('page', page.toString());
   url.searchParams.append('size', size.toString());
 
-  const response = await fetch(url.toString());
+  const response = await apiCall(url.toString());
   if (!response.ok) {
     throw new Error(`Failed to search pages: ${response.statusText}`);
   }
@@ -196,7 +197,7 @@ export async function getEvents(page: number = 0, size: number = 100): Promise<E
   url.searchParams.append('size', size.toString());
   url.searchParams.append('sort', 'startTime,asc');
 
-  const response = await fetch(url.toString());
+  const response = await apiCall(url.toString());
   if (!response.ok) {
     throw new Error(`Failed to fetch events: ${response.statusText}`);
   }
@@ -213,7 +214,7 @@ export async function getFutureEvents(page: number = 0, size: number = 100): Pro
   url.searchParams.append('page', page.toString());
   url.searchParams.append('size', size.toString());
 
-  const response = await fetch(url.toString());
+  const response = await apiCall(url.toString());
   if (!response.ok) {
     throw new Error(`Failed to fetch future events: ${response.statusText}`);
   }
@@ -228,7 +229,7 @@ export async function getFutureEvents(page: number = 0, size: number = 100): Pro
 export async function getEventById(id: string): Promise<Event | null> {
   const url = buildBackendUrlString(`/api/events/${id}`);
 
-  const response = await fetch(url);
+  const response = await apiCall(url);
   if (response.status === 404) {
     return null;
   }
@@ -248,7 +249,7 @@ export async function getEventsByPageId(pageId: string, page: number = 0, size: 
   url.searchParams.append('page', page.toString());
   url.searchParams.append('size', size.toString());
 
-  const response = await fetch(url.toString());
+  const response = await apiCall(url.toString());
   if (!response.ok) {
     throw new Error(`Failed to fetch events for page: ${response.statusText}`);
   }
@@ -265,7 +266,7 @@ export async function getFutureEventsByPageId(pageId: string, page: number = 0, 
   url.searchParams.append('page', page.toString());
   url.searchParams.append('size', size.toString());
 
-  const response = await fetch(url.toString());
+  const response = await apiCall(url.toString());
   if (!response.ok) {
     throw new Error(`Failed to fetch future events for page: ${response.statusText}`);
   }
@@ -282,7 +283,7 @@ export async function getEventsByPlaceId(placeId: string, page: number = 0, size
   url.searchParams.append('page', page.toString());
   url.searchParams.append('size', size.toString());
 
-  const response = await fetch(url.toString());
+  const response = await apiCall(url.toString());
   if (!response.ok) {
     throw new Error(`Failed to fetch events for place: ${response.statusText}`);
   }

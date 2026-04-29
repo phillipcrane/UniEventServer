@@ -1,47 +1,105 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
-import { isTokenExpiredOrExpiringSoon, onAuthUserChanged, refreshTokens, type AuthUser } from '../services/auth';
+import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import {
+    loginWithEmail,
+    logout,
+    mapAuthError,
+    onAuthUserChanged,
+    refreshSession,
+    type AuthUser,
+} from '../services/auth';
 
-// A context is a REACT-particular thing to share state and just data in general across various REACT components
-// accross the entire app without having to pass state "props" (i.e. parameters, properties) down through 
-// multiple levels of components (which can get messy and is called "prop drilling"). 
-
-type AuthContextValue = {
+type AuthContextType = {
     currentUser: AuthUser | null;
+    isLoading: boolean;
+    error: string | null;
+    login: (email: string, password: string) => Promise<void>;
+    logout: () => Promise<void>;
+    refreshSession: () => Promise<boolean>;
+    clearError: () => void;
 };
 
-const AuthContext = createContext<AuthContextValue>({ currentUser: null });
-
-// Check every 4 minutes - well within the 5-minute prompt-cache window and
-// short enough to catch a 24-hour access token before it expires.
-const REFRESH_INTERVAL_MS = 4 * 60 * 1000;
-// Trigger a proactive refresh when the token has less than 5 minutes left.
-const REFRESH_THRESHOLD_MS = 5 * 60 * 1000;
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
     const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
+    const [isLoading, setIsLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
-        const unsubscribe = onAuthUserChanged(setCurrentUser);
+        const unsubscribe = onAuthUserChanged((user) => {
+            setCurrentUser(user);
+            setIsLoading(false);
+        });
         return unsubscribe;
     }, []);
 
     useEffect(() => {
-        // Proactively refresh the access token before it expires so the user
-        // never gets a surprise 401 mid-session.
-        async function checkAndRefresh() {
-            if (currentUser && isTokenExpiredOrExpiringSoon(REFRESH_THRESHOLD_MS)) {
-                await refreshTokens();
-            }
-        }
+        if (typeof window === 'undefined') return undefined;
+        const handleFocus = () => {
+            if (!currentUser) return;
+            refreshSession()
+                .catch((err) => {
+                    setError(mapAuthError(err, 'general'));
+                    return false;
+                });
+        };
 
-        checkAndRefresh();
-        const interval = setInterval(checkAndRefresh, REFRESH_INTERVAL_MS);
-        return () => clearInterval(interval);
+        window.addEventListener('focus', handleFocus);
+        return () => window.removeEventListener('focus', handleFocus);
     }, [currentUser]);
 
-    return <AuthContext.Provider value={{ currentUser }}>{children}</AuthContext.Provider>;
+    const value = useMemo<AuthContextType>(() => ({
+        currentUser,
+        isLoading,
+        error,
+        login: async (email: string, password: string) => {
+            setIsLoading(true);
+            setError(null);
+            try {
+                const user = await loginWithEmail(email, password);
+                setCurrentUser(user);
+            } catch (err) {
+                setError(mapAuthError(err, 'login'));
+                throw err;
+            } finally {
+                setIsLoading(false);
+            }
+        },
+        logout: async () => {
+            setIsLoading(true);
+            setError(null);
+            try {
+                await logout();
+                setCurrentUser(null);
+            } catch (err) {
+                setError(mapAuthError(err, 'general'));
+                throw err;
+            } finally {
+                setIsLoading(false);
+            }
+        },
+        refreshSession: async () => {
+            try {
+                const refreshed = await refreshSession();
+                if (!refreshed && currentUser) {
+                    setCurrentUser(null);
+                }
+                return refreshed;
+            } catch (err) {
+                setError(mapAuthError(err, 'general'));
+                return false;
+            }
+        },
+        clearError: () => setError(null),
+    }), [currentUser, error, isLoading]);
+
+    return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
-export function useAuth(): AuthContextValue {
-    return useContext(AuthContext);
+export function useAuth(): AuthContextType {
+    const context = useContext(AuthContext);
+    if (!context) {
+        throw new Error('useAuth must be used within AuthProvider');
+    }
+    return context;
 }

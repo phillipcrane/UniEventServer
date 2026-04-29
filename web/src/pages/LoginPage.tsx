@@ -6,39 +6,39 @@ import { HeaderLogoLink } from '../components/HeaderLogoLink';
 import { ThemeToggle } from '../components/ThemeToggle';
 import { Footer } from '../components/Footer';
 import { LogIn, UserPlus } from 'lucide-react';
-import { loginWithEmail, mapAuthError } from '../services/auth';
+import { useAuth } from '../context/AuthContext';
 import { isValidEmail } from '../utils/validationUtils';
 
 export function LoginPage() {
     const navigate = useNavigate();
+    const { login, isLoading, error, clearError } = useAuth();
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
-    const [isLoading, setIsLoading] = useState(false);
-    const [errorMessage, setErrorMessage] = useState('');
+    const [validationError, setValidationError] = useState('');
 
     async function handleSubmit(event: FormEvent<HTMLFormElement>) {
         event.preventDefault();
-        setErrorMessage('');
+        setValidationError('');
+        clearError();
 
         const trimmedEmail = email.trim();
         if (!trimmedEmail || !password) {
-            setErrorMessage('Please provide both email and password.');
+            setValidationError('Please provide both email and password.');
             return;
         }
 
         if (!isValidEmail(trimmedEmail)) {
-            setErrorMessage('Please provide a valid email address.');
+            setValidationError('Please provide a valid email address.');
             return;
         }
 
         try {
-            setIsLoading(true);
-            await loginWithEmail(trimmedEmail, password);
+            await login(trimmedEmail, password);
             navigate('/', { replace: true });
         } catch (error) {
-            setErrorMessage(mapAuthError(error, 'login'));
+            void error;
         } finally {
-            setIsLoading(false);
+            // loading state handled by context
         }
     }
 
@@ -79,7 +79,11 @@ export function LoginPage() {
                                     placeholder="Enter your email"
                                     className="auth-input"
                                     value={email}
-                                    onChange={(event) => setEmail(event.target.value)}
+                                    onChange={(event) => {
+                                        setEmail(event.target.value);
+                                        if (validationError) setValidationError('');
+                                        clearError();
+                                    }}
                                 />
 
                                 <label className="text-[0.85rem] font-bold uppercase tracking-[0.06em] text-[var(--text-primary)]" htmlFor="password">Password</label>
@@ -91,10 +95,18 @@ export function LoginPage() {
                                     placeholder="Enter your password"
                                     className="auth-input"
                                     value={password}
-                                    onChange={(event) => setPassword(event.target.value)}
+                                    onChange={(event) => {
+                                        setPassword(event.target.value);
+                                        if (validationError) setValidationError('');
+                                        clearError();
+                                    }}
                                 />
 
-                                {errorMessage && <p className="mt-0.5 text-[0.9rem] font-semibold text-[var(--dtu-accent)]">{errorMessage}</p>}
+                                {(validationError || error) && (
+                                    <p className="mt-0.5 text-[0.9rem] font-semibold text-[var(--dtu-accent)]">
+                                        {validationError || error}
+                                    </p>
+                                )}
 
                                 <div className="mt-2 grid gap-3 sm:grid-cols-2">
                                     <button type="submit" className="auth-btn auth-btn-primary" disabled={isLoading}>

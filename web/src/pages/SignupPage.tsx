@@ -6,6 +6,7 @@ import { HeaderLogoLink } from '../components/HeaderLogoLink';
 import { ThemeToggle } from '../components/ThemeToggle';
 import { Footer } from '../components/Footer';
 import { Plus, UserPlus } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 import { mapAuthError, signupWithEmail, type AccountRole } from '../services/auth';
 import { isValidEmail } from '../utils/validationUtils';
 
@@ -25,6 +26,7 @@ const TEST_ORGANIZER_CODES = Object.entries(DEFAULT_ORGANIZER_CODE_TO_ORG);
 
 export function SignupPage() {
     const navigate = useNavigate();
+    const { login, isLoading, error, clearError } = useAuth();
     const [username, setUsername] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -32,8 +34,10 @@ export function SignupPage() {
     const [organizerPasswords, setOrganizerPasswords] = useState<string[]>(['']);
     const [accountRole, setAccountRole] = useState<AccountRole | null>(null);
     const [isRoleModalOpen, setIsRoleModalOpen] = useState(true);
-    const [isLoading, setIsLoading] = useState(false);
-    const [errorMessage, setErrorMessage] = useState('');
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [validationError, setValidationError] = useState('');
+    const [signupError, setSignupError] = useState('');
+    const [successMessage, setSuccessMessage] = useState('');
 
     function updateOrganizerCode(index: number, value: string) {
         setOrganizerPasswords((current) => current.map((code, codeIndex) => (codeIndex === index ? value : code)));
@@ -45,7 +49,10 @@ export function SignupPage() {
 
     async function handleSubmit(event: FormEvent<HTMLFormElement>) {
         event.preventDefault();
-        setErrorMessage('');
+        setValidationError('');
+        setSignupError('');
+        setSuccessMessage('');
+        clearError();
 
         if (!accountRole) {
             setIsRoleModalOpen(true);
@@ -56,22 +63,22 @@ export function SignupPage() {
         const trimmedEmail = email.trim();
 
         if (!trimmedUsername || !trimmedEmail || !password || !confirmPassword) {
-            setErrorMessage('Please fill in all fields.');
+            setValidationError('Please fill in all fields.');
             return;
         }
 
         if (!isValidEmail(trimmedEmail)) {
-            setErrorMessage('Please provide a valid email address.');
+            setValidationError('Please provide a valid email address.');
             return;
         }
 
-        if (password.length < 6) {
-            setErrorMessage('Password must be at least 6 characters.');
+        if (password.length < 8) {
+            setValidationError('Password must be at least 8 characters.');
             return;
         }
 
         if (password !== confirmPassword) {
-            setErrorMessage('Passwords do not match.');
+            setValidationError('Passwords do not match.');
             return;
         }
 
@@ -83,13 +90,13 @@ export function SignupPage() {
                 .filter((code) => !!code);
 
             if (!enteredCodes.length) {
-                setErrorMessage('Please enter at least one organizer access password.');
+                setValidationError('Please enter at least one organizer access password.');
                 return;
             }
 
             const firstInvalidCode = enteredCodes.find((code) => !ORGANIZER_CODE_TO_ORG[code]);
             if (firstInvalidCode) {
-                setErrorMessage(`Organizer access password is incorrect: ${firstInvalidCode}`);
+                setValidationError(`Organizer access password is incorrect: ${firstInvalidCode}`);
                 return;
             }
 
@@ -97,13 +104,19 @@ export function SignupPage() {
         }
 
         try {
-            setIsLoading(true);
+            setIsSubmitting(true);
             await signupWithEmail({ username: trimmedUsername, email: trimmedEmail, password, role: accountRole, organizerNames });
-            navigate('/', { replace: true });
+            setSuccessMessage('Account created. Signing you in...');
+            try {
+                await login(trimmedEmail, password);
+                navigate('/', { replace: true });
+            } catch (loginError) {
+                void loginError;
+            }
         } catch (error) {
-            setErrorMessage(mapAuthError(error, 'signup'));
+            setSignupError(mapAuthError(error, 'signup'));
         } finally {
-            setIsLoading(false);
+            setIsSubmitting(false);
         }
     }
 
@@ -150,7 +163,13 @@ export function SignupPage() {
                                     placeholder="Choose a username"
                                     className="auth-input"
                                     value={username}
-                                    onChange={(event) => setUsername(event.target.value)}
+                                    onChange={(event) => {
+                                        setUsername(event.target.value);
+                                        if (validationError) setValidationError('');
+                                        if (signupError) setSignupError('');
+                                        if (successMessage) setSuccessMessage('');
+                                        clearError();
+                                    }}
                                 />
 
                                 <label className="text-[0.85rem] font-bold uppercase tracking-[0.06em] text-[var(--text-primary)]" htmlFor="signup-email">Email</label>
@@ -162,7 +181,13 @@ export function SignupPage() {
                                     placeholder="Enter your email"
                                     className="auth-input"
                                     value={email}
-                                    onChange={(event) => setEmail(event.target.value)}
+                                    onChange={(event) => {
+                                        setEmail(event.target.value);
+                                        if (validationError) setValidationError('');
+                                        if (signupError) setSignupError('');
+                                        if (successMessage) setSuccessMessage('');
+                                        clearError();
+                                    }}
                                 />
 
                                 <label className="text-[0.85rem] font-bold uppercase tracking-[0.06em] text-[var(--text-primary)]" htmlFor="signup-password">Password</label>
@@ -174,7 +199,13 @@ export function SignupPage() {
                                     placeholder="Create a password"
                                     className="auth-input"
                                     value={password}
-                                    onChange={(event) => setPassword(event.target.value)}
+                                    onChange={(event) => {
+                                        setPassword(event.target.value);
+                                        if (validationError) setValidationError('');
+                                        if (signupError) setSignupError('');
+                                        if (successMessage) setSuccessMessage('');
+                                        clearError();
+                                    }}
                                 />
 
                                 <label className="text-[0.85rem] font-bold uppercase tracking-[0.06em] text-[var(--text-primary)]" htmlFor="signup-confirm-password">Confirm Password</label>
@@ -186,7 +217,13 @@ export function SignupPage() {
                                     placeholder="Type your password again"
                                     className="auth-input"
                                     value={confirmPassword}
-                                    onChange={(event) => setConfirmPassword(event.target.value)}
+                                    onChange={(event) => {
+                                        setConfirmPassword(event.target.value);
+                                        if (validationError) setValidationError('');
+                                        if (signupError) setSignupError('');
+                                        if (successMessage) setSuccessMessage('');
+                                        clearError();
+                                    }}
                                 />
 
                                 {accountRole === 'organizer' && (
@@ -222,12 +259,19 @@ export function SignupPage() {
                                     </>
                                 )}
 
-                                {errorMessage && <p className="mt-0.5 text-[0.9rem] font-semibold text-[var(--dtu-accent)]">{errorMessage}</p>}
+                                {(validationError || signupError || error) && (
+                                    <p className="mt-0.5 text-[0.9rem] font-semibold text-[var(--dtu-accent)]">
+                                        {validationError || signupError || error}
+                                    </p>
+                                )}
+                                {successMessage && (
+                                    <p className="mt-0.5 text-[0.9rem] font-semibold text-[var(--link-primary)]">{successMessage}</p>
+                                )}
 
                                 <div className="mt-3 grid gap-3">
-                                    <button type="submit" className="auth-btn auth-btn-primary" disabled={isLoading}>
+                                    <button type="submit" className="auth-btn auth-btn-primary" disabled={isLoading || isSubmitting}>
                                         <UserPlus size={18} />
-                                        {isLoading ? 'Signing Up...' : accountRole ? `Sign Up as ${accountRole === 'organizer' ? 'Organizer' : 'User'}` : 'Sign Up'}
+                                        {isLoading || isSubmitting ? 'Signing Up...' : accountRole ? `Sign Up as ${accountRole === 'organizer' ? 'Organizer' : 'User'}` : 'Sign Up'}
                                     </button>
                                 </div>
                             </form>
