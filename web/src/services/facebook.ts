@@ -1,6 +1,5 @@
 import { BACKEND_URL, FACEBOOK_APP_VERSION, FACEBOOK_SCOPES } from '../constants';
-import { getCsrfToken } from './auth';
-import { apiCall } from './http';
+import { getCsrfToken } from './csrf';
 
 export function buildFacebookLoginUrl(): string {
     const FB_APP_ID = import.meta.env.VITE_FACEBOOK_APP_ID as string;
@@ -13,8 +12,12 @@ export async function getFacebookAuthUrl(): Promise<string> {
     const csrf = getCsrfToken();
     if (!csrf) throw new Error('You must be logged in to connect Facebook.');
 
-    const response = await apiCall(`${BACKEND_URL}/api/facebook/auth`, {
-        headers: csrf ? { 'X-CSRF-Token': csrf } : {},
+    // This GET requires a CSRF header because the backend ties the OAuth state
+    // to the authenticated session. apiCall only injects CSRF for state-changing
+    // methods (POST/PUT/DELETE/PATCH), so we use raw fetch here.
+    const response = await fetch(`${BACKEND_URL}/api/facebook/auth`, {
+        credentials: 'include',
+        headers: { 'X-CSRF-Token': csrf },
     });
 
     if (!response.ok) {

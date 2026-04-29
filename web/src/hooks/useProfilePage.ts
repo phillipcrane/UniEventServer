@@ -2,8 +2,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getEvents } from '../services/dal';
 import { getAccountProfile } from '../services/auth';
-import { signOutCurrentUser } from '../handlers/logout';
-import { redirectToFacebookAuth } from '../handlers/facebookLogin';
+import { logout } from '../services/auth';
+import { getFacebookAuthUrl } from '../services/facebook';
 import { buildUsername, filterAndSortLikedEvents } from '../utils/profileUtils';
 import { useAuth } from '../context/AuthContext';
 import { useLikes } from '../context/LikesContext';
@@ -80,7 +80,7 @@ export function useProfilePage() {
         try {
             setFbConnecting(true);
             setFbError(null);
-            await redirectToFacebookAuth();
+            window.location.href = await getFacebookAuthUrl();
         } catch (err) {
             setFbError(err instanceof Error ? err.message : 'Could not start Facebook login.');
         } finally {
@@ -92,7 +92,7 @@ export function useProfilePage() {
         if (!window.confirm('Are you sure you want to log out?')) return;
         try {
             setIsSigningOut(true);
-            await signOutCurrentUser();
+            await logout();
             navigate('/login', { replace: true });
         } finally {
             setIsSigningOut(false);

@@ -4,11 +4,9 @@
  * Communicates with the UniEventServer backend at /api/events, /api/pages, etc.
  */
 
-import { API_AUTH_ORGANIZER_KEY_VERIFY } from '../constants';
+import { API_AUTH_ORGANIZER_KEY_VERIFY, BACKEND_URL } from '../constants';
 import type { ApiResponse, Event, EventApiResponse, OrganizerKeyVerification, Page, PageApiResponse } from '../types';
 import { apiCall } from './http';
-
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL ?? '';
 
 function buildBackendUrl(path: string): URL {
   return new URL(path, BACKEND_URL || window.location.origin);
@@ -254,7 +252,6 @@ export async function verifyOrganizerKey(key: string): Promise<OrganizerKeyVerif
   const url = buildBackendUrlString(API_AUTH_ORGANIZER_KEY_VERIFY);
   const response = await apiCall(url, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ key }),
     skipAuthErrorHandling: true,
   });

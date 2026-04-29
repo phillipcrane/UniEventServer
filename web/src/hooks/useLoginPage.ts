@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { loginWithEmail } from '../handlers/login';
+import { loginWithEmail } from '../services/auth';
 import { mapAuthError, isValidEmail } from '../utils/authUtils';
 
 export function useLoginPage() {

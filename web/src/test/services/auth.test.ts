@@ -27,10 +27,7 @@ function authResponse(overrides: Partial<{ username: string; email: string; role
     };
 }
 
-import { _resetForTesting, getCurrentUser, onUserChanged } from '../../services/auth';
-import { loginWithEmail } from '../../handlers/login';
-import { signupWithEmail } from '../../handlers/signup';
-import { signOutCurrentUser } from '../../handlers/logout';
+import { _resetForTesting, getCurrentUser, loginWithEmail, logout, onUserChanged, signupWithEmail } from '../../services/auth';
 import { mapAuthError } from '../../utils/authUtils';
 
 describe('auth service', () => {
@@ -160,7 +157,7 @@ describe('auth service', () => {
         expect(callback).not.toHaveBeenCalled();
     });
 
-    // ── signOutCurrentUser ───────────────────────────────────────────────────
+    // ── logout ───────────────────────────────────────────────────
 
     it('calls logout endpoint, clears user state, and notifies listeners', async () => {
         mockFetch.mockResolvedValueOnce(jsonResponse(authResponse({ username: 'u', email: 'u@x.com' })));
@@ -171,7 +168,7 @@ describe('auth service', () => {
         callback.mockClear();
 
         mockFetch.mockResolvedValueOnce(new Response(null, { status: 204 }));
-        await signOutCurrentUser();
+        await logout();
 
         const [url] = mockFetch.mock.lastCall as [string, RequestInit];
         expect(url).toContain('/api/auth/logout');
@@ -185,7 +182,7 @@ describe('auth service', () => {
         await loginWithEmail('u@x.com', 'pw');
 
         mockFetch.mockRejectedValueOnce(new Error('network error'));
-        await signOutCurrentUser();
+        await logout();
 
         expect(getCurrentUser()).toBeNull();
     });

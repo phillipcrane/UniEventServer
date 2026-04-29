@@ -1,10 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { getFacebookAuthUrl } from '../../services/facebook';
 
-// Mock the auth module so getCsrfToken returns a controlled value without
+// Mock the csrf module so getCsrfToken returns a controlled value without
 // touching cookies. vi.mock is hoisted by Vitest before any imports,
 // so the mocked version is in place when facebook.ts is first evaluated.
-vi.mock('../../services/auth', () => ({
+vi.mock('../../services/csrf', () => ({
     getCsrfToken: vi.fn(() => 'my-csrf-token'),
 }));
 
@@ -67,7 +67,7 @@ describe('getFacebookAuthUrl', () => {
     });
 
     it('throws when no CSRF token is available', async () => {
-        const { getCsrfToken } = await import('../../services/auth');
+        const { getCsrfToken } = await import('../../services/csrf');
         vi.mocked(getCsrfToken).mockReturnValueOnce('');
 
         await expect(getFacebookAuthUrl()).rejects.toThrow('You must be logged in');

@@ -69,13 +69,11 @@ public class CsrfValidationFilter extends OncePerRequestFilter {
             return false;
         }
 
-        // Validate whenever any auth cookie is present. The refresh cookie must be
-        // included because /refresh and /logout operate on it, not the access cookie,
-        // and the access cookie is typically absent when those endpoints are called.
+        // Only validate when the access cookie is present. The refresh endpoint is
+        // authenticated by the refresh cookie alone, so requiring CSRF there would
+        // block the bootstrap refresh on page reload (no CSRF token in memory yet).
         Cookie accessCookie = WebUtils.getCookie(request, cookieConfig.getAccessName());
-        if (accessCookie != null) return true;
-        Cookie refreshCookie = WebUtils.getCookie(request, cookieConfig.getRefreshName());
-        return refreshCookie != null;
+        return accessCookie != null;
     }
 
     private boolean isSafeMethod(String method) {
