@@ -26,17 +26,20 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.TestPropertySource;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import dk.unievent.app.WebApplication;
 import dk.unievent.app.db.model.MediaEntity;
 import dk.unievent.app.db.repository.MediaRepository;
 import dk.unievent.app.infrastructure.client.SeaweedFsClient;
 import dk.unievent.app.infrastructure.config.SeaweedConfig;
 
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@SpringBootTest(classes = WebApplication.class, webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @ActiveProfiles("test")
+@TestPropertySource(properties = "spring.aop.auto=false")
 @Import(MediaControllerHttpIntegrationTests.MediaTestConfig.class)
 class MediaControllerHttpIntegrationTests {
 

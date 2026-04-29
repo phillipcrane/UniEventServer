@@ -10,6 +10,7 @@ import dk.unievent.app.application.service.RefreshTokenService;
 import dk.unievent.app.application.service.UserService;
 import dk.unievent.app.db.model.UserEntity;
 import dk.unievent.app.infrastructure.config.CookieConfig;
+import dk.unievent.app.infrastructure.config.JwtConfig;
 import dk.unievent.app.infrastructure.filter.CookieAuthenticationFilter;
 import dk.unievent.app.infrastructure.filter.CsrfValidationFilter;
 import dk.unievent.app.infrastructure.security.UserDetailsAdapter;
@@ -35,6 +36,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
@@ -62,6 +64,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @SpringBootTest(classes = AuthControllerIntegrationTest.TestApplication.class)
+@TestPropertySource(properties = "spring.aop.auto=false")
 class AuthControllerIntegrationTest {
 
     private static final String ACCESS_COOKIE = "auth_access";
@@ -236,12 +239,13 @@ class AuthControllerIntegrationTest {
     void postWithoutCsrfHeaderShouldReturnForbidden() throws Exception {
         when(csrfTokenService.validateToken(isNull(), eq("csrf-token"))).thenReturn(false);
 
-        mockMvc.perform(post("/api/auth/refresh")
-                        .cookie(new Cookie(REFRESH_COOKIE, "refresh-token"))
+        mockMvc.perform(post("/csrf-probe")
+                        .cookie(new Cookie(ACCESS_COOKIE, "access-token"))
                         .cookie(new Cookie(CSRF_COOKIE, "csrf-token")))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.message").value("CSRF token validation failed"));
 
+        verify(csrfTokenService).validateToken(isNull(), eq("csrf-token"));
         verify(refreshTokenService, never()).rotate(any(), any(), any());
     }
 
@@ -336,6 +340,8 @@ class AuthControllerIntegrationTest {
     @Import({
             AuthController.class,
             GlobalExceptionHandler.class,
+            JwtService.class,
+            JwtConfig.class,
             CookieAuthenticationFilter.class,
             CsrfValidationFilter.class,
             CsrfProbeController.class

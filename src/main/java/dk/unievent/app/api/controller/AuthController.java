@@ -286,7 +286,7 @@ public class AuthController {
     }
 
     // Rate limit fallback methods
-    public ResponseEntity<AuthResponse> registerFallback(RegisterRequest request, Exception ex) {
+    public ResponseEntity<AuthResponse> registerFallback(RegisterRequest request, HttpServletResponse response, Exception ex) {
         return ResponseEntity.status(429).body(null);
     }
 
@@ -310,7 +310,7 @@ public class AuthController {
         return ResponseEntity.status(429).build();
     }
 
-    public ResponseEntity<AuthResponse> registerWithKeyFallback(OrganizerRegisterWithKeyRequest request, Exception ex) {
+    public ResponseEntity<AuthResponse> registerWithKeyFallback(OrganizerRegisterWithKeyRequest request, HttpServletResponse response, Exception ex) {
         return ResponseEntity.status(429).body(null);
     }
 }

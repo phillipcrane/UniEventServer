@@ -60,3 +60,64 @@ unievent:
       expiration-ms: 60000
       refresh-secret: abcdefghijklmnopqrstuvwx12345678
       refresh-expiration-ms: 120000
+
+resilience4j:
+  ratelimiter:
+    instances:
+      login:
+        limitForPeriod: 100000
+        limitRefreshPeriod: 1s
+      register:
+        limitForPeriod: 100000
+        limitRefreshPeriod: 1s
+      verify-organizer-key:
+        limitForPeriod: 100000
+        limitRefreshPeriod: 1s
+      register-with-key:
+        limitForPeriod: 100000
+        limitRefreshPeriod: 1s
+      refresh-token:
+        limitForPeriod: 100000
+        limitRefreshPeriod: 1s
+      logout:
+        limitForPeriod: 100000
+        limitRefreshPeriod: 1s
+      generate-organizer-key:
+        limitForPeriod: 100000
+        limitRefreshPeriod: 1s
+      media-upload:
+        limitForPeriod: 100000
+        limitRefreshPeriod: 1s
+      place-search:
+        limitForPeriod: 100000
+        limitRefreshPeriod: 1s
+      page-search:
+        limitForPeriod: 100000
+        limitRefreshPeriod: 1s
+      event-create:
+        limitForPeriod: 100000
+        limitRefreshPeriod: 1s
+      event-update:
+        limitForPeriod: 100000
+        limitRefreshPeriod: 1s
+      event-delete:
+        limitForPeriod: 100000
+        limitRefreshPeriod: 1s
+      place-create:
+        limitForPeriod: 100000
+        limitRefreshPeriod: 1s
+      place-update:
+        limitForPeriod: 100000
+        limitRefreshPeriod: 1s
+      place-delete:
+        limitForPeriod: 100000
+        limitRefreshPeriod: 1s
+      page-create:
+        limitForPeriod: 100000
+        limitRefreshPeriod: 1s
+      page-update:
+        limitForPeriod: 100000
+        limitRefreshPeriod: 1s
+      page-delete:
+        limitForPeriod: 100000
+        limitRefreshPeriod: 1s

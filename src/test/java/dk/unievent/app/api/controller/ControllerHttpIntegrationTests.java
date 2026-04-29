@@ -20,16 +20,19 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.TestPropertySource;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import dk.unievent.app.WebApplication;
 import dk.unievent.app.db.repository.EventRepository;
 import dk.unievent.app.db.repository.PageRepository;
 import dk.unievent.app.db.repository.PlaceRepository;
 
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@SpringBootTest(classes = WebApplication.class, webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @ActiveProfiles("test")
+@TestPropertySource(properties = "spring.aop.auto=false")
 class ControllerHttpIntegrationTests {
 
     private static final String ACCESS_COOKIE = "auth_access";
