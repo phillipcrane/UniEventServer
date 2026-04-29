@@ -1,13 +1,25 @@
+import { lazy, Suspense } from 'react';
 import { createBrowserRouter } from 'react-router-dom';
 import { MainPage } from './pages/MainPage';
 import { EventPage } from './pages/EventPage';
-import { TermsAndConditionsPage } from './pages/TermsAndConditionsPage';
-import { PrivacyPolicyPage } from './pages/PrivacyPolicyPage';
-import { DataDeletionPage } from './pages/DataDeletionPage';
 import { LoginPage } from './pages/LoginPage';
 import { SignupPage } from './pages/SignupPage';
 import { ProfilePage } from './pages/ProfilePage';
-import { ManualEventPage } from './pages/ManualEventPage';
+
+// Legal and organizer pages are rarely visited - lazy-load them so they
+// don't bloat the initial bundle that every visitor pays to parse.
+const TermsAndConditionsPage = lazy(() =>
+  import('./pages/TermsAndConditionsPage').then(m => ({ default: m.TermsAndConditionsPage }))
+);
+const PrivacyPolicyPage = lazy(() =>
+  import('./pages/PrivacyPolicyPage').then(m => ({ default: m.PrivacyPolicyPage }))
+);
+const DataDeletionPage = lazy(() =>
+  import('./pages/DataDeletionPage').then(m => ({ default: m.DataDeletionPage }))
+);
+const ManualEventPage = lazy(() =>
+  import('./pages/ManualEventPage').then(m => ({ default: m.ManualEventPage }))
+);
 
 export const router = createBrowserRouter([
   {
@@ -20,15 +32,15 @@ export const router = createBrowserRouter([
   },
   {
     path: '/terms',
-    element: <TermsAndConditionsPage />,
+    element: <Suspense fallback={null}><TermsAndConditionsPage /></Suspense>,
   },
   {
     path: '/privacy',
-    element: <PrivacyPolicyPage />,
+    element: <Suspense fallback={null}><PrivacyPolicyPage /></Suspense>,
   },
   {
     path: '/data-deletion',
-    element: <DataDeletionPage />,
+    element: <Suspense fallback={null}><DataDeletionPage /></Suspense>,
   },
   {
     path: '/login',
@@ -44,6 +56,6 @@ export const router = createBrowserRouter([
   },
   {
     path: '/organizer/events/new',
-    element: <ManualEventPage />,
+    element: <Suspense fallback={null}><ManualEventPage /></Suspense>,
   },
 ]);

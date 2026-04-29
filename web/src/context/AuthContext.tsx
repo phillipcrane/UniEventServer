@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import {
+    isTokenExpiredOrExpiringSoon,
     loginWithEmail,
     logout,
     onUserChanged,
@@ -44,6 +45,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (typeof window === 'undefined') return undefined;
         const handleFocus = () => {
             if (!currentUser) return;
+            if (!isTokenExpiredOrExpiringSoon()) return;
             refreshSession()
                 .catch((err) => {
                     setError(mapAuthError(err));

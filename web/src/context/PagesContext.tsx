@@ -5,7 +5,7 @@ import type { Page } from '../types';
 
 // A context is a REACT-particular way to share state across various REACT components without
 // having to manually pass down variables through components (prop drilling). Pages are
-// static-ish public data fetched once at app startup — making them global context means
+// static-ish public data fetched once at app startup - making them global context means
 // any hook or component can read the list without triggering a redundant network request.
 
 const PagesContext = createContext<Page[]>([]);
