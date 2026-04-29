@@ -10,11 +10,13 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.HexFormat;
 import java.util.List;
@@ -25,6 +27,8 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 @Service
 @RequiredArgsConstructor
 public class RefreshTokenService {
+
+    private static final Duration CONCURRENT_ROTATION_GRACE = Duration.ofSeconds(10);
 
     private final RefreshTokenRepository refreshTokenRepository;
     private final JwtService jwtService;
@@ -45,13 +49,13 @@ public class RefreshTokenService {
         return new TokenPair(accessToken, refreshToken, jwtConfig.getExpirationMs(), jwtConfig.getRefreshExpirationMs(), user.getUsername(), user.getEmail(), user.getRole());
     }
 
-    @Transactional
-    public TokenPair rotate(String refreshToken) {
+    @Transactional(isolation = Isolation.SERIALIZABLE)
+    public synchronized TokenPair rotate(String refreshToken) {
         return rotate(refreshToken, null, null);
     }
 
-    @Transactional
-    public TokenPair rotate(String refreshToken, String userAgent, String ipAddress) {
+    @Transactional(isolation = Isolation.SERIALIZABLE)
+    public synchronized TokenPair rotate(String refreshToken, String userAgent, String ipAddress) {
         String userEmail = jwtService.extractRefreshUsername(refreshToken);
         String tokenId = jwtService.extractRefreshTokenId(refreshToken);
         String familyId = jwtService.extractRefreshFamilyId(refreshToken);
@@ -67,9 +71,20 @@ public class RefreshTokenService {
             throw new UnauthorizedTokenException("Session expired. Please login again.");
         }
 
-        if (stored.getRevokedAt() != null
-                || !MessageDigest.isEqual(stored.getTokenHash().getBytes(StandardCharsets.UTF_8),
-                        hashToken(refreshToken).getBytes(StandardCharsets.UTF_8))) {
+        String incomingHash = hashToken(refreshToken);
+
+        if (stored.getRevokedAt() != null) {
+            if (isRecentlyReplacedToken(stored)
+                    && MessageDigest.isEqual(stored.getTokenHash().getBytes(StandardCharsets.UTF_8),
+                            incomingHash.getBytes(StandardCharsets.UTF_8))) {
+                return rotateLatestReplacement(stored, userAgent, ipAddress);
+            }
+            revokeFamily(familyId);
+            throw new TokenCompromisedException();
+        }
+
+        if (!MessageDigest.isEqual(stored.getTokenHash().getBytes(StandardCharsets.UTF_8),
+                        incomingHash.getBytes(StandardCharsets.UTF_8))) {
             revokeFamily(familyId);
             throw new TokenCompromisedException();
         }
@@ -95,6 +110,57 @@ public class RefreshTokenService {
         refreshTokenRepository.save(buildRefreshToken(user, userEmail, nextTokenId, familyId, nextRefreshToken, userAgent, ipAddress));
 
         return new TokenPair(accessToken, nextRefreshToken, jwtConfig.getExpirationMs(), jwtConfig.getRefreshExpirationMs(), user.getUsername(), user.getEmail(), user.getRole());
+    }
+
+    private TokenPair rotateLatestReplacement(RefreshTokenEntity replacedToken, String userAgent, String ipAddress) {
+        RefreshTokenEntity latest = findLatestReplacement(replacedToken);
+
+        if (latest.getExpiresAt().isBefore(Instant.now())) {
+            throw new UnauthorizedTokenException("Session expired. Please login again.");
+        }
+
+        if (latest.getRevokedAt() != null) {
+            revokeFamily(latest.getFamilyId());
+            throw new TokenCompromisedException();
+        }
+
+        UserEntity user;
+        UserDetails userDetails;
+        try {
+            user = userService.findByEmail(latest.getUserEmail());
+            userDetails = userService.loadUserByUsername(latest.getUserEmail());
+        } catch (UsernameNotFoundException ex) {
+            revokeFamily(latest.getFamilyId());
+            throw new UnauthorizedTokenException("User account no longer exists.");
+        }
+
+        String nextTokenId = UUID.randomUUID().toString();
+        String nextRefreshToken = jwtService.generateRefreshToken(userDetails, nextTokenId, latest.getFamilyId());
+        String accessToken = jwtService.generateAccessToken(userDetails);
+
+        latest.setRevokedAt(Instant.now());
+        latest.setReplacedByTokenId(nextTokenId);
+        refreshTokenRepository.save(latest);
+
+        refreshTokenRepository.save(buildRefreshToken(user, latest.getUserEmail(), nextTokenId, latest.getFamilyId(), nextRefreshToken, userAgent, ipAddress));
+
+        return new TokenPair(accessToken, nextRefreshToken, jwtConfig.getExpirationMs(), jwtConfig.getRefreshExpirationMs(), user.getUsername(), user.getEmail(), user.getRole());
+    }
+
+    private RefreshTokenEntity findLatestReplacement(RefreshTokenEntity token) {
+        RefreshTokenEntity latest = token;
+        while (latest.getRevokedAt() != null && latest.getReplacedByTokenId() != null) {
+            String nextTokenId = latest.getReplacedByTokenId();
+            latest = refreshTokenRepository.findByTokenId(nextTokenId)
+                    .orElseThrow(() -> revokeAndFail(token.getFamilyId()));
+        }
+        return latest;
+    }
+
+    private boolean isRecentlyReplacedToken(RefreshTokenEntity token) {
+        return token.getReplacedByTokenId() != null
+                && token.getRevokedAt() != null
+                && token.getRevokedAt().plus(CONCURRENT_ROTATION_GRACE).isAfter(Instant.now());
     }
 
     @Transactional

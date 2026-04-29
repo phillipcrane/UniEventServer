@@ -65,7 +65,7 @@ unievent:
     cors:
       allowed-origins: ${UNIEVENT_SECURITY_CORS_ALLOWED_ORIGINS:http://localhost:3000,http://127.0.0.1:3000,http://localhost:5173,http://127.0.0.1:5173,https://localhost}
       allowed-methods: GET,POST,PUT,DELETE,OPTIONS
-      allowed-headers: Authorization,Content-Type,Accept,X-CSRF-Token
+      allowed-headers: Content-Type,Accept,X-CSRF-Token
       allow-credentials: true
       max-age: 3600
     cookies:
@@ -74,9 +74,9 @@ unievent:
       csrf-name: csrf_token
       access-max-age: 86400
       refresh-max-age: 604800
-      csrf-max-age: 86400
+      csrf-max-age: 3600
       secure: true
-      same-site: Lax
+      same-site: Strict
     
       domain: ${UNIEVENT_COOKIE_DOMAIN:}
       path: /

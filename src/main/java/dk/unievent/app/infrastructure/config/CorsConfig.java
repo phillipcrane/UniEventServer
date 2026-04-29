@@ -24,7 +24,7 @@ public class CorsConfig {
 
     private List<String> allowedOrigins = List.of();
     private List<String> allowedMethods = List.of("GET", "POST", "PUT", "DELETE", "OPTIONS");
-    private List<String> allowedHeaders = List.of("Authorization", "Content-Type", "Accept");
+    private List<String> allowedHeaders = List.of("Content-Type", "Accept", "X-CSRF-Token");
     private boolean allowCredentials = true;
     private Long maxAge = 3600L;
 

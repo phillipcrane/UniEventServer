@@ -17,7 +17,7 @@ class CorsConfigTests {
         CorsConfig config = new CorsConfig();
         config.setAllowedOrigins(List.of("https://unievent.dk"));
         config.setAllowedMethods(List.of("GET", "POST"));
-        config.setAllowedHeaders(List.of("Authorization"));
+        config.setAllowedHeaders(List.of("Content-Type", "X-CSRF-Token"));
         config.setAllowCredentials(false);
         config.setMaxAge(99L);
 
@@ -27,7 +27,7 @@ class CorsConfigTests {
         assertNotNull(cors);
         assertEquals(List.of("https://unievent.dk"), cors.getAllowedOrigins());
         assertEquals(List.of("GET", "POST"), cors.getAllowedMethods());
-        assertEquals(List.of("Authorization"), cors.getAllowedHeaders());
+        assertEquals(List.of("Content-Type", "X-CSRF-Token"), cors.getAllowedHeaders());
         assertEquals(false, cors.getAllowCredentials());
         assertEquals(99L, cors.getMaxAge());
     }

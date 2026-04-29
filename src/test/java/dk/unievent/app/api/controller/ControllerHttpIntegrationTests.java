@@ -8,6 +8,7 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -30,6 +31,10 @@ import dk.unievent.app.db.repository.PlaceRepository;
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @ActiveProfiles("test")
 class ControllerHttpIntegrationTests {
+
+    private static final String ACCESS_COOKIE = "auth_access";
+    private static final String CSRF_COOKIE = "csrf_token";
+    private static final String CSRF_HEADER = "X-CSRF-Token";
 
         @Autowired
         private EventRepository eventRepository;
@@ -62,8 +67,8 @@ class ControllerHttpIntegrationTests {
         return "http://localhost:" + port + path;
     }
 
-    private String getAuthToken() throws Exception {
-        String regBody = "{\"username\":\"ctrl-testuser\",\"email\":\"ctrl-testuser@test.com\",\"password\":\"password1234\"}";
+    private AuthSession getAuthSession() throws Exception {
+        String regBody = "{\"username\":\"ctrl-testuser\",\"email\":\"ctrl-testuser@test.com\",\"password\":\"password123456\"}";
         HttpResponse<String> regResponse = httpClient.send(
                 HttpRequest.newBuilder()
                         .uri(URI.create(url("/api/auth/register")))
@@ -72,9 +77,9 @@ class ControllerHttpIntegrationTests {
                         .build(),
                 HttpResponse.BodyHandlers.ofString());
         if (regResponse.statusCode() == 200) {
-            return (String) objectMapper.readValue(regResponse.body(), new TypeReference<Map<String, Object>>() {}).get("token");
+            return AuthSession.from(regResponse);
         }
-        String loginBody = "{\"email\":\"ctrl-testuser@test.com\",\"password\":\"password1234\"}";
+        String loginBody = "{\"email\":\"ctrl-testuser@test.com\",\"password\":\"password123456\"}";
         HttpResponse<String> loginResponse = httpClient.send(
                 HttpRequest.newBuilder()
                         .uri(URI.create(url("/api/auth/login")))
@@ -82,12 +87,12 @@ class ControllerHttpIntegrationTests {
                         .POST(HttpRequest.BodyPublishers.ofString(loginBody))
                         .build(),
                 HttpResponse.BodyHandlers.ofString());
-        return (String) objectMapper.readValue(loginResponse.body(), new TypeReference<Map<String, Object>>() {}).get("token");
+        return AuthSession.from(loginResponse);
     }
 
     @Test
     void eventCreateAndGetShouldWorkThroughHttp() throws Exception {
-        String token = getAuthToken();
+        AuthSession session = getAuthSession();
         String pageId = "page-http-" + UUID.randomUUID();
         String eventId = "event-http-" + UUID.randomUUID();
 
@@ -95,7 +100,8 @@ class ControllerHttpIntegrationTests {
         HttpRequest createPage = HttpRequest.newBuilder()
                 .uri(URI.create(url("/api/pages")))
                 .header("Content-Type", MediaType.APPLICATION_JSON_VALUE)
-                .header("Authorization", "Bearer " + token)
+                .header("Cookie", session.cookieHeader())
+                .header(CSRF_HEADER, session.csrfToken())
                 .POST(HttpRequest.BodyPublishers.ofString(pageBody))
                 .build();
         HttpResponse<String> pageResponse = httpClient.send(createPage, HttpResponse.BodyHandlers.ofString());
@@ -113,7 +119,8 @@ class ControllerHttpIntegrationTests {
         HttpRequest createEvent = HttpRequest.newBuilder()
                 .uri(URI.create(url("/api/events")))
                 .header("Content-Type", MediaType.APPLICATION_JSON_VALUE)
-                .header("Authorization", "Bearer " + token)
+                .header("Cookie", session.cookieHeader())
+                .header(CSRF_HEADER, session.csrfToken())
                 .POST(HttpRequest.BodyPublishers.ofString(eventBody))
                 .build();
 
@@ -150,13 +157,14 @@ class ControllerHttpIntegrationTests {
 
     @Test
     void pageValidationErrorShouldReturn400() throws Exception {
-        String token = getAuthToken();
+        AuthSession session = getAuthSession();
         String body = "{\"id\":\"bad-page\",\"name\":\"\"}";
 
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(url("/api/pages")))
                 .header("Content-Type", MediaType.APPLICATION_JSON_VALUE)
-                .header("Authorization", "Bearer " + token)
+                .header("Cookie", session.cookieHeader())
+                .header(CSRF_HEADER, session.csrfToken())
                 .POST(HttpRequest.BodyPublishers.ofString(body))
                 .build();
 
@@ -170,7 +178,7 @@ class ControllerHttpIntegrationTests {
 
     @Test
     void placeCreateAndGetShouldWorkThroughHttp() throws Exception {
-        String token = getAuthToken();
+        AuthSession session = getAuthSession();
         String placeId = "place-http-" + UUID.randomUUID();
 
         String createBody = "{" +
@@ -189,7 +197,8 @@ class ControllerHttpIntegrationTests {
         HttpRequest createRequest = HttpRequest.newBuilder()
                 .uri(URI.create(url("/api/places")))
                 .header("Content-Type", MediaType.APPLICATION_JSON_VALUE)
-                .header("Authorization", "Bearer " + token)
+                .header("Cookie", session.cookieHeader())
+                .header(CSRF_HEADER, session.csrfToken())
                 .POST(HttpRequest.BodyPublishers.ofString(createBody))
                 .build();
 
@@ -212,7 +221,7 @@ class ControllerHttpIntegrationTests {
 
     @Test
     void eventUpdateNotFoundShouldReturn404() throws Exception {
-        String token = getAuthToken();
+        AuthSession session = getAuthSession();
         String body = "{" +
                 "\"pageId\":\"nonexistent-page\"," +
                 "\"title\":\"Ghost Event\"," +
@@ -223,7 +232,8 @@ class ControllerHttpIntegrationTests {
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(url("/api/events/not-found-event")))
                 .header("Content-Type", MediaType.APPLICATION_JSON_VALUE)
-                .header("Authorization", "Bearer " + token)
+                .header("Cookie", session.cookieHeader())
+                .header(CSRF_HEADER, session.csrfToken())
                 .PUT(HttpRequest.BodyPublishers.ofString(body))
                 .build();
 
@@ -233,13 +243,14 @@ class ControllerHttpIntegrationTests {
 
     @Test
     void pageUpdateNotFoundShouldReturn404() throws Exception {
-        String token = getAuthToken();
+        AuthSession session = getAuthSession();
         String body = "{\"name\":\"Ghost Page\"}";
 
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(url("/api/pages/not-found-page")))
                 .header("Content-Type", MediaType.APPLICATION_JSON_VALUE)
-                .header("Authorization", "Bearer " + token)
+                .header("Cookie", session.cookieHeader())
+                .header(CSRF_HEADER, session.csrfToken())
                 .PUT(HttpRequest.BodyPublishers.ofString(body))
                 .build();
 
@@ -249,7 +260,7 @@ class ControllerHttpIntegrationTests {
 
     @Test
     void placeUpdateNotFoundShouldReturn404() throws Exception {
-        String token = getAuthToken();
+        AuthSession session = getAuthSession();
         String body = "{" +
                 "\"name\":\"Missing Venue\"," +
                 "\"location\":{" +
@@ -265,11 +276,34 @@ class ControllerHttpIntegrationTests {
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(url("/api/places/not-found-place")))
                 .header("Content-Type", MediaType.APPLICATION_JSON_VALUE)
-                .header("Authorization", "Bearer " + token)
+                .header("Cookie", session.cookieHeader())
+                .header(CSRF_HEADER, session.csrfToken())
                 .PUT(HttpRequest.BodyPublishers.ofString(body))
                 .build();
 
         HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
         assertEquals(404, response.statusCode());
+    }
+
+    private record AuthSession(String accessToken, String csrfToken) {
+        static AuthSession from(HttpResponse<String> response) {
+            return new AuthSession(
+                    readCookieValue(response.headers().allValues("Set-Cookie"), ACCESS_COOKIE),
+                    readCookieValue(response.headers().allValues("Set-Cookie"), CSRF_COOKIE)
+            );
+        }
+
+        String cookieHeader() {
+            return ACCESS_COOKIE + "=" + accessToken + "; " + CSRF_COOKIE + "=" + csrfToken;
+        }
+
+        private static String readCookieValue(List<String> setCookieHeaders, String name) {
+            String prefix = name + "=";
+            return setCookieHeaders.stream()
+                    .filter(header -> header.startsWith(prefix))
+                    .findFirst()
+                    .map(header -> header.substring(prefix.length(), header.indexOf(';')))
+                    .orElseThrow(() -> new AssertionError("Missing Set-Cookie header for " + name));
+        }
     }
 }

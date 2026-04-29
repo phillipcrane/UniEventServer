@@ -46,8 +46,8 @@ export function useSignupPage() {
             setErrorMessage('Please provide a valid email address.');
             return;
         }
-        if (password.length < 6) {
-            setErrorMessage('Password must be at least 6 characters.');
+        if (password.length < 12) {
+            setErrorMessage('Password must be at least 12 characters.');
             return;
         }
         if (password !== confirmPassword) {
@@ -68,19 +68,19 @@ export function useSignupPage() {
         try {
             setIsLoading(true);
 
-            let organizerKey: string | undefined;
+            let confirmationToken: string | undefined;
             if (accountRole === 'organizer') {
                 for (const code of enteredCodes) {
-                    const valid = await verifyOrganizerKey(code);
-                    if (!valid) {
+                    const verification = await verifyOrganizerKey(code);
+                    if (!verification) {
                         setErrorMessage('Organizer access password is incorrect.');
                         return;
                     }
+                    confirmationToken = verification.confirmationToken;
                 }
-                organizerKey = enteredCodes[0];
             }
 
-            await signupWithEmail({ username: trimmedUsername, email: trimmedEmail, password, role: accountRole, organizerKey });
+            await signupWithEmail({ username: trimmedUsername, email: trimmedEmail, password, role: accountRole, confirmationToken });
             navigate('/', { replace: true });
         } catch (error) {
             setErrorMessage(mapAuthError(error));

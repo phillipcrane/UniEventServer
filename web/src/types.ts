@@ -63,7 +63,13 @@ export type SignupRequest = {
     email: string;
     password: string;
     role?: AccountRole;
-    organizerKey?: string;
+    confirmationToken?: string;
+};
+
+export type OrganizerKeyVerification = {
+    confirmationToken: string;
+    expiresIn: number;
+    email: string;
 };
 
 export type HttpError = Error & { status: number };

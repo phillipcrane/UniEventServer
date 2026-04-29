@@ -104,8 +104,8 @@ describe('SignupPage', () => {
 
         await user.type(screen.getByLabelText('Username'), 'alice');
         await user.type(screen.getByLabelText('Email'), 'alice@example.com');
-        await user.type(screen.getByLabelText('Password'), '123456');
-        await user.type(screen.getByLabelText('Confirm Password'), '654321');
+        await user.type(screen.getByLabelText('Password'), '123456789012');
+        await user.type(screen.getByLabelText('Confirm Password'), '210987654321');
         await chooseUserRole(user);
         await user.click(screen.getByRole('button', { name: 'Sign Up as User' }));
 
@@ -121,17 +121,17 @@ describe('SignupPage', () => {
 
         await user.type(screen.getByLabelText('Username'), 'alice');
         await user.type(screen.getByLabelText('Email'), 'alice@example.com');
-        await user.type(screen.getByLabelText('Password'), '123456');
-        await user.type(screen.getByLabelText('Confirm Password'), '123456');
+        await user.type(screen.getByLabelText('Password'), '123456789012');
+        await user.type(screen.getByLabelText('Confirm Password'), '123456789012');
         await chooseUserRole(user);
         await user.click(screen.getByRole('button', { name: 'Sign Up as User' }));
 
         expect(mockSignupWithEmail).toHaveBeenCalledWith({
             username: 'alice',
             email: 'alice@example.com',
-            password: '123456',
+            password: '123456789012',
             role: 'user',
-            organizerKey: undefined,
+            confirmationToken: undefined,
         });
         expect(mockNavigate).toHaveBeenCalledWith('/', { replace: true });
     });
@@ -146,8 +146,8 @@ describe('SignupPage', () => {
 
         await user.type(screen.getByLabelText('Username'), 'alice');
         await user.type(screen.getByLabelText('Email'), 'alice@example.com');
-        await user.type(screen.getByLabelText('Password'), '123456');
-        await user.type(screen.getByLabelText('Confirm Password'), '123456');
+        await user.type(screen.getByLabelText('Password'), '123456789012');
+        await user.type(screen.getByLabelText('Confirm Password'), '123456789012');
         await chooseUserRole(user);
         await user.click(screen.getByRole('button', { name: 'Sign Up as User' }));
 
@@ -161,8 +161,8 @@ describe('SignupPage', () => {
 
         await user.type(screen.getByLabelText('Username'), 'org-admin');
         await user.type(screen.getByLabelText('Email'), 'org@example.com');
-        await user.type(screen.getByLabelText('Password'), '123456');
-        await user.type(screen.getByLabelText('Confirm Password'), '123456');
+        await user.type(screen.getByLabelText('Password'), '123456789012');
+        await user.type(screen.getByLabelText('Confirm Password'), '123456789012');
 
         await chooseOrganizerRole(user);
         await user.click(screen.getByRole('button', { name: 'Sign Up as Organizer' }));
@@ -175,13 +175,13 @@ describe('SignupPage', () => {
         // Keys are validated server-side now, no hardcoded codes in the bundle.
         const user = userEvent.setup();
         mockSignupWithEmail.mockResolvedValueOnce({ uid: 'new-organizer-user' });
-        mockVerifyOrganizerKey.mockResolvedValue(true);
+        mockVerifyOrganizerKey.mockResolvedValue({ confirmationToken: 'confirm-token', expiresIn: 600, email: 'org@example.com' });
         renderPage();
 
         await user.type(screen.getByLabelText('Username'), 'org-admin');
         await user.type(screen.getByLabelText('Email'), 'org@example.com');
-        await user.type(screen.getByLabelText('Password'), '123456');
-        await user.type(screen.getByLabelText('Confirm Password'), '123456');
+        await user.type(screen.getByLabelText('Password'), '123456789012');
+        await user.type(screen.getByLabelText('Confirm Password'), '123456789012');
 
         await chooseOrganizerRole(user);
         await user.type(screen.getByLabelText('Organizer Access Password(s)'), 'my-invite-key');
@@ -191,22 +191,22 @@ describe('SignupPage', () => {
         expect(mockSignupWithEmail).toHaveBeenCalledWith({
             username: 'org-admin',
             email: 'org@example.com',
-            password: '123456',
+            password: '123456789012',
             role: 'organizer',
-            organizerKey: 'my-invite-key',
+            confirmationToken: 'confirm-token',
         });
         expect(mockNavigate).toHaveBeenCalledWith('/', { replace: true });
     });
 
     it('shows error and does not sign up when organizer key is rejected by server', async () => {
         const user = userEvent.setup();
-        mockVerifyOrganizerKey.mockResolvedValue(false);
+        mockVerifyOrganizerKey.mockResolvedValue(null);
         renderPage();
 
         await user.type(screen.getByLabelText('Username'), 'org-admin');
         await user.type(screen.getByLabelText('Email'), 'org@example.com');
-        await user.type(screen.getByLabelText('Password'), '123456');
-        await user.type(screen.getByLabelText('Confirm Password'), '123456');
+        await user.type(screen.getByLabelText('Password'), '123456789012');
+        await user.type(screen.getByLabelText('Confirm Password'), '123456789012');
 
         await chooseOrganizerRole(user);
         await user.type(screen.getByLabelText('Organizer Access Password(s)'), 'bad-key');

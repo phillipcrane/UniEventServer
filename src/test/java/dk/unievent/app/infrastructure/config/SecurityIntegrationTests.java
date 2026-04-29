@@ -11,6 +11,7 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -18,6 +19,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @ActiveProfiles("test")
 class SecurityIntegrationTests {
+
+    private static final String ACCESS_COOKIE = "auth_access";
+    private static final String REFRESH_COOKIE = "auth_refresh";
+    private static final String CSRF_COOKIE = "csrf_token";
+    private static final String CSRF_HEADER = "X-CSRF-Token";
 
     private final HttpClient httpClient = HttpClient.newHttpClient();
     private final ObjectMapper objectMapper = new ObjectMapper();
@@ -104,27 +110,16 @@ class SecurityIntegrationTests {
     }
 
     @Test
-    void jwtFromRegisterShouldAuthenticateProtectedEndpoints() throws Exception {
+    void cookiesFromRegisterShouldAuthenticateProtectedEndpoints() throws Exception {
         String suffix = String.valueOf(System.nanoTime());
-        String registerJson = "{\"username\":\"user" + suffix + "\",\"email\":\"user" + suffix + "@example.com\",\"password\":\"secret12345678\"}";
+        AuthSession session = registerSession("user" + suffix, "user" + suffix + "@example.com");
 
-        HttpRequest registerRequest = HttpRequest.newBuilder()
-            .uri(URI.create(url("/api/auth/register")))
-            .header("Content-Type", "application/json")
-            .POST(HttpRequest.BodyPublishers.ofString(registerJson))
-            .build();
-
-        HttpResponse<String> registerResponse = httpClient.send(registerRequest, HttpResponse.BodyHandlers.ofString());
-        assertEquals(200, registerResponse.statusCode());
-
-        JsonNode payload = objectMapper.readTree(registerResponse.body());
-        String token = payload.path("token").asText();
-
-        // POST /api/events with valid JWT but empty body - expect 400 (validation), not 403 (auth failure)
+        // POST /api/events with valid auth cookies + CSRF but empty body - expect 400 (validation), not 403 (auth failure)
         HttpRequest writeRequest = HttpRequest.newBuilder()
             .uri(URI.create(url("/api/events")))
             .header("Content-Type", "application/json")
-            .header("Authorization", "Bearer " + token)
+            .header("Cookie", session.cookieHeader(ACCESS_COOKIE, CSRF_COOKIE))
+            .header(CSRF_HEADER, session.csrfToken())
             .POST(HttpRequest.BodyPublishers.ofString("{}"))
             .build();
 
@@ -170,7 +165,51 @@ class SecurityIntegrationTests {
     @Test
     void refreshTokenShouldRotateAndLogoutShouldRevokeIt() throws Exception {
         String suffix = String.valueOf(System.nanoTime());
-        String registerJson = "{\"username\":\"refresh" + suffix + "\",\"email\":\"refresh" + suffix + "@example.com\",\"password\":\"secret12345678\"}";
+        AuthSession session = registerSession("refresh" + suffix, "refresh" + suffix + "@example.com");
+        assertTrue(!session.accessToken().isBlank());
+
+        HttpRequest refreshRequest = HttpRequest.newBuilder()
+            .uri(URI.create(url("/api/auth/refresh")))
+            .header("Content-Type", "application/json")
+            .header("Cookie", session.cookieHeader(REFRESH_COOKIE, CSRF_COOKIE))
+            .header(CSRF_HEADER, session.csrfToken())
+            .POST(HttpRequest.BodyPublishers.noBody())
+            .build();
+
+        HttpResponse<String> refreshResponse = httpClient.send(refreshRequest, HttpResponse.BodyHandlers.ofString());
+        assertEquals(200, refreshResponse.statusCode());
+
+        JsonNode refreshPayload = objectMapper.readTree(refreshResponse.body());
+        AuthSession rotated = AuthSession.from(refreshResponse);
+
+        assertTrue(!rotated.accessToken().isBlank());
+        assertTrue(!rotated.refreshToken().isBlank());
+        assertTrue(!refreshPayload.path("csrfToken").asText().isBlank());
+
+        HttpRequest logoutRequest = HttpRequest.newBuilder()
+            .uri(URI.create(url("/api/auth/logout")))
+            .header("Content-Type", "application/json")
+            .header("Cookie", rotated.cookieHeader(REFRESH_COOKIE, CSRF_COOKIE))
+            .header(CSRF_HEADER, rotated.csrfToken())
+            .POST(HttpRequest.BodyPublishers.noBody())
+            .build();
+
+        HttpResponse<String> logoutResponse = httpClient.send(logoutRequest, HttpResponse.BodyHandlers.ofString());
+        assertEquals(204, logoutResponse.statusCode());
+
+        HttpRequest postLogoutRefreshRequest = HttpRequest.newBuilder()
+            .uri(URI.create(url("/api/auth/refresh")))
+            .header("Content-Type", "application/json")
+            .header("Cookie", rotated.cookieHeader(REFRESH_COOKIE, CSRF_COOKIE))
+            .header(CSRF_HEADER, rotated.csrfToken())
+            .POST(HttpRequest.BodyPublishers.noBody())
+            .build();
+        HttpResponse<String> postLogoutRefreshResponse = httpClient.send(postLogoutRefreshRequest, HttpResponse.BodyHandlers.ofString());
+        assertEquals(403, postLogoutRefreshResponse.statusCode());
+    }
+
+    private AuthSession registerSession(String username, String email) throws Exception {
+        String registerJson = "{\"username\":\"" + username + "\",\"email\":\"" + email + "\",\"password\":\"secret12345678\"}";
 
         HttpRequest registerRequest = HttpRequest.newBuilder()
             .uri(URI.create(url("/api/auth/register")))
@@ -181,38 +220,47 @@ class SecurityIntegrationTests {
         HttpResponse<String> registerResponse = httpClient.send(registerRequest, HttpResponse.BodyHandlers.ofString());
         assertEquals(200, registerResponse.statusCode());
 
-        JsonNode registerPayload = objectMapper.readTree(registerResponse.body());
-        String accessToken = registerPayload.path("token").asText();
-        String refreshToken = registerPayload.path("refreshToken").asText();
+        JsonNode payload = objectMapper.readTree(registerResponse.body());
+        assertTrue(!payload.path("csrfToken").asText().isBlank());
+        return AuthSession.from(registerResponse);
+    }
 
-        assertTrue(!accessToken.isBlank());
+    private record AuthSession(String accessToken, String refreshToken, String csrfToken) {
+        static AuthSession from(HttpResponse<String> response) {
+            return new AuthSession(
+                readCookieValue(response.headers().allValues("Set-Cookie"), ACCESS_COOKIE),
+                readCookieValue(response.headers().allValues("Set-Cookie"), REFRESH_COOKIE),
+                readCookieValue(response.headers().allValues("Set-Cookie"), CSRF_COOKIE)
+            );
+        }
 
-        HttpRequest refreshRequest = HttpRequest.newBuilder()
-            .uri(URI.create(url("/api/auth/refresh")))
-            .header("Content-Type", "application/json")
-            .POST(HttpRequest.BodyPublishers.ofString("{\"refreshToken\":\"" + refreshToken + "\"}"))
-            .build();
+        String cookieHeader(String... names) {
+            StringBuilder header = new StringBuilder();
+            for (String name : names) {
+                if (!header.isEmpty()) {
+                    header.append("; ");
+                }
+                header.append(name).append("=").append(valueFor(name));
+            }
+            return header.toString();
+        }
 
-        HttpResponse<String> refreshResponse = httpClient.send(refreshRequest, HttpResponse.BodyHandlers.ofString());
-        assertEquals(200, refreshResponse.statusCode());
+        private String valueFor(String name) {
+            return switch (name) {
+                case ACCESS_COOKIE -> accessToken;
+                case REFRESH_COOKIE -> refreshToken;
+                case CSRF_COOKIE -> csrfToken;
+                default -> throw new IllegalArgumentException("Unknown cookie: " + name);
+            };
+        }
 
-        JsonNode refreshPayload = objectMapper.readTree(refreshResponse.body());
-        String rotatedAccessToken = refreshPayload.path("token").asText();
-        String rotatedRefreshToken = refreshPayload.path("refreshToken").asText();
-
-        assertTrue(!rotatedAccessToken.isBlank());
-        assertTrue(!rotatedRefreshToken.isBlank());
-
-        HttpRequest logoutRequest = HttpRequest.newBuilder()
-            .uri(URI.create(url("/api/auth/logout")))
-            .header("Content-Type", "application/json")
-            .POST(HttpRequest.BodyPublishers.ofString("{\"refreshToken\":\"" + rotatedRefreshToken + "\"}"))
-            .build();
-
-        HttpResponse<String> logoutResponse = httpClient.send(logoutRequest, HttpResponse.BodyHandlers.ofString());
-        assertEquals(204, logoutResponse.statusCode());
-
-        HttpResponse<String> postLogoutRefreshResponse = httpClient.send(refreshRequest, HttpResponse.BodyHandlers.ofString());
-        assertEquals(401, postLogoutRefreshResponse.statusCode());
+        private static String readCookieValue(List<String> setCookieHeaders, String name) {
+            String prefix = name + "=";
+            return setCookieHeaders.stream()
+                    .filter(header -> header.startsWith(prefix))
+                    .findFirst()
+                    .map(header -> header.substring(prefix.length(), header.indexOf(';')))
+                    .orElseThrow(() -> new AssertionError("Missing Set-Cookie header for " + name));
+        }
     }
 }

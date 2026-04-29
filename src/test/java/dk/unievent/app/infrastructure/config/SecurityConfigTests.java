@@ -1,7 +1,5 @@
 package dk.unievent.app.infrastructure.config;
 
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -12,7 +10,7 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
-import java.util.Map;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -21,7 +19,9 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 class SecurityConfigTests {
 
     private final HttpClient httpClient = HttpClient.newHttpClient();
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private static final String ACCESS_COOKIE = "auth_access";
+    private static final String CSRF_COOKIE = "csrf_token";
+    private static final String CSRF_HEADER = "X-CSRF-Token";
 
     @Value("${local.server.port}")
     private int port;
@@ -66,11 +66,12 @@ class SecurityConfigTests {
 
     @Test
     void organizerKeyGenerateShouldRejectNonAdminUsers() throws Exception {
-        String token = registerAndLoginRegularUser();
+        AuthSession session = registerAndLoginRegularUser();
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(url("/api/auth/organizer-key/generate")))
-                .header("Authorization", "Bearer " + token)
                 .header("Content-Type", MediaType.APPLICATION_JSON_VALUE)
+                .header("Cookie", session.cookieHeader())
+                .header(CSRF_HEADER, session.csrfToken())
                 .POST(HttpRequest.BodyPublishers.ofString("{\"email\":\"organizer@example.com\",\"organizationName\":\"Test Org\"}"))
                 .build();
 
@@ -79,11 +80,11 @@ class SecurityConfigTests {
         assertEquals(403, response.statusCode());
     }
 
-    private String registerAndLoginRegularUser() throws Exception {
+    private AuthSession registerAndLoginRegularUser() throws Exception {
         String unique = String.valueOf(System.nanoTime());
         String email = "security-user-" + unique + "@test.com";
         String username = "securityuser" + unique;
-        String password = "password1234";
+        String password = "password123456";
 
         String registerBody = "{\"username\":\"" + username + "\",\"email\":\"" + email + "\",\"password\":\"" + password + "\"}";
         HttpResponse<String> registerResponse = httpClient.send(
@@ -95,8 +96,7 @@ class SecurityConfigTests {
                 HttpResponse.BodyHandlers.ofString());
 
         if (registerResponse.statusCode() == 200) {
-            Map<String, Object> payload = objectMapper.readValue(registerResponse.body(), new TypeReference<>() {});
-            return (String) payload.get("token");
+            return AuthSession.from(registerResponse);
         }
 
         String loginBody = "{\"email\":\"" + email + "\",\"password\":\"" + password + "\"}";
@@ -108,7 +108,28 @@ class SecurityConfigTests {
                         .build(),
                 HttpResponse.BodyHandlers.ofString());
 
-        Map<String, Object> loginPayload = objectMapper.readValue(loginResponse.body(), new TypeReference<>() {});
-        return (String) loginPayload.get("token");
+        return AuthSession.from(loginResponse);
+    }
+
+    private record AuthSession(String accessToken, String csrfToken) {
+        static AuthSession from(HttpResponse<String> response) {
+            return new AuthSession(
+                    readCookieValue(response.headers().allValues("Set-Cookie"), ACCESS_COOKIE),
+                    readCookieValue(response.headers().allValues("Set-Cookie"), CSRF_COOKIE)
+            );
+        }
+
+        String cookieHeader() {
+            return ACCESS_COOKIE + "=" + accessToken + "; " + CSRF_COOKIE + "=" + csrfToken;
+        }
+
+        private static String readCookieValue(List<String> setCookieHeaders, String name) {
+            String prefix = name + "=";
+            return setCookieHeaders.stream()
+                    .filter(header -> header.startsWith(prefix))
+                    .findFirst()
+                    .map(header -> header.substring(prefix.length(), header.indexOf(';')))
+                    .orElseThrow(() -> new AssertionError("Missing Set-Cookie header for " + name));
+        }
     }
 }

@@ -193,11 +193,11 @@ export async function loginWithEmail(email: string, password: string): Promise<A
     return user;
 }
 
-export async function signupWithEmail({ username, email, password, role, organizerKey, organizerNames }: SignupInput): Promise<AuthUser> {
-    const response = await apiCall(`${BACKEND_URL}${organizerKey ? '/api/auth/register-with-key' : '/api/auth/register'}`, {
+export async function signupWithEmail({ username, email, password, role, confirmationToken, organizerNames }: SignupInput): Promise<AuthUser> {
+    const response = await apiCall(`${BACKEND_URL}${confirmationToken ? '/api/auth/register-with-key' : '/api/auth/register'}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(organizerKey ? { username, email, password, organizerKey } : { username, email, password }),
+        body: JSON.stringify(confirmationToken ? { username, email, password, confirmationToken } : { username, email, password }),
         skipAuthErrorHandling: true,
     });
 
@@ -298,9 +298,9 @@ export async function getAccountProfile(uid?: string): Promise<{ role: AccountRo
     const fallbackRole = resolveAccountRole(user.role, user.organizerNames);
     const fallbackOrganizerNames = Array.isArray(user.organizerNames) ? [...user.organizerNames] : [];
 
-    const response = await fetch(`${BACKEND_URL}${API_AUTH_PROFILE}`, {
-        credentials: 'include',
+    const response = await apiCall(`${BACKEND_URL}${API_AUTH_PROFILE}`, {
         headers: { 'Content-Type': 'application/json' },
+        skipAuthErrorHandling: true,
     });
 
     if (!response.ok) {

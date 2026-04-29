@@ -8,6 +8,7 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.util.List;
 import java.util.Map;
 
 import org.junit.jupiter.api.Test;
@@ -29,6 +30,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 @Import(GlobalExceptionHandlerIntegrationTests.TestExceptionController.class)
 class GlobalExceptionHandlerIntegrationTests {
 
+    private static final String ACCESS_COOKIE = "auth_access";
+    private static final String CSRF_COOKIE = "csrf_token";
+    private static final String CSRF_HEADER = "X-CSRF-Token";
+
     private final HttpClient httpClient = HttpClient.newHttpClient();
     private final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -39,8 +44,8 @@ class GlobalExceptionHandlerIntegrationTests {
         return "http://localhost:" + port + path;
     }
 
-    private String getAuthToken() throws Exception {
-        String regBody = "{\"username\":\"geh-testuser\",\"email\":\"geh-testuser@test.com\",\"password\":\"password1234\"}";
+    private AuthSession getAuthSession() throws Exception {
+        String regBody = "{\"username\":\"geh-testuser\",\"email\":\"geh-testuser@test.com\",\"password\":\"password123456\"}";
         HttpResponse<String> regResponse = httpClient.send(
                 HttpRequest.newBuilder()
                         .uri(URI.create(url("/api/auth/register")))
@@ -49,9 +54,9 @@ class GlobalExceptionHandlerIntegrationTests {
                         .build(),
                 HttpResponse.BodyHandlers.ofString());
         if (regResponse.statusCode() == 200) {
-            return (String) objectMapper.readValue(regResponse.body(), new TypeReference<Map<String, Object>>() {}).get("token");
+            return AuthSession.from(regResponse);
         }
-        String loginBody = "{\"email\":\"geh-testuser@test.com\",\"password\":\"password1234\"}";
+        String loginBody = "{\"email\":\"geh-testuser@test.com\",\"password\":\"password123456\"}";
         HttpResponse<String> loginResponse = httpClient.send(
                 HttpRequest.newBuilder()
                         .uri(URI.create(url("/api/auth/login")))
@@ -59,16 +64,17 @@ class GlobalExceptionHandlerIntegrationTests {
                         .POST(HttpRequest.BodyPublishers.ofString(loginBody))
                         .build(),
                 HttpResponse.BodyHandlers.ofString());
-        return (String) objectMapper.readValue(loginResponse.body(), new TypeReference<Map<String, Object>>() {}).get("token");
+        return AuthSession.from(loginResponse);
     }
 
     @Test
     void validationErrorShouldReturnStructuredErrorResponse() throws Exception {
-        String token = getAuthToken();
+        AuthSession session = getAuthSession();
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(url("/api/events")))
                 .header("Content-Type", MediaType.APPLICATION_JSON_VALUE)
-                .header("Authorization", "Bearer " + token)
+                .header("Cookie", session.cookieHeader())
+                .header(CSRF_HEADER, session.csrfToken())
                 .POST(HttpRequest.BodyPublishers.ofString("{}"))
                 .build();
 
@@ -84,11 +90,12 @@ class GlobalExceptionHandlerIntegrationTests {
 
     @Test
     void malformedJsonShouldReturnBadRequestShape() throws Exception {
-        String token = getAuthToken();
+        AuthSession session = getAuthSession();
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(url("/api/events")))
                 .header("Content-Type", MediaType.APPLICATION_JSON_VALUE)
-                .header("Authorization", "Bearer " + token)
+                .header("Cookie", session.cookieHeader())
+                .header(CSRF_HEADER, session.csrfToken())
                 .POST(HttpRequest.BodyPublishers.ofString("{\"title\":\"broken\""))
                 .build();
 
@@ -136,10 +143,10 @@ class GlobalExceptionHandlerIntegrationTests {
 
     @Test
     void uncaughtRuntimeExceptionShouldUseGlobalFallback() throws Exception {
-        String token = getAuthToken();
+        AuthSession session = getAuthSession();
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(url("/test-exceptions/runtime-error")))
-                .header("Authorization", "Bearer " + token)
+                .header("Cookie", session.cookieHeader())
                 .GET()
                 .build();
 
@@ -154,10 +161,10 @@ class GlobalExceptionHandlerIntegrationTests {
 
     @Test
     void maxUploadExceptionShouldReturnPayloadTooLargeShape() throws Exception {
-        String token = getAuthToken();
+        AuthSession session = getAuthSession();
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(url("/test-exceptions/max-upload")))
-                .header("Authorization", "Bearer " + token)
+                .header("Cookie", session.cookieHeader())
                 .GET()
                 .build();
 
@@ -182,6 +189,28 @@ class GlobalExceptionHandlerIntegrationTests {
         @GetMapping("/runtime-error")
         String runtimeError() {
             throw new RuntimeException("unexpected failure");
+        }
+    }
+
+    private record AuthSession(String accessToken, String csrfToken) {
+        static AuthSession from(HttpResponse<String> response) {
+            return new AuthSession(
+                    readCookieValue(response.headers().allValues("Set-Cookie"), ACCESS_COOKIE),
+                    readCookieValue(response.headers().allValues("Set-Cookie"), CSRF_COOKIE)
+            );
+        }
+
+        String cookieHeader() {
+            return ACCESS_COOKIE + "=" + accessToken + "; " + CSRF_COOKIE + "=" + csrfToken;
+        }
+
+        private static String readCookieValue(List<String> setCookieHeaders, String name) {
+            String prefix = name + "=";
+            return setCookieHeaders.stream()
+                    .filter(header -> header.startsWith(prefix))
+                    .findFirst()
+                    .map(header -> header.substring(prefix.length(), header.indexOf(';')))
+                    .orElseThrow(() -> new AssertionError("Missing Set-Cookie header for " + name));
         }
     }
 }

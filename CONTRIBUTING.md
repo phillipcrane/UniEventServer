@@ -244,7 +244,7 @@ Infrastructure Layer:
 | `POST` | `/api/auth/organizer-key/verify` | Verify organizer invite key |
 | `POST` | `/api/auth/register-with-key` | Register as organizer |
 
-**Authenticated (Bearer token required):**
+**Authenticated:**
 | Method | Path | Purpose |
 |--------|------|---------|
 | `POST` | `/api/events` | Create event |

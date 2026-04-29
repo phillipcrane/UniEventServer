@@ -5,7 +5,7 @@
  */
 
 import { API_AUTH_ORGANIZER_KEY_VERIFY } from '../constants';
-import type { ApiResponse, Event, EventApiResponse, Page, PageApiResponse } from '../types';
+import type { ApiResponse, Event, EventApiResponse, OrganizerKeyVerification, Page, PageApiResponse } from '../types';
 import { apiCall } from './http';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL ?? '';
@@ -250,12 +250,16 @@ export async function getEventsByPlaceId(placeId: string, page: number = 0, size
  * Returns true if the key is valid, false if the backend rejects it.
  * Throws on network error.
  */
-export async function verifyOrganizerKey(key: string): Promise<boolean> {
+export async function verifyOrganizerKey(key: string): Promise<OrganizerKeyVerification | null> {
   const url = buildBackendUrlString(API_AUTH_ORGANIZER_KEY_VERIFY);
-  const response = await fetch(url, {
+  const response = await apiCall(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ key }),
+    skipAuthErrorHandling: true,
   });
-  return response.ok;
+  if (!response.ok) {
+    return null;
+  }
+  return response.json() as Promise<OrganizerKeyVerification>;
 }

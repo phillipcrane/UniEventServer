@@ -40,6 +40,10 @@ import dk.unievent.app.infrastructure.config.SeaweedConfig;
 @Import(MediaControllerHttpIntegrationTests.MediaTestConfig.class)
 class MediaControllerHttpIntegrationTests {
 
+    private static final String ACCESS_COOKIE = "auth_access";
+    private static final String CSRF_COOKIE = "csrf_token";
+    private static final String CSRF_HEADER = "X-CSRF-Token";
+
     @Autowired
     private MediaRepository mediaRepository;
 
@@ -63,7 +67,7 @@ class MediaControllerHttpIntegrationTests {
 
     @Test
     void uploadShouldReturnDtoAndPersistMetadata() throws Exception {
-        String token = getAuthToken();
+        AuthSession session = getAuthSession();
         String boundary = "----unievent-boundary";
         byte[] pngMagic = {(byte)0x89, 'P', 'N', 'G', '\r', '\n', 0x1a, '\n'};
         byte[] body = multipartBody(boundary, "file", "poster.png", "image/png", pngMagic);
@@ -71,7 +75,8 @@ class MediaControllerHttpIntegrationTests {
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(url("/media")))
                 .header("Content-Type", "multipart/form-data; boundary=" + boundary)
-                .header("Authorization", "Bearer " + token)
+                .header("Cookie", session.cookieHeader())
+                .header(CSRF_HEADER, session.csrfToken())
                 .POST(HttpRequest.BodyPublishers.ofByteArray(body))
                 .build();
 
@@ -91,7 +96,7 @@ class MediaControllerHttpIntegrationTests {
 
     @Test
     void uploadStorageFailureShouldReturnGlobal500Shape() throws Exception {
-        String token = getAuthToken();
+        AuthSession session = getAuthSession();
         fakeSeaweed.failAssign = true;
 
         String boundary = "----unievent-boundary";
@@ -101,7 +106,8 @@ class MediaControllerHttpIntegrationTests {
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(url("/media")))
                 .header("Content-Type", "multipart/form-data; boundary=" + boundary)
-                .header("Authorization", "Bearer " + token)
+                .header("Cookie", session.cookieHeader())
+                .header(CSRF_HEADER, session.csrfToken())
                 .POST(HttpRequest.BodyPublishers.ofByteArray(body))
                 .build();
 
@@ -179,8 +185,8 @@ class MediaControllerHttpIntegrationTests {
         return "http://localhost:" + port + path;
     }
 
-    private String getAuthToken() throws Exception {
-        String regBody = "{\"username\":\"media-testuser\",\"email\":\"media-testuser@test.com\",\"password\":\"password1234\"}";
+    private AuthSession getAuthSession() throws Exception {
+        String regBody = "{\"username\":\"media-testuser\",\"email\":\"media-testuser@test.com\",\"password\":\"password123456\"}";
         HttpResponse<String> regResponse = httpClient.send(
                 HttpRequest.newBuilder()
                         .uri(URI.create(url("/api/auth/register")))
@@ -189,9 +195,9 @@ class MediaControllerHttpIntegrationTests {
                         .build(),
                 HttpResponse.BodyHandlers.ofString());
         if (regResponse.statusCode() == 200) {
-            return (String) objectMapper.readValue(regResponse.body(), new TypeReference<Map<String, Object>>() {}).get("token");
+            return AuthSession.from(regResponse);
         }
-        String loginBody = "{\"email\":\"media-testuser@test.com\",\"password\":\"password1234\"}";
+        String loginBody = "{\"email\":\"media-testuser@test.com\",\"password\":\"password123456\"}";
         HttpResponse<String> loginResponse = httpClient.send(
                 HttpRequest.newBuilder()
                         .uri(URI.create(url("/api/auth/login")))
@@ -199,7 +205,29 @@ class MediaControllerHttpIntegrationTests {
                         .POST(HttpRequest.BodyPublishers.ofString(loginBody))
                         .build(),
                 HttpResponse.BodyHandlers.ofString());
-        return (String) objectMapper.readValue(loginResponse.body(), new TypeReference<Map<String, Object>>() {}).get("token");
+        return AuthSession.from(loginResponse);
+    }
+
+    private record AuthSession(String accessToken, String csrfToken) {
+        static AuthSession from(HttpResponse<String> response) {
+            return new AuthSession(
+                    readCookieValue(response.headers().allValues("Set-Cookie"), ACCESS_COOKIE),
+                    readCookieValue(response.headers().allValues("Set-Cookie"), CSRF_COOKIE)
+            );
+        }
+
+        String cookieHeader() {
+            return ACCESS_COOKIE + "=" + accessToken + "; " + CSRF_COOKIE + "=" + csrfToken;
+        }
+
+        private static String readCookieValue(List<String> setCookieHeaders, String name) {
+            String prefix = name + "=";
+            return setCookieHeaders.stream()
+                    .filter(header -> header.startsWith(prefix))
+                    .findFirst()
+                    .map(header -> header.substring(prefix.length(), header.indexOf(';')))
+                    .orElseThrow(() -> new AssertionError("Missing Set-Cookie header for " + name));
+        }
     }
 
     private byte[] multipartBody(String boundary, String fieldName, String filename, String contentType, byte[] fileBytes)

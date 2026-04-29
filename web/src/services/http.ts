@@ -1,6 +1,7 @@
 import { getCsrfToken } from './csrf';
 
 const STATE_CHANGING_METHODS = new Set(['POST', 'PUT', 'DELETE', 'PATCH']);
+let refreshPromise: Promise<boolean> | null = null;
 
 export type ApiCallOptions = RequestInit & {
     skipAuthErrorHandling?: boolean;
@@ -21,7 +22,7 @@ export async function apiCall(url: string, options: ApiCallOptions = {}): Promis
     }
 
     if (response.status === 401 && retryOnUnauthorized) {
-        const refreshed = await tryRefreshSession();
+        const refreshed = await ensureSessionRefreshed();
         if (refreshed) {
             return sendRequest(url, requestOptions);
         }
@@ -70,6 +71,19 @@ async function sendRequest(url: string, options: RequestInit = {}): Promise<Resp
 async function tryRefreshSession(): Promise<boolean> {
     const { refreshSession } = await import('./auth');
     return refreshSession();
+}
+
+async function ensureSessionRefreshed(): Promise<boolean> {
+    if (refreshPromise) {
+        return refreshPromise;
+    }
+
+    refreshPromise = tryRefreshSession();
+    try {
+        return await refreshPromise;
+    } finally {
+        refreshPromise = null;
+    }
 }
 
 async function clearAuthAndThrow(status: number, message: string): Promise<never> {
