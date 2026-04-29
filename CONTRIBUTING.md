@@ -288,6 +288,7 @@ Backend
 - [ ] PicoCLI for proper tool CLI
 - [ ] Pin Docker image versions
 - [ ] DB: Quartz scheduler
+- [ ] Add manual ADMIN endpoint for facebook token refreshing and ingestion
 
 ### Frontend
 
@@ -297,3 +298,4 @@ Backend
 - [ ] Organizer dashboard (event sync status, token expiry)
 - [ ] Create Event page
 - [ ] Business Manager integration for stable API access
+- [ ] Admin Dashboard/Tool for using ADMIN endpoints
