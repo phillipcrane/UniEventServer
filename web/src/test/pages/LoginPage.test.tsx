@@ -18,7 +18,7 @@ vi.mock('react-router-dom', async () => {
     };
 });
 
-vi.mock('../../handlers/login', () => ({
+vi.mock('../../services/auth', () => ({
     loginWithEmail: (...args: unknown[]) => mockLoginWithEmail(...args),
 }));
 

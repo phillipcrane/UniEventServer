@@ -1,7 +1,12 @@
 import { API_AUTH_PROFILE, BACKEND_URL } from '../constants';
-import type { AccountRole, AuthApiResponse, HttpError, SignupRequest, User } from '../types';
+import type { AccountRole, AuthApiResponse, SignupRequest, User } from '../types';
+import { createHttpError } from '../utils/authUtils';
 import { getCsrfToken, resetCsrfTokenForTesting, setCsrfToken } from './csrf';
 import { apiCall } from './http';
+
+type SignupInput = SignupRequest & {
+    organizerNames?: string[];
+};
 
 const USER_KEY = 'unievent_user';
 
@@ -12,16 +17,6 @@ const listeners: Array<(user: User | null) => void> = [];
 
 export type AuthUser = User;
 export type { AccountRole };
-
-type AuthErrorContext = 'login' | 'signup' | 'general';
-
-type SignupInput = SignupRequest & {
-    organizerNames?: string[];
-};
-
-function createHttpError(status: number, message: string): HttpError {
-    return Object.assign(new Error(message), { status });
-}
 
 function getStorage(): Storage | null {
     if (typeof localStorage === 'undefined') {
@@ -86,8 +81,6 @@ export function onUserChanged(callback: (user: User | null) => void): () => void
         }
     };
 }
-
-export const onAuthUserChanged = onUserChanged;
 
 export function storeTokenExpiry(accessTokenExpiresInMs: number): void {
     tokenExpiresAt = Date.now() + accessTokenExpiresInMs;
@@ -222,6 +215,7 @@ export async function signupWithEmail({ username, email, password, role, confirm
     return user;
 }
 
+
 export async function refreshSession(): Promise<boolean> {
     try {
         const response = await apiCall(`${BACKEND_URL}/api/auth/refresh`, {
@@ -253,10 +247,6 @@ export async function refreshSession(): Promise<boolean> {
     }
 }
 
-export async function refreshTokens(): Promise<void> {
-    await refreshSession();
-}
-
 export async function logout(): Promise<void> {
     try {
         await apiCall(`${BACKEND_URL}/api/auth/logout`, {
@@ -267,10 +257,6 @@ export async function logout(): Promise<void> {
         // Local state should still be cleared if the network request fails.
     }
     clearAuthState();
-}
-
-export async function signOutCurrentUser(): Promise<void> {
-    await logout();
 }
 
 export function getStoredAccountRole(uid: string): AccountRole {
@@ -298,10 +284,7 @@ export async function getAccountProfile(uid?: string): Promise<{ role: AccountRo
     const fallbackRole = resolveAccountRole(user.role, user.organizerNames);
     const fallbackOrganizerNames = Array.isArray(user.organizerNames) ? [...user.organizerNames] : [];
 
-    const response = await apiCall(`${BACKEND_URL}${API_AUTH_PROFILE}`, {
-        headers: { 'Content-Type': 'application/json' },
-        skipAuthErrorHandling: true,
-    });
+    const response = await apiCall(`${BACKEND_URL}${API_AUTH_PROFILE}`);
 
     if (!response.ok) {
         return { role: fallbackRole, organizerNames: fallbackOrganizerNames };
@@ -323,34 +306,6 @@ export async function getAccountProfile(uid?: string): Promise<{ role: AccountRo
     notifyListeners(updatedUser);
 
     return profile;
-}
-
-export function mapAuthError(error: unknown, _context?: AuthErrorContext): string {
-    if (error && typeof error === 'object') {
-        const authError = error as { status?: number; message?: string };
-        if (authError.status === 401) {
-            return authError.message ?? 'Session expired. Please login again.';
-        }
-        if (authError.status === 403 && authError.message?.toLowerCase().includes('compromised')) {
-            return authError.message;
-        }
-        if (authError.status === 403 && authError.message?.toLowerCase().includes('csrf')) {
-            return authError.message;
-        }
-        if (authError.status === 403) {
-            return 'Invalid email or password.';
-        }
-        if (authError.status === 409 || (authError.status !== undefined && authError.message?.toLowerCase().includes('already'))) {
-            return authError.message ?? 'Account already exists.';
-        }
-        if (authError.status === 400) {
-            return authError.message ?? 'Invalid input. Please check your details.';
-        }
-        if (authError.status !== undefined && authError.message) {
-            return authError.message;
-        }
-    }
-    return 'Something went wrong. Please try again.';
 }
 
 export function _resetForTesting(): void {

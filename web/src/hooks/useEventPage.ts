@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { getEventById } from '../services/dal';
-import { signOutCurrentUser } from '../handlers/logout';
+import { logout } from '../services/auth';
 import { mapAuthError } from '../utils/authUtils';
 import { getOrganizerName, getEventCoverImageUrl } from '../utils/eventUtils';
 import { useClickOutside } from './useClickOutside';
@@ -44,7 +44,7 @@ export function useEventPage(id: string | undefined) {
     async function handleSignOut() {
         try {
             setIsSigningOut(true);
-            await signOutCurrentUser();
+            await logout();
         } catch (error) {
             console.error(mapAuthError(error));
         } finally {

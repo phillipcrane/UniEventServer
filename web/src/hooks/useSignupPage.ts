@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { signupWithEmail } from '../handlers/signup';
+import { signupWithEmail } from '../services/auth';
 import { mapAuthError, isValidEmail } from '../utils/authUtils';
 import { verifyOrganizerKey } from '../services/dal';
 import type { AccountRole } from '../types';

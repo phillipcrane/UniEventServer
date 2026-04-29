@@ -1,7 +1,7 @@
 import { useEffect, useState, useMemo } from 'react';
 import { getEvents } from '../services/dal';
-import { signOutCurrentUser } from '../handlers/logout';
-import { redirectToFacebookAuth } from '../handlers/facebookLogin';
+import { logout } from '../services/auth';
+import { getFacebookAuthUrl } from '../services/facebook';
 import { mapAuthError } from '../utils/authUtils';
 import { parseDateOnly, startOfDayMs, endOfDayMs } from '../utils/dateUtils';
 import { useAuth } from '../context/AuthContext';
@@ -80,7 +80,7 @@ export function useMainPage() {
         try {
             setFbConnecting(true);
             setFbMessage(null);
-            await redirectToFacebookAuth();
+            window.location.href = await getFacebookAuthUrl();
         } catch (err) {
             setFbMessage({ kind: 'error', text: err instanceof Error ? err.message : 'Could not start Facebook login.' });
         } finally {
@@ -92,7 +92,7 @@ export function useMainPage() {
         try {
             setIsSigningOut(true);
             setError('');
-            await signOutCurrentUser();
+            await logout();
         } catch (err) {
             setError(mapAuthError(err));
         } finally {
