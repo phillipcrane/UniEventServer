@@ -57,7 +57,7 @@ export function LikeButton({
     ? 'inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-semibold transition-colors duration-200'
     : 'inline-flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-semibold transition-colors duration-200';
   const iconOnlyClasses = iconOnly
-    ? 'h-12 w-12 justify-center rounded-xl border p-0 shadow-[0_8px_18px_rgba(16,24,40,0.10)] backdrop-blur-md transition-colors duration-200'
+    ? 'h-12 w-12 justify-center rounded-xl border p-0 shadow-[0_8px_18px_var(--like-button-icon-shadow)] backdrop-blur-md transition-colors duration-200'
     : '';
   const stateClasses = liked
     ? iconOnly
@@ -79,7 +79,7 @@ export function LikeButton({
       <Heart
         size={iconOnly ? 24 : 18}
         strokeWidth={iconOnly ? 2.6 : 2.2}
-        className={liked ? 'text-red-500' : undefined}
+        className={liked ? 'text-[var(--like-icon-active)]' : undefined}
         fill={liked ? 'currentColor' : 'none'}
       />
       {!iconOnly && label}

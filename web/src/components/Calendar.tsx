@@ -86,7 +86,7 @@ export function CalendarView({ events }: { events: Event[] }) {
 
       // Avoid unbounded looping on invalid end dates
       const maxDays = 30;
-      let cursor = new Date(startDay);
+      const cursor = new Date(startDay);
       let days = 0;
 
       while (cursor <= endDay && days < maxDays) {

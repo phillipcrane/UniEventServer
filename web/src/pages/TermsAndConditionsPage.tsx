@@ -4,11 +4,11 @@ export function TermsAndConditionsPage() {
   const navigate = useNavigate();
 
   return (
-    <div className="min-h-screen bg-[var(--bg-primary)] text-[var(--text-primary)]">
-      <div className="sticky top-0 z-10 bg-[var(--bg-secondary)] border-b border-[var(--border-color)] px-4 py-4 md:px-6">
+    <div className="min-h-screen bg-[var(--dtu-primary-bg)] text-[var(--text-primary)]">
+      <div className="sticky top-0 z-10 bg-[var(--dtu-secondary-bg)] border-b border-[var(--panel-border)] px-4 py-4 md:px-6">
         <button
           onClick={() => navigate('/')}
-          className="text-[var(--link-primary)] hover:text-[var(--link-hover)] font-semibold flex items-center gap-2"
+          className="text-[var(--link-primary)] hover:text-[var(--link-primary-hover)] font-semibold flex items-center gap-2"
         >
           ← Back to Events
         </button>

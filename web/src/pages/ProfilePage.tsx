@@ -18,8 +18,8 @@ function SavedEventCard({ event }: { event: EventType }) {
             alt={event.title}
             className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
           />
-        ) : (
-          <div className="flex h-full w-full items-center justify-center bg-[linear-gradient(135deg,rgba(59,130,246,0.35),rgba(20,184,166,0.25))]">
+          ) : (
+          <div className="flex h-full w-full items-center justify-center bg-[linear-gradient(135deg,var(--profile-fallback-gradient-start),var(--profile-fallback-gradient-end))]">
             <CalendarDays size={26} className="text-white/80" />
           </div>
         )}
@@ -106,7 +106,7 @@ export function ProfilePage() {
       <main className="flex-1 px-6 md:px-8 pb-12 max-w-6xl mx-auto w-full">
         <section aria-label="Profile overview" className="rounded-2xl border border-[var(--panel-border)] bg-[var(--panel-bg)] p-6 shadow-lg">
           <div className="flex flex-col items-center gap-6 sm:flex-row sm:items-start">
-            <div className="relative flex h-36 w-36 flex-shrink-0 items-center justify-center overflow-hidden rounded-full border-4 border-[var(--dtu-accent-light)] bg-[#0f1020] shadow-[0_0_0_8px_rgba(60,84,240,0.14)]">
+            <div className="relative flex h-36 w-36 flex-shrink-0 items-center justify-center overflow-hidden rounded-full border-4 border-[var(--dtu-accent-light)] bg-[var(--profile-avatar-bg)] shadow-[0_0_0_8px_var(--profile-avatar-ring)]">
               {profileImage ? (
                 <img src={profileImage} alt={userLabel} className="h-full w-full object-cover" />
               ) : (
