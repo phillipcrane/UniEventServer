@@ -62,7 +62,7 @@ class TokenRefreshServiceTests {
         assertTrue(result.isSuccess());
         assertEquals("Token refreshed", result.getMessage());
         verify(vaultService).updatePageToken("page-1", "new-token");
-        verify(pageService).refreshToken("page-1");
+        verify(pageService).updateTokenMetadata("page-1");
     }
 
     @Test

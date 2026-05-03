@@ -35,11 +35,6 @@ management:
     mail:
       enabled: false
 
-app:
-  pagination:
-    default-page-size: 20
-    max-page-size: 100
-
 unievent:
   security:
     cookies:
@@ -60,6 +55,8 @@ unievent:
       expiration-ms: 60000
       refresh-secret: abcdefghijklmnopqrstuvwx12345678
       refresh-expiration-ms: 120000
+    organizer-key:
+      confirmation-secret: test-organizer-key-confirmation-secret-1234567890
 
 resilience4j:
   ratelimiter:

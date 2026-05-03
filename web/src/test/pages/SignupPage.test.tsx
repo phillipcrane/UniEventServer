@@ -167,7 +167,7 @@ describe('SignupPage', () => {
         await chooseOrganizerRole(user);
         await user.click(screen.getByRole('button', { name: 'Sign Up as Organizer' }));
 
-        expect(screen.getByText('Please enter at least one organizer access password.')).toBeInTheDocument();
+        expect(screen.getByText('Please enter your organizer invitation key.')).toBeInTheDocument();
         expect(mockSignupWithEmail).not.toHaveBeenCalled();
     });
 
@@ -184,7 +184,7 @@ describe('SignupPage', () => {
         await user.type(screen.getByLabelText('Confirm Password'), '123456789012');
 
         await chooseOrganizerRole(user);
-        await user.type(screen.getByLabelText('Organizer Access Password(s)'), 'my-invite-key');
+        await user.type(screen.getByLabelText('Invitation Key'), 'my-invite-key');
         await user.click(screen.getByRole('button', { name: 'Sign Up as Organizer' }));
 
         expect(mockVerifyOrganizerKey).toHaveBeenCalledWith('my-invite-key');
@@ -209,10 +209,10 @@ describe('SignupPage', () => {
         await user.type(screen.getByLabelText('Confirm Password'), '123456789012');
 
         await chooseOrganizerRole(user);
-        await user.type(screen.getByLabelText('Organizer Access Password(s)'), 'bad-key');
+        await user.type(screen.getByLabelText('Invitation Key'), 'bad-key');
         await user.click(screen.getByRole('button', { name: 'Sign Up as Organizer' }));
 
-        expect(screen.getByText('Organizer access password is incorrect.')).toBeInTheDocument();
+        expect(screen.getByText('Organizer invitation key is invalid.')).toBeInTheDocument();
         expect(mockSignupWithEmail).not.toHaveBeenCalled();
     });
 });

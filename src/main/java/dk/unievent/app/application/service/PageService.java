@@ -8,6 +8,7 @@ import org.springframework.web.multipart.MultipartFile;
 import dk.unievent.app.api.dto.FbPageResponse;
 import dk.unievent.app.application.dto.PageDTO;
 import dk.unievent.app.application.mapper.PageMapper;
+import dk.unievent.app.application.service.VaultService;
 import dk.unievent.app.db.model.MediaEntity;
 import dk.unievent.app.db.model.PageEntity;
 import dk.unievent.app.db.repository.MediaRepository;
@@ -28,16 +29,19 @@ public class PageService {
     private final PageMapper pageMapper;
     private final MediaService mediaService;
     private final MediaRepository mediaRepository;
+    private final Optional<VaultService> vaultService;
 
     public PageService(
             PageRepository pageRepository,
             PageMapper pageMapper,
             MediaService mediaService,
-            MediaRepository mediaRepository) {
+            MediaRepository mediaRepository,
+            Optional<VaultService> vaultService) {
         this.pageRepository = pageRepository;
         this.pageMapper = pageMapper;
         this.mediaService = mediaService;
         this.mediaRepository = mediaRepository;
+        this.vaultService = vaultService;
     }
 
     public Page<PageDTO> getAllPages(Pageable pageable) {
@@ -187,6 +191,7 @@ public class PageService {
         }
         MediaEntity picture = page.get().getPicture();
         pageRepository.deleteById(id);
+        vaultService.ifPresent(v -> v.markPageTokenInactive(id));
         if (picture != null) {
             try {
                 mediaService.delete(picture.getFileId());
@@ -239,44 +244,12 @@ public class PageService {
     }
 
     /**
-     * Refresh page tokens for all pages that need token refresh.
-     * Called by FacebookTokenRefresher scheduler.
-     * @return Number of pages with successful token refresh
-     */
-    public int refreshPageTokens() {
-        log.info("Starting batch token refresh for all pages");
-
-        Pageable pageable = org.springframework.data.domain.PageRequest.of(0, 100);
-        int successCount = 0;
-        long totalElements = 0;
-
-        while (true) {
-            Page<PageEntity> pagesToRefresh = getPagesToRefresh(pageable);
-            totalElements = pagesToRefresh.getTotalElements();
-
-            for (PageEntity page : pagesToRefresh.getContent()) {
-                if (refreshToken(page.getId())) {
-                    successCount++;
-                }
-            }
-
-            if (!pagesToRefresh.hasNext()) {
-                break;
-            }
-            pageable = pagesToRefresh.nextPageable();
-        }
-
-        log.info("Batch token refresh completed. Success: {}/{}", successCount, totalElements);
-        return successCount;
-    }
-
-    /**
-     * Refresh access token for a specific page.
-     * Updates token status and expiration metadata.
+     * Update token status and expiration metadata in the database after a successful refresh.
+     * The actual token refresh (Vault read → Facebook API → Vault write) is handled by TokenRefreshService.
      * @param pageId Facebook page ID
-     * @return true if token refresh was successful
+     * @return true if the page was found and updated
      */
-    public boolean refreshToken(String pageId) {
+    public boolean updateTokenMetadata(String pageId) {
         log.debug("Refreshing token for page: {}", pageId);
 
         Optional<PageEntity> pageOpt = pageRepository.findById(pageId);

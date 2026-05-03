@@ -100,8 +100,8 @@ export function TermsAndConditionsPage() {
         <h2 className="text-2xl font-bold mt-8 mb-4">11. Contact</h2>
         <p>
           For questions about these Terms or the Service:<br />
-          Email: <a href="mailto:philippzhuravlev@gmail.com" className="text-[var(--link-primary)] hover:underline">philippzhuravlev@gmail.com</a><br />
-          GitHub: <a href="https://github.com/philippzhuravlev/UniEvent" className="text-[var(--link-primary)] hover:underline">github.com/philippzhuravlev/UniEvent</a>
+          Email: <a href="mailto:support@unievent.dk" className="text-[var(--link-primary)] hover:underline">support@unievent.dk</a><br />
+          GitHub: <a href="https://github.com/phillipcrane/UniEventServer" className="text-[var(--link-primary)] hover:underline">github.com/phillipcrane/UniEventServer</a>
         </p>
       </div>
     </div>

@@ -45,6 +45,7 @@ public class OrganizerKeyService {
     @Value("${unievent.security.organizer-key.confirmation-token-expiration-minutes:10}")
     private long confirmationTokenExpirationMinutes;
 
+    private static final SecureRandom SECURE_RANDOM = new SecureRandom();
     private static final String CONFIRMATION_TOKEN_TYPE = "organizer-registration-confirmation";
     private static final String KEY_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
     private static final int KEY_LENGTH = 32;
@@ -158,11 +159,10 @@ public class OrganizerKeyService {
      * Generates a random key of 32 characters.
      */
     private String generateRandomKey() {
-        SecureRandom random = new SecureRandom();
         StringBuilder sb = new StringBuilder(KEY_LENGTH);
 
         for (int i = 0; i < KEY_LENGTH; i++) {
-            sb.append(KEY_ALPHABET.charAt(random.nextInt(KEY_ALPHABET.length())));
+            sb.append(KEY_ALPHABET.charAt(SECURE_RANDOM.nextInt(KEY_ALPHABET.length())));
         }
 
         return sb.toString();

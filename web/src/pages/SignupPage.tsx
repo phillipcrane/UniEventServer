@@ -1,4 +1,4 @@
-﻿import { Link } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { HeaderLogoLink } from '../components/HeaderLogoLink';
 import { ThemeToggle } from '../components/ThemeToggle';
 import { Footer } from '../components/Footer';
@@ -16,15 +16,14 @@ export function SignupPage() {
     setPassword,
     confirmPassword,
     setConfirmPassword,
-    organizerPasswords,
+    organizerKey,
+    setOrganizerKey,
     accountRole,
     setAccountRole,
     isRoleModalOpen,
     setIsRoleModalOpen,
     isLoading,
     errorMessage,
-    updateOrganizerCode,
-    addOrganizerCodeField,
     handleSubmit,
   } = useSignupPage();
   const navigate = useNavigate();
@@ -163,35 +162,22 @@ export function SignupPage() {
                   <section className="mt-3 rounded-xl border border-[var(--panel-border)] bg-[var(--input-bg)]/70 p-4">
                     <div className="flex items-center gap-2">
                       <UsersRound size={16} />
-                      <p className="text-sm font-semibold text-[var(--text-primary)]">Organizer invitation keys</p>
+                      <p className="text-sm font-semibold text-[var(--text-primary)]">Organizer invitation key</p>
                     </div>
                     <p className="mt-1 text-xs text-[var(--text-subtle)]">
-                      Enter one or more key codes if your invitation requires them.
+                      Enter the 32-character key from your invitation email.
                     </p>
-
-                    <label className="signup-label mt-3" htmlFor="organizer-access-0">Organizer Access Password(s)</label>
-                    <div className="mt-2 space-y-3">
-                      {organizerPasswords.map((code, index) => (
-                        <input
-                          key={index}
-                          id={`organizer-access-${index}`}
-                          aria-label={index === 0 ? 'Organizer Access Password(s)' : undefined}
-                          type="text"
-                          className="signup-input"
-                          placeholder="Enter organizer access key"
-                          value={code}
-                          onChange={(event) => updateOrganizerCode(index, event.target.value)}
-                        />
-                      ))}
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={addOrganizerCodeField}
-                      className="mt-3 signup-link"
-                    >
-                      Add another key field
-                    </button>
+                    <label className="signup-label mt-3" htmlFor="organizer-key">Invitation Key</label>
+                    <input
+                      id="organizer-key"
+                      name="organizerKey"
+                      type="text"
+                      autoComplete="off"
+                      className="signup-input mt-2"
+                      placeholder="Enter your invitation key"
+                      value={organizerKey}
+                      onChange={(event) => setOrganizerKey(event.target.value)}
+                    />
                   </section>
                 )}
 

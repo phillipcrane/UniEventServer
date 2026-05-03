@@ -129,7 +129,7 @@ public class TokenRefreshService {
                 String newToken = tokenResponse.getAccessToken();
 
                 vaultService.updatePageToken(pageId, newToken);
-                pageService.refreshToken(pageId);
+                pageService.updateTokenMetadata(pageId);
                 log.info("Successfully refreshed token for page: {}", pageId);
                 return new RefreshResult(pageId, true, "Token refreshed");
 
@@ -137,12 +137,14 @@ public class TokenRefreshService {
                 String msg = String.format("Facebook API error: %s (status %d)", e.getErrorType(), e.getStatusCode());
                 log.error("Facebook API error refreshing token for page: {} - {}", pageId, msg);
                 pageService.logRefreshFailure(pageId, msg);
+                vaultService.markPageTokenError(pageId);
                 return new RefreshResult(pageId, false, msg);
             }
 
         } catch (Exception e) {
             log.error("Error refreshing token for page: {}", pageId, e);
             pageService.logRefreshFailure(pageId, e.getMessage());
+            vaultService.markPageTokenError(pageId);
             return new RefreshResult(pageId, false, e.getMessage());
         }
     }

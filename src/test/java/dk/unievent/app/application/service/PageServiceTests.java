@@ -39,15 +39,15 @@ class PageServiceTests {
 
     @Mock
     private MediaRepository mediaRepository;
-    
-    @InjectMocks
+
     private PageService pageService;
-    
+
     private PageEntity testPageEntity;
     private PageDTO testPageDTO;
-    
+
     @BeforeEach
     void setUp() {
+        pageService = new PageService(pageRepository, pageMapper, mediaService, mediaRepository, Optional.empty());
         testPageEntity = PageEntity.builder()
                 .id("page-1")
                 .name("Test Page")

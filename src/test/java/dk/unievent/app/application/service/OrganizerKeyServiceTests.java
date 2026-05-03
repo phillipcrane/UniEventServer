@@ -56,7 +56,7 @@ class OrganizerKeyServiceTests {
 
     @BeforeEach
     void setUp() {
-        ReflectionTestUtils.setField(organizerKeyService, "jwtSecret", TEST_JWT_SECRET);
+        ReflectionTestUtils.setField(organizerKeyService, "confirmationSecret", TEST_JWT_SECRET);
         ReflectionTestUtils.setField(organizerKeyService, "keyExpirationHours", 24L);
         ReflectionTestUtils.setField(organizerKeyService, "confirmationTokenExpirationMinutes", 10L);
     }

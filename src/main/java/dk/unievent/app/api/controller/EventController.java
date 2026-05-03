@@ -92,7 +92,7 @@ public class EventController {
     }
 
     @PostMapping
-    @PreAuthorize("hasRole('organizer') or hasRole('ADMIN')")
+    @PreAuthorize("hasRole('organizer') or hasRole('admin')")
     @RateLimiter(name = "event-create", fallbackMethod = "createFallback")
     @Operation(summary = "Create a new event", description = "Create a new event")
     @ApiResponse(responseCode = "201", description = "Event created successfully")
@@ -104,7 +104,7 @@ public class EventController {
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasRole('organizer') or hasRole('ADMIN')")
+    @PreAuthorize("hasRole('organizer') or hasRole('admin')")
     @RateLimiter(name = "event-update", fallbackMethod = "updateFallback")
     @Operation(summary = "Update an event", description = "Update an existing event")
     @ApiResponse(responseCode = "200", description = "Event updated successfully")
@@ -125,7 +125,7 @@ public class EventController {
     }
 
     @PostMapping("/{id}/coverImage")
-    @PreAuthorize("hasRole('organizer') or hasRole('ADMIN')")
+    @PreAuthorize("hasRole('organizer') or hasRole('admin')")
     @Operation(summary = "Upload cover image for event", description = "Upload a cover image for a specific event")
     @ApiResponse(responseCode = "200", description = "Cover image uploaded successfully")
     @ApiResponse(responseCode = "404", description = "Event not found")
@@ -143,7 +143,7 @@ public class EventController {
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasRole('organizer') or hasRole('ADMIN')")
+    @PreAuthorize("hasRole('organizer') or hasRole('admin')")
     @RateLimiter(name = "event-delete", fallbackMethod = "deleteFallback")
     @Operation(summary = "Delete an event", description = "Delete an event permanently")
     @ApiResponse(responseCode = "204", description = "Event deleted successfully")

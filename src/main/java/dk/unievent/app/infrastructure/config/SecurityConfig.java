@@ -78,21 +78,22 @@ public class SecurityConfig {
                     // Frontend SPA - static assets served from resources/static (Vite build output)
                     .requestMatchers(org.springframework.http.HttpMethod.GET,
                             "/", "/index.html", "/assets/**", "/favicon.ico", "/favicon.svg", "/favicon.png").permitAll()
-                    .requestMatchers("/api/auth/organizer-key/generate").hasRole("ADMIN")
+                    .requestMatchers("/api/auth/organizer-key/generate").hasRole("admin")
                     .requestMatchers("/api/auth/**").permitAll()
+                    .requestMatchers("/api/admin/**").hasRole("admin")
                     .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/**").permitAll()
                     .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/**").authenticated()
                     .requestMatchers(org.springframework.http.HttpMethod.PUT, "/api/**").authenticated()
                     .requestMatchers(org.springframework.http.HttpMethod.DELETE, "/api/**").authenticated()
                     .requestMatchers(org.springframework.http.HttpMethod.GET, "/media/**").permitAll()
                     .requestMatchers(org.springframework.http.HttpMethod.POST, "/media/**").authenticated()
-                    .requestMatchers("/admin/**").hasRole("ADMIN")
+                    .requestMatchers("/admin/**").hasRole("admin")
                     .requestMatchers("/actuator/health", "/actuator/info").permitAll()
                     .requestMatchers("/actuator/**").denyAll();
                 if (devProfile) {
                     authz.requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/swagger-ui.html").permitAll();
                 } else {
-                    authz.requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/swagger-ui.html").hasRole("ADMIN");
+                    authz.requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/swagger-ui.html").hasRole("admin");
                 }
                 authz.anyRequest().authenticated();
             })

@@ -33,7 +33,6 @@ public class EventDTO {
     @NotNull(message = "Start time is required")
     private LocalDateTime startTime;
     
-    @NotNull(message = "End time is required")
     private LocalDateTime endTime;
     
     @Valid
