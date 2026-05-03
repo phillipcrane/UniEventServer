@@ -21,46 +21,52 @@ export function DataDeletionPage() {
           <strong>Last Updated:</strong> February 4, 2026
         </p>
 
-        <h2 className="text-2xl font-bold mt-8 mb-4">What DTUEvent stores</h2>
+        <h2 className=”text-2xl font-bold mt-8 mb-4”>What UniEvent stores</h2>
         <p>
-          DTUEvent is a read-only event aggregator. We do <strong>not</strong> store personal user data for ordinary
-          website visitors (no user accounts, no profiles).
+          UniEvent is an event aggregator. We store the following data:
         </p>
-        <p>
-          If you are a Facebook Page admin and you used “Link Facebook”, DTUEvent stores a <strong>Page access token</strong>
-          (encrypted) and Page/event metadata needed to keep the Page’s public events synced.
-        </p>
+        <ul className=”list-disc pl-6 space-y-1”>
+          <li>Public event data pulled from connected Facebook Pages (titles, dates, locations, images).</li>
+          <li>
+            If you register a UniEvent account: your username, email address, and any events you have liked. You may
+            delete your account and associated data by contacting us at the address below.
+          </li>
+          <li>
+            If you are a Facebook Page admin and connected a Page via “Link Facebook”: an encrypted Page access token
+            and Page/event metadata required to keep the Page’s public events synced.
+          </li>
+        </ul>
 
-        <h2 className="text-2xl font-bold mt-8 mb-4">How to request deletion</h2>
+        <h2 className=”text-2xl font-bold mt-8 mb-4”>How to request deletion</h2>
         <p>
-          If you previously linked a Facebook Page to DTUEvent, you can request deletion of the Page token and
+          If you previously linked a Facebook Page to UniEvent, you can request deletion of the Page token and
           associated synced data in either of these ways:
         </p>
 
-        <ol className="list-decimal pl-6 space-y-2">
+        <ol className=”list-decimal pl-6 space-y-2”>
           <li>
             <strong>Revoke access in Facebook</strong>
-            <ul className="list-disc pl-6 mt-2">
+            <ul className=”list-disc pl-6 mt-2”>
               <li>Go to Facebook Settings → <strong>Business Integrations</strong> (or Apps and Websites)</li>
-              <li>Find <strong>DTUEvent</strong></li>
+              <li>Find <strong>UniEvent</strong></li>
               <li>Click <strong>Remove</strong> / <strong>Revoke</strong></li>
             </ul>
           </li>
           <li>
             <strong>Email us</strong>
-            <ul className="list-disc pl-6 mt-2">
+            <ul className=”list-disc pl-6 mt-2”>
               <li>
-                Email{' '}
+                Email{‘ ‘}
                 <a
-                  href="mailto:philippzhuravlev@gmail.com"
-                  className="text-[var(--link-primary)] hover:underline"
+                  href=”mailto:philippzhuravlev@gmail.com”
+                  className=”text-[var(--link-primary)] hover:underline”
                 >
                   philippzhuravlev@gmail.com
-                </a>{' '}
-                or{' '}
+                </a>{‘ ‘}
+                or{‘ ‘}
                 <a
-                  href="mailto:crillerhylle@gmail.com"
-                  className="text-[var(--link-primary)] hover:underline"
+                  href=”mailto:crillerhylle@gmail.com”
+                  className=”text-[var(--link-primary)] hover:underline”
                 >
                   crillerhylle@gmail.com
                 </a>
@@ -70,10 +76,10 @@ export function DataDeletionPage() {
           </li>
         </ol>
 
-        <h2 className="text-2xl font-bold mt-8 mb-4">Deletion timeline</h2>
+        <h2 className=”text-2xl font-bold mt-8 mb-4”>Deletion timeline</h2>
         <p>
-          After revocation or a verified deletion request, we delete the Page access token (Google Cloud Secret
-          Manager) and the associated Page/event data (Firestore) within <strong>24 hours</strong>.
+          After revocation or a verified deletion request, we delete the Page access token and the associated
+          Page/event data from our systems within <strong>24 hours</strong>.
         </p>
 
         <h2 className="text-2xl font-bold mt-8 mb-4">Related policies</h2>

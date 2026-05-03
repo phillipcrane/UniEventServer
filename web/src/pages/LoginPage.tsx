@@ -15,7 +15,7 @@ export function LoginPage() {
           <HeaderLogoLink />
           <div className="header-text">
             <h1 className="header-title">Welcome Back</h1>
-            <p className="header-subtitle">Log in to continue your DTU Events experience</p>
+            <p className="header-subtitle">Log in to continue your UniEvent experience</p>
           </div>
         </div>
 

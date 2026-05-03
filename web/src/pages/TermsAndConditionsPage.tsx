@@ -30,9 +30,9 @@ export function TermsAndConditionsPage() {
 
         <h2 className="text-2xl font-bold mt-8 mb-4">1. Definition of the Service</h2>
         <p>
-          UniEvent is a read-only, public event aggregation platform that displays public event information sourced
-          from external platforms such as Facebook. The Service does not provide user accounts, social interactions,
-          or advertising features.
+          UniEvent is a public event aggregation platform that displays public event information sourced
+          from external platforms such as Facebook. Users may optionally register an account to save liked events.
+          The Service does not provide social interactions or advertising features.
         </p>
 
         <h2 className="text-2xl font-bold mt-8 mb-4">2. Acceptable Use</h2>

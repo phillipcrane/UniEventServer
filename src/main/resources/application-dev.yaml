@@ -16,3 +16,5 @@ unievent:
     jwt:
       secret: dev-secret-key-this-must-be-changed-in-production
       refresh-secret: dev-refresh-secret-key-this-must-be-changed-in-production
+    organizer-key:
+      confirmation-secret: dev-confirmation-secret-key-this-must-be-changed-in-production

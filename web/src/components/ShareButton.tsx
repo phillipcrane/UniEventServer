@@ -20,7 +20,7 @@ export function ShareButton({ event, className = '' }: ShareButtonProps) {
 
     const sharePayload = {
       title: event.title,
-      text: 'Check out this event on DTU Events',
+      text: 'Check out this event on UniEvent',
       url: eventUrl,
     };
 

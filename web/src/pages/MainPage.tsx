@@ -60,8 +60,8 @@ export function MainPage() {
         <div className="header-content">
           <HeaderLogoLink />
           <div className="header-text">
-            <h1 className="header-title main-header-title">DTU Events</h1>
-            <p className="header-subtitle main-header-subtitle">Discover Technical University of Denmark Events</p>
+            <h1 className="header-title main-header-title">UniEvent</h1>
+            <p className="header-subtitle main-header-subtitle">Discover university and student events</p>
           </div>
         </div>
 

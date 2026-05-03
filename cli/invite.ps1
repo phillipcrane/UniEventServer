@@ -228,7 +228,7 @@ function Invoke-RegistrationOnWebsite {
     Write-Host "Next steps:" -ForegroundColor Cyan
     Write-Host ""
     Write-Host "1. Go to the registration page:"
-    Write-Host "   http://localhost:3000/register-organizer" -ForegroundColor Green
+    Write-Host "   http://localhost:3000/signup-organizer" -ForegroundColor Green
     Write-Host ""
     Write-Host "2. On the registration form:"
     Write-Host ""

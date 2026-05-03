@@ -8,9 +8,9 @@ export function Footer() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           {/* Brand */}
           <div>
-            <h3 className="font-bold text-lg text-[var(--text-primary)] mb-2">DTUEvent</h3>
+            <h3 className="font-bold text-lg text-[var(--text-primary)] mb-2">UniEvent</h3>
             <p className="text-sm text-[var(--text-subtle)]">
-              A unified calendar for DTU campus events
+              A unified calendar for university events
             </p>
           </div>
 
@@ -63,7 +63,7 @@ export function Footer() {
               </li>
               <li>
                 <a 
-                  href="https://github.com/philippzhuravlev/DTUEvent" 
+                  href="https://github.com/phillipcrane/UniEventServer"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-[var(--link-primary)] hover:text-[var(--link-primary-hover)] transition-colors flex items-center gap-2"
@@ -79,8 +79,8 @@ export function Footer() {
         <hr className="my-6 border-[var(--panel-border)]" />
 
         <div className="text-center text-xs text-[var(--text-subtle)]">
-          <p>&copy; 2025 DTUEvent. Made by TonkaProductions.</p>
-          <p>We aggregate public Facebook events. DTUEvent is not affiliated with DTU, Meta, or Facebook.</p>
+          <p>&copy; 2026 UniEvent. Made by TonkaProductions.</p>
+          <p>We aggregate public Facebook events. UniEvent is not affiliated with Meta or Facebook.</p>
         </div>
       </div>
     </footer>

@@ -31,9 +31,10 @@ export function PrivacyPolicyPage() {
         <section>
           <h2 className="text-2xl font-bold mt-8 mb-4">2. Information We Do Not Intentionally Collect</h2>
           <p>
-            UniEvent does not require users to sign in and does not intentionally collect personal data such as names,
-            email addresses, Facebook profile data, precise location data, or event participation status. We do not use
-            advertising trackers or marketing analytics.
+            UniEvent does not intentionally collect personal data beyond what is needed to operate the Service. We do
+            not use advertising trackers or marketing analytics. If you choose to register an account, you provide a
+            username and email address, which are stored to support your account. Anonymous visitors (not signed in)
+            are not identified or profiled.
           </p>
           <p>
             Technical logs may be generated automatically by hosting providers (for example timestamps or error logs)
@@ -108,8 +109,9 @@ export function PrivacyPolicyPage() {
         <section>
           <h2 className="text-2xl font-bold mt-8 mb-4">9. Third‑Party Services</h2>
           <p>
-            UniEvent uses Meta/Facebook APIs and other infrastructure services (e.g., Google Cloud/Firebase) to provide
-            the Service. Each third party’s privacy policy governs their respective processing activities.
+            UniEvent uses Meta/Facebook APIs to fetch public event data, and self-hosted infrastructure (database and
+            encrypted secrets storage) to operate the Service. Each third party’s privacy policy governs their
+            respective processing activities.
           </p>
         </section>
 

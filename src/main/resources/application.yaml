@@ -96,6 +96,7 @@ unievent:
       refresh-secret: ${UNIEVENT_SECURITY_JWT_REFRESH_SECRET}
       refresh-expiration-ms: ${UNIEVENT_SECURITY_JWT_REFRESH_EXPIRATION_MS:604800000}
     organizer-key:
+      confirmation-secret: ${UNIEVENT_ORGANIZER_KEY_CONFIRMATION_SECRET}
       expiration-hours: ${UNIEVENT_ORGANIZER_KEY_EXPIRATION_HOURS:24}
       confirmation-token-expiration-minutes: ${UNIEVENT_ORGANIZER_KEY_CONFIRMATION_TOKEN_EXPIRATION_MINUTES:10}
   openapi:

@@ -15,7 +15,7 @@ export function HeaderLogoLink() {
       title={tooltip}
       className="header-logo-link group relative"
     >
-      <img src={LOGO_SRC} alt="DTU Logo" className="header-logo" />
+      <img src={LOGO_SRC} alt="UniEvent Logo" className="header-logo" />
       <span
         aria-hidden="true"
         className="pointer-events-none absolute -bottom-8 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-md border border-[var(--panel-border)] bg-[var(--panel-bg)] px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-[var(--text-subtle)] opacity-0 shadow-md transition-opacity duration-200 group-hover:opacity-100 group-focus-visible:opacity-100"

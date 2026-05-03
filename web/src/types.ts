@@ -46,7 +46,7 @@ export type SortMode = 'upcoming' | 'newest' | 'all';
 
 // ── Auth ───────────────────────────────────────────────────────────────────
 
-export type AccountRole = 'user' | 'organizer';
+export type AccountRole = 'user' | 'organizer' | 'admin';
 
 export type User = {
   username: string;

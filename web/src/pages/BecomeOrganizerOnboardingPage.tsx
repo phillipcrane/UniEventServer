@@ -12,7 +12,7 @@ export function BecomeOrganizerOnboardingPage() {
           <HeaderLogoLink />
           <div className="header-text">
             <h1 className="header-title">Become an Organizer</h1>
-            <p className="header-subtitle">Onboarding hub for creating and managing DTU events</p>
+            <p className="header-subtitle">Onboarding hub for creating and managing university events</p>
           </div>
         </div>
 

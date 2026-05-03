@@ -117,11 +117,11 @@ export function ProfilePage() {
             <div className="flex-1 space-y-4 text-center sm:text-left">
               <div>
                 <h2 className="text-3xl font-bold text-[var(--text-primary)]">{username}</h2>
-                <span className={`mt-2 inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.1em] ${accountRole === 'organizer'
+                <span className={`mt-2 inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.1em] ${accountRole === 'organizer' || accountRole === 'admin'
                   ? 'border border-transparent bg-[var(--link-primary)] text-white'
                   : 'border border-[var(--panel-border)] bg-[var(--panel-bg)] text-[var(--text-primary)]'
                   }`}>
-                  {accountRole === 'organizer' ? 'Organizer' : 'User'}
+                  {accountRole === 'admin' ? 'Admin' : accountRole === 'organizer' ? 'Organizer' : 'User'}
                 </span>
               </div>
 
@@ -140,7 +140,7 @@ export function ProfilePage() {
           </div>
         </section>
 
-        {accountRole === 'organizer' && (
+        {(accountRole === 'organizer' || accountRole === 'admin') && (
           <section className="mt-6 rounded-2xl border border-[var(--panel-border)] bg-[var(--panel-bg)] p-6 shadow-lg">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div>
@@ -163,17 +163,6 @@ export function ProfilePage() {
 
             {fbError && <p className="mt-3 text-sm font-semibold text-[var(--dtu-accent)]" role="alert">{fbError}</p>}
 
-            <div className="mt-4 rounded-xl border border-[var(--panel-border)] bg-[var(--input-bg)]/65 p-4">
-              <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--text-subtle)]">Manual Event</p>
-              <h4 className="mt-1 text-base font-bold text-[var(--text-primary)]">Add event manually</h4>
-              <p className="mt-1 text-sm text-[var(--text-subtle)]">Create and review event details in a dedicated organizer form.</p>
-              <Link
-                to="/organizer/events/new"
-                className="mt-3 inline-flex items-center justify-center rounded-lg border border-[var(--panel-border)] bg-[var(--panel-bg)] px-4 py-2.5 text-sm font-semibold text-[var(--text-primary)] transition-colors duration-200 hover:bg-[var(--button-hover)]"
-              >
-                Open Manual Event Form
-              </Link>
-            </div>
           </section>
         )}
 

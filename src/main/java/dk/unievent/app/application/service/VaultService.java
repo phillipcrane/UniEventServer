@@ -8,11 +8,21 @@ import dk.unievent.app.infrastructure.client.VaultClient;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientResponseException;
 import lombok.extern.slf4j.Slf4j;
 
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.TrustManagerFactory;
+import java.io.InputStream;
+import java.net.http.HttpClient;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.security.KeyStore;
+import java.security.cert.CertificateFactory;
+import java.security.cert.X509Certificate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
@@ -39,10 +49,41 @@ public class VaultService {
         this.vaultClient = vaultClient;
         this.secretRepository = secretRepository;
         this.secretMapper = secretMapper;
-        this.restClient = restClientBuilder
+
+        RestClient.Builder builder = restClientBuilder
             .baseUrl(vaultConfig.getUri())
-            .defaultHeader("X-Vault-Token", vaultConfig.getToken())
-            .build();
+            .defaultHeader("X-Vault-Token", vaultConfig.getToken());
+
+        if (vaultConfig.getCaCertPath() != null && !vaultConfig.getCaCertPath().isBlank()) {
+            try {
+                builder = builder.requestFactory(buildTlsRequestFactory(vaultConfig.getCaCertPath()));
+                log.info("VaultService TLS configured with CA cert: {}", vaultConfig.getCaCertPath());
+            } catch (Exception e) {
+                throw new RuntimeException("Failed to configure Vault TLS from: " + vaultConfig.getCaCertPath(), e);
+            }
+        }
+
+        this.restClient = builder.build();
+    }
+
+    private JdkClientHttpRequestFactory buildTlsRequestFactory(String caCertPath) throws Exception {
+        try (InputStream certStream = Files.newInputStream(Paths.get(caCertPath))) {
+            X509Certificate caCert = (X509Certificate) CertificateFactory.getInstance("X.509")
+                    .generateCertificate(certStream);
+
+            KeyStore trustStore = KeyStore.getInstance(KeyStore.getDefaultType());
+            trustStore.load(null, null);
+            trustStore.setCertificateEntry("vault-ca", caCert);
+
+            TrustManagerFactory tmf = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
+            tmf.init(trustStore);
+
+            SSLContext sslContext = SSLContext.getInstance("TLS");
+            sslContext.init(null, tmf.getTrustManagers(), null);
+
+            HttpClient httpClient = HttpClient.newBuilder().sslContext(sslContext).build();
+            return new JdkClientHttpRequestFactory(httpClient);
+        }
     }
 
     public Map<String, String> readVaultSecretData() {

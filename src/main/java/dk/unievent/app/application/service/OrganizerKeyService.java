@@ -36,8 +36,8 @@ public class OrganizerKeyService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
 
-    @Value("${unievent.security.jwt.secret}")
-    private String jwtSecret;
+    @Value("${unievent.security.organizer-key.confirmation-secret}")
+    private String confirmationSecret;
 
     @Value("${unievent.security.organizer-key.expiration-hours:24}")
     private long keyExpirationHours;
@@ -221,6 +221,6 @@ public class OrganizerKeyService {
     }
 
     private SecretKey getSigningKey() {
-        return Keys.hmacShaKeyFor(jwtSecret.getBytes(StandardCharsets.UTF_8));
+        return Keys.hmacShaKeyFor(confirmationSecret.getBytes(StandardCharsets.UTF_8));
     }
 }

@@ -117,6 +117,9 @@ export function normalizeRole(value: unknown): AccountRole | undefined {
   if (normalized === 'USER' || normalized === 'ROLE_USER') {
     return 'user';
   }
+  if (normalized === 'ADMIN' || normalized === 'ROLE_ADMIN') {
+    return 'admin';
+  }
   return undefined;
 }
 
