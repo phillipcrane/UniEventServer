@@ -3,12 +3,14 @@ package dk.unievent.app.infrastructure.config;
 import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Component;
 import org.springframework.context.annotation.Bean;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
+import java.util.Arrays;
 import java.util.List;
 
 /**
@@ -21,6 +23,12 @@ import java.util.List;
 @Component
 @ConfigurationProperties(prefix = "unievent.security.cors")
 public class CorsConfig {
+
+    private final Environment environment;
+
+    public CorsConfig(Environment environment) {
+        this.environment = environment;
+    }
 
     private List<String> allowedOrigins = List.of();
     private List<String> allowedMethods = List.of("GET", "POST", "PUT", "DELETE", "OPTIONS");
@@ -70,9 +78,16 @@ public class CorsConfig {
 
     @PostConstruct
     public void warnOnInsecureDefaults() {
-        if (allowCredentials && allowedOrigins.stream()
-                .anyMatch(o -> o.contains("localhost") || o.contains("127.0.0.1"))) {
-            log.warn("CORS: allowCredentials=true with localhost origins - ensure UNIEVENT_SECURITY_CORS_ALLOWED_ORIGINS is set in production");
+        boolean hasLocalhostOrigin = allowCredentials && allowedOrigins.stream()
+                .anyMatch(o -> o.contains("localhost") || o.contains("127.0.0.1"));
+        if (!hasLocalhostOrigin) return;
+
+        boolean isProd = Arrays.stream(environment.getActiveProfiles())
+                .anyMatch(p -> p.equals("prod") || p.equals("production"));
+        if (isProd) {
+            log.warn("CORS: allowCredentials=true with localhost origins detected in production — remove localhost from UNIEVENT_SECURITY_CORS_ALLOWED_ORIGINS");
+        } else {
+            log.debug("CORS: localhost origins configured with allowCredentials=true (dev mode)");
         }
     }
 

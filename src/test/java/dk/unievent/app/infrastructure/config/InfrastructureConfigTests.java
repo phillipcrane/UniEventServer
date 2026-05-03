@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import org.junit.jupiter.api.Test;
+import org.springframework.mock.env.MockEnvironment;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.web.cors.CorsConfigurationSource;
 
@@ -13,7 +14,7 @@ class InfrastructureConfigTests {
 
     @Test
     void infrastructureConfigsSmokeTest() {
-        CorsConfig corsConfig = new CorsConfig();
+        CorsConfig corsConfig = new CorsConfig(new MockEnvironment());
         CorsConfigurationSource source = corsConfig.corsConfigurationSource();
 
         MockHttpServletRequest apiRequest = new MockHttpServletRequest("OPTIONS", "/api/events");

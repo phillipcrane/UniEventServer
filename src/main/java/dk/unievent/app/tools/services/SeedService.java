@@ -208,18 +208,18 @@ public class SeedService {
     }
 
     private void clearExistingSeedRecords() {
-        eventRepository.findAll().stream()
-            .filter(e -> e.getId().startsWith(SEED_PREFIX))
-            .forEach(eventRepository::delete);
-        pageRepository.findAll().stream()
-            .filter(p -> p.getId().startsWith(SEED_PREFIX))
-            .forEach(pageRepository::delete);
-        placeRepository.findAll().stream()
-            .filter(p -> p.getName() != null && p.getName().startsWith(SEED_PREFIX))
-            .forEach(placeRepository::delete);
-        mediaRepository.findAll().stream()
-            .filter(m -> m.getFilename() != null && m.getFilename().startsWith(SEED_PREFIX))
-            .forEach(mediaRepository::delete);
+        eventRepository.deleteAll(eventRepository.findAll().stream()
+            .filter(e -> e.getId().startsWith(SEED_PREFIX)).toList());
+        pageRepository.deleteAll(pageRepository.findAll().stream()
+            .filter(p -> p.getId().startsWith(SEED_PREFIX)).toList());
+        placeRepository.deleteAll(placeRepository.findAll().stream()
+            .filter(p -> p.getName() != null && p.getName().startsWith(SEED_PREFIX)).toList());
+        List<MediaEntity> staleMedia = mediaRepository.findAll().stream()
+            .filter(m -> m.getFilename() != null && m.getFilename().startsWith(SEED_PREFIX)).toList();
+        staleMedia.stream().map(MediaEntity::getFileId).distinct().forEach(fid -> {
+            try { mediaService.delete(fid); } catch (Exception e) { log.warn("Could not delete seed file from SeaweedFS: {}", fid, e); }
+        });
+        mediaRepository.deleteAll(staleMedia);
         entityManager.flush();
         entityManager.clear();
     }
