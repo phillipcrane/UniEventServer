@@ -109,7 +109,6 @@ class CookieAuthenticationFilterTests {
         request.setRequestURI("/api/auth/refresh");
         request.setCookies(new jakarta.servlet.http.Cookie("auth_access", "expired-token"));
         when(jwtService.isAccessTokenExpired("expired-token")).thenReturn(true);
-        when(jwtService.extractUsername("expired-token")).thenReturn(null);
 
         filter.doFilter(request, response, filterChain);
 

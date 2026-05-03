@@ -43,11 +43,11 @@ function renderPage() {
 }
 
 async function chooseUserRole(user: ReturnType<typeof userEvent.setup>) {
-    await user.click(screen.getByRole('button', { name: 'User' }));
+    await user.click(screen.getByRole('button', { name: /User/i }));
 }
 
 async function chooseOrganizerRole(user: ReturnType<typeof userEvent.setup>) {
-    await user.click(screen.getByRole('button', { name: 'Organizer' }));
+    await user.click(screen.getByRole('button', { name: /Organizer/i }));
 }
 
 describe('SignupPage', () => {

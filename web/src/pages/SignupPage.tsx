@@ -4,6 +4,7 @@ import { ThemeToggle } from '../components/ThemeToggle';
 import { Footer } from '../components/Footer';
 import { UserPlus, UsersRound } from 'lucide-react';
 import { useSignupPage } from '../hooks/useSignupPage';
+import { useNavigate } from 'react-router-dom';
 
 export function SignupPage() {
   const {
@@ -26,6 +27,7 @@ export function SignupPage() {
     addOrganizerCodeField,
     handleSubmit,
   } = useSignupPage();
+  const navigate = useNavigate();
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -50,14 +52,15 @@ export function SignupPage() {
 
             <div className="signup-card-content">
               {isRoleModalOpen && (
-                <section className="mb-6 rounded-2xl border border-[var(--panel-border)] bg-[var(--input-bg)]/75 p-4 shadow-sm">
-                  <p className="signup-eyebrow">ACCOUNT TYPE</p>
-                  <h2 className="signup-title mt-2">Choose how you want to sign up</h2>
-                  <p className="signup-description mt-2">
-                    Regular users can sign up immediately. Organizers can use the invitation-key flow if they have one.
-                  </p>
+                <section role="dialog" aria-modal="true" onClick={() => navigate('/login', { replace: true })} className="mb-6 rounded-2xl border border-[var(--panel-border)] bg-[var(--input-bg)]/75 p-4 shadow-sm">
+                  <div onClick={(e) => e.stopPropagation()}>
+                    <p className="signup-eyebrow">ACCOUNT TYPE</p>
+                    <h2 className="signup-title mt-2">Do you want to sign up as User or Organizer?</h2>
+                    <p className="signup-description mt-2">
+                      Regular users can sign up immediately. Organizers can use the invitation-key flow if they have one.
+                    </p>
 
-                  <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                    <div className="mt-4 grid gap-3 sm:grid-cols-2">
                     <button
                       type="button"
                       onClick={() => {
@@ -83,6 +86,7 @@ export function SignupPage() {
                       <h3 className="mt-1 text-lg font-bold text-[var(--text-primary)]">Use an organizer key</h3>
                       <p className="mt-2 text-sm text-[var(--text-subtle)]">If you already have a key, you can finish the organizer signup flow here.</p>
                     </button>
+                  </div>
                   </div>
 
                   <div className="mt-4 flex flex-wrap items-center gap-2">
@@ -165,10 +169,13 @@ export function SignupPage() {
                       Enter one or more key codes if your invitation requires them.
                     </p>
 
-                    <div className="mt-3 space-y-3">
+                    <label className="signup-label mt-3" htmlFor="organizer-access-0">Organizer Access Password(s)</label>
+                    <div className="mt-2 space-y-3">
                       {organizerPasswords.map((code, index) => (
                         <input
                           key={index}
+                          id={`organizer-access-${index}`}
+                          aria-label={index === 0 ? 'Organizer Access Password(s)' : undefined}
                           type="text"
                           className="signup-input"
                           placeholder="Enter organizer access key"
@@ -193,7 +200,7 @@ export function SignupPage() {
                 <div className="signup-actions">
                   <button type="submit" className="signup-btn signup-btn-primary" disabled={isLoading}>
                     <UserPlus size={18} />
-                    {isLoading ? 'Signing Up...' : 'Sign Up'}
+                    {isLoading ? 'Signing Up...' : (accountRole === 'organizer' ? 'Sign Up as Organizer' : (accountRole === 'user' ? 'Sign Up as User' : 'Sign Up'))}
                   </button>
                 </div>
               </form>

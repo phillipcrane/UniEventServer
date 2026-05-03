@@ -43,7 +43,13 @@ public class CookieAuthenticationFilter extends OncePerRequestFilter {
                 log.debug("Access token from '{}' cookie is expired; clearing cookie and continuing as unauthenticated",
                         cookieConfig.getAccessName());
                 clearCookie(response, cookieConfig.getAccessName());
-                filterChain.doFilter(request, response);
+                if ("/api/auth/refresh".equals(request.getRequestURI())) {
+                    filterChain.doFilter(request, response);
+                } else {
+                    response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                    response.setContentType("application/json");
+                    response.getWriter().write("{\"error\":\"Access token expired.\"}");
+                }
                 return;
             }
 
