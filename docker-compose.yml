@@ -152,7 +152,6 @@ services:
       args:
         VITE_BACKEND_URL: ${VITE_BACKEND_URL:-}
         VITE_FACEBOOK_APP_ID: ${VITE_FACEBOOK_APP_ID:-}
-        VITE_ORGANIZER_SIGNUP_PASSWORD: ${VITE_ORGANIZER_SIGNUP_PASSWORD:-}
     container_name: unievent-frontend
     restart: on-failure
     ports:
