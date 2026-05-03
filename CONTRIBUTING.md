@@ -132,16 +132,11 @@ UniEventServer/
 │   ├── src/
 │   │   ├── components/          # Isolated UI pieces (no data fetching)
 │   │   ├── context/             # React context providers (AuthContext, LikesContext, PagesContext)
-│   │   ├── data/
-│   │   ├── handlers/            # Use-case orchestration (coordinates services, handles side-effects)
-│   │   │   ├── login.ts         # loginWithEmail use case
-│   │   │   ├── signup.ts        # signupWithEmail use case
-│   │   │   ├── logout.ts        # signOutCurrentUser use case
-│   │   │   ├── refresh.ts       # refreshTokens use case
-│   │   │   └── facebookLogin.ts # Facebook OAuth redirect use case
 │   │   ├── hooks/               # Stateful logic extracted from components (prefixed use*)
 │   │   ├── pages/               # Full page views (delegate state to hooks, near-pure JSX)
 │   │   ├── services/            # Pure data access: getters, setters, listeners, API calls
+│   │   │   ├── http.ts          # Fetch wrapper (auth headers, CSRF, error handling)
+│   │   │   ├── csrf.ts          # CSRF token management
 │   │   │   ├── dal.ts           # Data Access Layer - all REST API calls
 │   │   │   ├── auth.ts          # Cookie-based auth state (in-memory store + session helpers)
 │   │   │   ├── facebook.ts      # Facebook OAuth URL builders
@@ -198,16 +193,6 @@ Infrastructure Layer:
 - **`components/`** - purely presentational, no fetch calls. Delegate state to `useXxx` hooks
 - **`pages/`** - compose components, delegate all state to a `useXxxPage` hook; near-pure JSX
 - **`hooks/`** - stateful logic extracted from REACT components; always prefix `use*`; page-level hooks named after their page (`useMainPage`, `useEventPage`, etc.)
-- **`handlers/`** - one file per use case; orchestrates service calls and state mutations; no UI concerns
-- **`services/`** - pure data access: in-memory state, getters/setters, listeners, raw API fetches
-- **`utils/`** - pure helpers used in more than one file; no React, no side-effects
-- **`types.ts`** - all TS types (remember - TS types don't exist when the program is running, unlike in Java/C#)
-- **`constants.ts`** - all magic values: timeouts, thresholds, API paths, feature flags
-- **`contexts/`** - app-wide state "container", used by REACT components and pages.
-- **`components/`** - purely presentational, no fetch calls. Delegate state to `useXxx` hooks
-- **`pages/`** - compose components, delegate all state to a `useXxxPage` hook; near-pure JSX
-- **`hooks/`** - stateful logic extracted from REACT components; always prefix `use*`; page-level hooks named after their page (`useMainPage`, `useEventPage`, etc.)
-- **`handlers/`** - one file per use case; orchestrates service calls and state mutations; no UI concerns
 - **`services/`** - pure data access: in-memory state, getters/setters, listeners, raw API fetches
 - **`utils/`** - pure helpers used in more than one file; no React, no side-effects
 - **`types.ts`** - all TS types (remember - TS types don't exist when the program is running, unlike in Java/C#)
@@ -298,3 +283,4 @@ Backend
 - [ ] Create Event page
 - [ ] Business Manager integration for stable API access
 - [ ] Admin Dashboard/Tool for using ADMIN endpoints
+- [ ] Zod + React Hook Form
