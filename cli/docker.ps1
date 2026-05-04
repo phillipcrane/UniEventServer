@@ -1,17 +1,19 @@
-# tools docker [--down] [--wipe] [-v]
-# Default: start if down, rebuild + restart if already up.
-# --down:  stop the stack.
-# --wipe:  docker compose down -v (removes containers AND volumes). Prompts for confirmation.
+# tools docker [--down] [--wipe] [--rebuild] [-v]
+# Default: start if down, rebuild + restart if already up (using Docker layer cache).
+# --down:    stop the stack.
+# --wipe:    docker compose down -v (removes containers AND volumes). Prompts for confirmation.
+# --rebuild: force --no-cache build (slower but guarantees a clean image).
 
-# this cli tool is indeed a simple wrapper around docker compose. It is run during tools setup to start the stack 
+# this cli tool is indeed a simple wrapper around docker compose. It is run during tools setup to start the stack
 # as step 2. Also checks if docker is running/installed
 function Invoke-Docker { # Invoke prefix = powershell convention for "run this command"
     # we save the flags as params:
-    # -d, --down     => $Down
-    # -w, --wipe     => $Wipe
-    # -v, --verbose  => $VerboseOutput
-    # -y, --yes      => $Yes
-    param([switch]$Down, [switch]$Wipe, [switch]$VerboseOutput, [switch]$SkipVaultSetup, [switch]$Yes)
+    # -d, --down      => $Down
+    # -w, --wipe      => $Wipe
+    # --rebuild       => $Rebuild
+    # -v, --verbose   => $VerboseOutput
+    # -y, --yes       => $Yes
+    param([switch]$Down, [switch]$Wipe, [switch]$Rebuild, [switch]$VerboseOutput, [switch]$SkipVaultSetup, [switch]$Yes)
 
     # 1. first, check if docker is available and the daemon is running before doing anything else
     $dockerPath = Find-Executable -Name "docker" -Fallbacks $script:KnownPaths.docker
@@ -79,7 +81,7 @@ function Invoke-Docker { # Invoke prefix = powershell convention for "run this c
     }
 
     # 8. we run docker compose up -d (with --build to force rebuild) and check if it succeeded.
-    $started = Invoke-ComposeUp -DockerPath $dockerPath -Quiet:(!$VerboseOutput)
+    $started = Invoke-ComposeUp -DockerPath $dockerPath -Quiet:(!$VerboseOutput) -NoCache:$Rebuild
     if (-not $started) {
         Write-Err "docker compose up failed"
         if (-not $VerboseOutput) { Write-Warn "Re-run with -v for full output" }

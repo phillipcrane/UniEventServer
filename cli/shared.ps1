@@ -115,19 +115,21 @@ function Show-Help {
     Write-Host "  invite                 Send organizer invite key and test registration flow"
     Write-Host ""
     Write-Host "Flags:"
-    Write-Host "  -r, --base-url <url> Target server base URL (default: https://localhost)"
+    Write-Host "  --remote <url>       Target server URL (default: https://localhost)"
     Write-Host "  -p, --page <id>      Scope to a single page (refresh, ingest)"
     Write-Host "  -e, --email <email>  invite: recipient email (default: test@example.com)"
     Write-Host "  -n, --orgname <name> invite: organization name (default: Test Organization)"
     Write-Host "  -w, --wipe           seed: only clear, skip re-seed; docker/vault: destroy data volumes"
     Write-Host "  -d, --down           docker: stop the stack"
+    Write-Host "  -r, --rebuild        docker/setup: force --no-cache build (slow but clean)"
     Write-Host "  -y, --yes            Non-interactive approval for prompts"
     Write-Host "  -v, --verbose        Show extra output"
     Write-Host "  -h, --help           Show this help"
     Write-Host ""
     Write-Host "Examples:"
     Write-Host "  $cli setup"
-    Write-Host "  $cli docker                   # start or rebuild/restart"
+    Write-Host "  $cli docker                   # start or restart"
+    Write-Host "  $cli docker -r                # force clean rebuild (--no-cache)"
     Write-Host "  $cli docker -d                # stop"
     Write-Host "  $cli docker -v                # start with full compose output"
     Write-Host "  $cli seed                     # clear + re-seed"
@@ -136,7 +138,7 @@ function Show-Help {
     Write-Host "  $cli refresh -p 1234567890"
     Write-Host "  $cli ingest"
     Write-Host "  $cli ingest -p 1234567890 -v"
-    Write-Host "  $cli seed -r https://staging.example.com"
+    Write-Host "  $cli seed --remote https://staging.example.com"
     Write-Host "  $cli invite -e organizer@company.com -v"
     Write-Host ""
 }
@@ -584,6 +586,16 @@ function Find-Java {
 function Get-JavaMajorVersion {
     param([string]$JavaPath)
     try {
+        # On Linux, resolve symlinks before executing. Invoking a symlink path directly
+        # triggers GNOME's gio file-type detection, which prints a harmless but confusing
+        # "Failed to find default application for content type 'inode/symlink'" warning.
+        if ($IsLinux) {
+            $canonical = & readlink -f $JavaPath 2>$null | Select-Object -First 1
+            if ($canonical) { $canonical = $canonical.Trim() }
+            if ($canonical -and (Test-Path $canonical -ErrorAction SilentlyContinue)) {
+                $JavaPath = $canonical
+            }
+        }
         # java -version writes to stderr; PS5 wraps it in ErrorRecord objects
         $line = (& $JavaPath -version 2>&1) | ForEach-Object {
             if ($_ -is [System.Management.Automation.ErrorRecord]) { $_.Exception.Message }

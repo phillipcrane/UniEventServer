@@ -17,12 +17,13 @@
     invite                 Send organizer invite key and test registration flow
 
 .FLAGS
-    -r, --remote <url>   Target server URL (default: https://localhost)
+    --remote <url>       Target server URL (default: https://localhost)
     -e, --email <email>  invite: recipient email (default: test@example.com)
     -n, --orgname <name> invite: organization name (default: Test Organization)
     -p, --page <id>      Scope to a single page (refresh, ingest)
     -d, --down           docker: stop the stack
     -w, --wipe           seed: only clear, skip re-seed; docker/vault: destroy data volumes
+    -r, --rebuild        docker/setup: force --no-cache build (slow but clean)
     -y, --yes            Non-interactive approval for prompts
     -v, --verbose        Show extra output
     -h, --help           Show this help
@@ -38,7 +39,6 @@ param(
     [Parameter(Position = 0)]
     [string]$Command,
 
-    [Alias("r")]
     [string]$Remote = "",
 
     [Alias("e")]
@@ -55,6 +55,9 @@ param(
 
     [Alias("w")]
     [switch]$Wipe,
+
+    [Alias("r")]
+    [switch]$Rebuild,
 
     [Alias("y")]
     [switch]$Yes,
@@ -104,7 +107,7 @@ switch ($cmdLower) {
     "setup" {
         . (Join-Path $cliDir "vault.ps1")   # setup uses Get-VaultStatus, Invoke-ComposeUp
         . (Join-Path $cliDir "setup.ps1")
-        Invoke-Setup -VerboseOutput:$VerboseOutput -Yes:$Yes
+        Invoke-Setup -VerboseOutput:$VerboseOutput -Yes:$Yes -Rebuild:$Rebuild
         exit 0
     }
     "vault" {
@@ -120,7 +123,7 @@ switch ($cmdLower) {
     "docker" {
         . (Join-Path $cliDir "vault.ps1")
         . (Join-Path $cliDir "docker.ps1")
-        Invoke-Docker -Down:$Down -Wipe:$Wipe -VerboseOutput:$VerboseOutput -Yes:$Yes
+        Invoke-Docker -Down:$Down -Wipe:$Wipe -Rebuild:$Rebuild -VerboseOutput:$VerboseOutput -Yes:$Yes
         exit 0
     }
     "status" {

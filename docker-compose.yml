@@ -163,6 +163,7 @@ services:
     tmpfs:
       - /var/cache/nginx
       - /var/run
+      - /tmp
     networks:
       - unievent-network
 

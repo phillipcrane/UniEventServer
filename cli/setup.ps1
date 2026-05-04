@@ -3,7 +3,7 @@
 # CLI install to ~/.local/bin, optional docker stack bringup.
 
 function Invoke-Setup {
-    param([switch]$VerboseOutput, [switch]$Yes)
+    param([switch]$VerboseOutput, [switch]$Yes, [switch]$Rebuild)
 
     $repoRoot = Get-RepoRoot
 
@@ -160,14 +160,32 @@ function Invoke-Setup {
             Write-Info "certs/ directory exists but certificates are missing - generating now"
         }
 
-        Write-Info "Generating self-signed certificate..."
-        $subject = "/CN=localhost"
+        Write-Info "Generating self-signed certificate (CN=localhost, SAN=DNS:localhost,IP:127.0.0.1)..."
+
+        # Write a temporary OpenSSL config so SANs work across all OpenSSL versions.
+        # Without SAN, Chrome 66+ rejects the cert even for self-signed certs.
+        $nginxSanConf = @"
+[req]
+distinguished_name = req_distinguished_name
+x509_extensions    = v3_req
+prompt             = no
+
+[req_distinguished_name]
+CN = localhost
+
+[v3_req]
+subjectAltName = DNS:localhost,IP:127.0.0.1
+"@
+        $nginxTempConf = [System.IO.Path]::GetTempFileName() + ".cnf"
+        $nginxSanConf | Set-Content -Path $nginxTempConf -Encoding ASCII
+
         $ErrorActionPreference = "Continue"
         $certOutput = @(& $opensslPath req -x509 -nodes -days 3650 -newkey rsa:2048 `
             -keyout $keyFile -out $certFile `
-            -subj $subject 2>&1)
+            -config $nginxTempConf 2>&1)
         $certExitCode = $LASTEXITCODE
         $ErrorActionPreference = "Stop"
+        Remove-Item $nginxTempConf -ErrorAction SilentlyContinue
 
         if ((Test-Path $certFile) -and (Test-Path $keyFile)) {
             Write-Ok "Self-signed certificate generated (valid 10 years)"
@@ -387,7 +405,7 @@ subjectAltName = DNS:vault,DNS:localhost,IP:127.0.0.1
     if ($answer -eq "" -or $answer -match "^[Yy]") {
         . (Join-Path $PSScriptRoot "vault.ps1")
         . (Join-Path $PSScriptRoot "docker.ps1")
-        Invoke-Docker -VerboseOutput:$VerboseOutput -SkipVaultSetup -Yes:$Yes
+        Invoke-Docker -VerboseOutput:$VerboseOutput -SkipVaultSetup -Yes:$Yes -Rebuild:$Rebuild
         Write-Host ""
         $answer2 = if ($Yes) { "Y" } else { Read-Host "  Initialize / unseal Vault now? [Y/n]" }
         if ($answer2 -eq "" -or $answer2 -match "^[Yy]") {

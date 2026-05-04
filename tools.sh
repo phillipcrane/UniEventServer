@@ -27,9 +27,11 @@ for arg in "$@"; do
     --verbose) args+=("-v") ;;
     --down)    args+=("-d") ;;
     --wipe)    args+=("-w") ;;
+    -r|--rebuild) args+=("-Rebuild") ;;
     --yes)     args+=("-y") ;;
     --page)    args+=("-p") ;;
     --orgname) args+=("-n") ;;
+    --remote)  args+=("-Remote") ;;
     --help)    args+=("-h") ;;
     --*)       args+=("-${arg#--}") ;;
     *)         args+=("$arg") ;;

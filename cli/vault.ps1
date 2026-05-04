@@ -5,7 +5,8 @@ function Invoke-ComposeUp {
     param(
         [string]$DockerPath,
         [string[]]$ExtraArgs = @(),
-        [switch]$Quiet
+        [switch]$Quiet,
+        [switch]$NoCache
     )
 
     # Temporarily allow native-command stderr without throwing - $LASTEXITCODE
@@ -14,12 +15,12 @@ function Invoke-ComposeUp {
     $prev = $ErrorActionPreference
     $ErrorActionPreference = "Continue"
 
-    # Build with --no-cache so source changes are always picked up.
-    # docker compose up --build uses Docker's layer cache which can skip
-    # recompilation even when Java/TS source files have changed.
-    $buildArgs = @("compose", "build", "--no-cache") + $ExtraArgs
+    # By default use Docker's layer cache for fast rebuilds.
+    # Pass -NoCache (via --rebuild) to force a full clean build from scratch.
+    $buildArgs = @("compose", "build") + $(if ($NoCache) { @("--no-cache") } else { @() }) + $ExtraArgs
     $buildOutput = @()
     if ($Quiet) {
+        Write-Info "Building Docker images (--no-cache, this may take several minutes)..."
         $buildOutput = @(& $DockerPath @buildArgs 2>&1)
     } else {
         & $DockerPath @buildArgs
@@ -38,6 +39,7 @@ function Invoke-ComposeUp {
     $upArgs = @("compose", "up", "-d") + $ExtraArgs
     $upOutput = @()
     if ($Quiet) {
+        Write-Info "Starting containers..."
         $upOutput = @(& $DockerPath @upArgs 2>&1)
     } else {
         & $DockerPath @upArgs
@@ -280,7 +282,7 @@ function Invoke-VaultSetup {
         Write-Ok "Vault application token saved to .env"
 
         Write-Info "Restarting app with new Vault token..."
-        Invoke-ComposeUp -DockerPath $DockerPath -ExtraArgs @("app") -Quiet | Out-Null
+        Invoke-ComposeUp -DockerPath $DockerPath -ExtraArgs @("app") -Quiet -NoCache | Out-Null
         Write-Ok "App container updated"
 
         Write-Host ""
