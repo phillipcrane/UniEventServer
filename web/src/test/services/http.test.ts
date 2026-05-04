@@ -23,7 +23,7 @@ function ok(body: unknown = {}, status = 200): Response {
     });
 }
 
-describe('http — apiCall', () => {
+describe('http - apiCall', () => {
     beforeEach(() => {
         mockFetch.mockReset();
         mockRefreshSession.mockReset();

@@ -296,7 +296,7 @@ public class VaultService {
 
     /**
      * Mark a page token as errored in the registry (e.g. after a failed refresh).
-     * Never throws — registry sync must never break the caller's flow.
+     * Never throws - registry sync must never break the caller's flow.
      */
     public void markPageTokenError(String pageId) {
         upsertPageTokenRecord(pageId, "error", null);
@@ -304,7 +304,7 @@ public class VaultService {
 
     /**
      * Mark a page token as inactive in the registry (e.g. when a page is deleted).
-     * Never throws — registry sync must never break the caller's flow.
+     * Never throws - registry sync must never break the caller's flow.
      */
     public void markPageTokenInactive(String pageId) {
         upsertPageTokenRecord(pageId, "inactive", null);
@@ -312,7 +312,7 @@ public class VaultService {
 
     /**
      * Mark a page token as invalid in the registry (e.g. Facebook rejected it during ingestion).
-     * Never throws — registry sync must never break the caller's flow.
+     * Never throws - registry sync must never break the caller's flow.
      */
     public void markPageTokenInvalid(String pageId) {
         upsertPageTokenRecord(pageId, "invalid", null);
@@ -345,7 +345,7 @@ public class VaultService {
             log.debug("Secrets registry updated for page: {} (status: {}, expiresAt: {})", pageId, status, expiresAt);
         } catch (Exception e) {
             // Registry sync failure must never break the Vault operation that already succeeded.
-            log.warn("Failed to update secrets registry for page: {} — {}", pageId, e.getMessage());
+            log.warn("Failed to update secrets registry for page: {} - {}", pageId, e.getMessage());
         }
     }
 

@@ -236,11 +236,12 @@ export async function refreshSession(): Promise<boolean> {
     });
 
     if (!response.ok) {
-      if (response.status === 401) {
-        clearSessionAndRedirect();
-      }
-      if (response.status === 403) {
-        clearSessionAndRedirect();
+      if (response.status === 401 || response.status === 403) {
+        // Clear local state but do not redirect - public pages must remain
+        // accessible without authentication. Protected routes handle their own
+        // redirect via route guards. A 403 here means the refresh token was
+        // rejected (e.g. DB reset, token family compromised), not a CSRF attack.
+        clearAuthState();
       }
       return false;
     }

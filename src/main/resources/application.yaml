@@ -56,7 +56,7 @@ management:
     web:
       exposure:
         # health is required for Docker probes. info is safe only while no git/build contributors
-        # are configured — do NOT add management.info.git/build without re-securing this endpoint.
+        # are configured - do NOT add management.info.git/build without re-securing this endpoint.
         include: health,info
   endpoint:
     health:

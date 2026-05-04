@@ -14,12 +14,33 @@ function Invoke-ComposeUp {
     $prev = $ErrorActionPreference
     $ErrorActionPreference = "Continue"
 
-    $allArgs = @("compose", "up", "-d", "--build") + $ExtraArgs
-    $composeOutput = @()
+    # Build with --no-cache so source changes are always picked up.
+    # docker compose up --build uses Docker's layer cache which can skip
+    # recompilation even when Java/TS source files have changed.
+    $buildArgs = @("compose", "build", "--no-cache") + $ExtraArgs
+    $buildOutput = @()
     if ($Quiet) {
-        $composeOutput = @(& $DockerPath @allArgs 2>&1)
+        $buildOutput = @(& $DockerPath @buildArgs 2>&1)
     } else {
-        & $DockerPath @allArgs
+        & $DockerPath @buildArgs
+    }
+    $buildExitCode = $LASTEXITCODE
+
+    if ($buildExitCode -ne 0) {
+        $ErrorActionPreference = $prev
+        if ($Quiet -and $buildOutput.Count -gt 0) {
+            $tail = @($buildOutput | Select-Object -Last 8)
+            Write-Warn ("docker compose build output: " + ($tail -join " | "))
+        }
+        return $false
+    }
+
+    $upArgs = @("compose", "up", "-d") + $ExtraArgs
+    $upOutput = @()
+    if ($Quiet) {
+        $upOutput = @(& $DockerPath @upArgs 2>&1)
+    } else {
+        & $DockerPath @upArgs
     }
     $exitCode = $LASTEXITCODE
 
@@ -27,33 +48,10 @@ function Invoke-ComposeUp {
 
     if ($exitCode -eq 0) { return $true }
 
-    # Fallback: legacy docker-compose binary
-    $legacy = Get-Command "docker-compose" -ErrorAction SilentlyContinue
-    if ($legacy) {
-        Write-Warn "'docker compose' failed - retrying with legacy 'docker-compose' CLI"
-        $legacyArgs = @("up", "-d", "--build") + $ExtraArgs
-        $ErrorActionPreference = "Continue"
-        $legacyOutput = @()
-        if ($Quiet) {
-            $legacyOutput = @(& docker-compose @legacyArgs 2>&1)
-        } else {
-            & docker-compose @legacyArgs
-        }
-        $exitCode = $LASTEXITCODE
-        $ErrorActionPreference = $prev
-        if ($exitCode -ne 0 -and $Quiet) {
-            $tail = @($legacyOutput | Select-Object -Last 8)
-            if ($tail.Count -gt 0) {
-                Write-Warn ("docker-compose output: " + ($tail -join " | "))
-            }
-        }
-        return ($exitCode -eq 0)
-    }
-
     if ($Quiet) {
-        $tail = @($composeOutput | Select-Object -Last 8)
+        $tail = @($upOutput | Select-Object -Last 8)
         if ($tail.Count -gt 0) {
-            Write-Warn ("docker compose output: " + ($tail -join " | "))
+            Write-Warn ("docker compose up output: " + ($tail -join " | "))
         }
     }
 

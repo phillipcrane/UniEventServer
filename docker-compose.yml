@@ -50,7 +50,8 @@ services:
     networks:
       - unievent-network
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8080/status || exit 1"]
+      test: ["CMD-SHELL", "curl -f http://weed-volume:8080/status || exit 1"]
+      start_period: 15s
       interval: 10s
       timeout: 5s
       retries: 5

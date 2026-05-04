@@ -114,7 +114,7 @@ public class TokenRefreshService {
         log.debug("Refreshing token for page: {}", pageId);
 
         if (vaultService.isEmpty()) {
-            String msg = "Vault is disabled — token refresh unavailable";
+            String msg = "Vault is disabled - token refresh unavailable";
             log.warn("{} for page: {}", msg, pageId);
             return new RefreshResult(pageId, false, msg);
         }

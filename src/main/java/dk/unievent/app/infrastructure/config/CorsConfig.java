@@ -85,7 +85,7 @@ public class CorsConfig {
         boolean isProd = Arrays.stream(environment.getActiveProfiles())
                 .anyMatch(p -> p.equals("prod") || p.equals("production"));
         if (isProd) {
-            log.warn("CORS: allowCredentials=true with localhost origins detected in production — remove localhost from UNIEVENT_SECURITY_CORS_ALLOWED_ORIGINS");
+            log.warn("CORS: allowCredentials=true with localhost origins detected in production - remove localhost from UNIEVENT_SECURITY_CORS_ALLOWED_ORIGINS");
         } else {
             log.debug("CORS: localhost origins configured with allowCredentials=true (dev mode)");
         }

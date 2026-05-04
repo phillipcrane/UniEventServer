@@ -18,7 +18,7 @@ import java.util.List;
 
 /**
  * Admin-only endpoint for inspecting the secrets registry (DB metadata about what lives in Vault).
- * Requires admin role — also enforced at the path level in SecurityConfig (/api/admin/**).
+ * Requires admin role - also enforced at the path level in SecurityConfig (/api/admin/**).
  * Only available when Vault is enabled (unievent.vault.enabled=true).
  */
 @RestController

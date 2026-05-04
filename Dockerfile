@@ -23,13 +23,13 @@ WORKDIR /app
 
 # Copy layers least-to-most frequently changed so app code doesn't bust dependency layers
 COPY --from=builder /app/target/extracted/dependencies/ ./
-COPY --from=builder /app/target/extracted/spring-boot-loader/ ./
 COPY --from=builder /app/target/extracted/snapshot-dependencies/ ./
 COPY --from=builder /app/target/extracted/application/ ./
 
-RUN addgroup -S app && adduser -S app -G app
+RUN addgroup -S app && adduser -S app -G app && \
+    mkdir -p /app/logs && chown app:app /app/logs
 USER app
 
 EXPOSE 8080
 
-ENTRYPOINT ["java", "org.springframework.boot.loader.launch.JarLauncher"]
+ENTRYPOINT ["java", "-jar", "app.jar"]

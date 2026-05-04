@@ -115,6 +115,7 @@ function Show-Help {
     Write-Host "  invite                 Send organizer invite key and test registration flow"
     Write-Host ""
     Write-Host "Flags:"
+    Write-Host "  -r, --base-url <url> Target server base URL (default: https://localhost)"
     Write-Host "  -p, --page <id>      Scope to a single page (refresh, ingest)"
     Write-Host "  -e, --email <email>  invite: recipient email (default: test@example.com)"
     Write-Host "  -n, --orgname <name> invite: organization name (default: Test Organization)"
@@ -388,7 +389,7 @@ function Get-AdminSession {
 }
 
 function Invoke-AdminRequest {
-    param([string]$Method, [string]$Url, [switch]$VerboseOutput)
+    param([string]$Method, [string]$Url, [string]$Body = $null, [switch]$VerboseOutput)
 
     $uri = $null
     if (-not [System.Uri]::TryCreate($Url, [System.UriKind]::Absolute, [ref]$uri)) {
@@ -410,7 +411,7 @@ function Invoke-AdminRequest {
     }
 
     try {
-        $resp = Invoke-Web -Uri $Url -Method $Method -Headers $headers -TimeoutSec 120 -WebSession $adminSession.WebSession
+        $resp = Invoke-Web -Uri $Url -Method $Method -Headers $headers -Body $Body -TimeoutSec 120 -WebSession $adminSession.WebSession
         return @{ StatusCode = $resp.StatusCode; Body = $resp.Content }
     } catch [System.Net.WebException] {
         $response = $_.Exception.Response

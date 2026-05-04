@@ -3,8 +3,8 @@
 # Default: targets https://localhost with test@example.com
 # Key is sent via email, then choose to complete registration in tool or on website
 
-# This CLI tool is for testing the organizer invitation and registration flow. It simulates:
-# - generting an organizer key for a given email (which would normally be sent via email)
+# This CLI tool tests the organizer invitation and registration flow. It simulates:
+# - generating an organizer key for a given email (which would normally be sent via email)
 # - verifying the key
 # - completing registration with the key (either in the tool or on the website)
 
@@ -31,45 +31,14 @@ function Invoke-TestOrganizerKey {
     Write-Info "Test Email: $Email"
     Write-Sep
 
-    # Step 1: Get admin token
-    Write-Info "Getting admin token..."
-    $token = Get-AdminToken -BaseUrl $BaseUrl
-    if (-not $token) {
-        Write-Err "Failed to get admin token"
-        exit 1
-    }
-    Write-Ok "Admin authenticated"
-
-    # Step 2: Generate organizer key
+    # Step 1: Generate organizer key (admin-authenticated endpoint)
     Write-Info "Generating organizer key for: $Email"
-    $generateBody = @{
-        email = $Email
-        organizationName = $OrgName
-    } | ConvertTo-Json -Compress # there are better ways to do a body tbf
+    $generateBody = @{ email = $Email; organizationName = $OrgName } | ConvertTo-Json -Compress
+    $resp = Invoke-AdminRequest -Method "POST" -Url "$BaseUrl/api/auth/organizer-key/generate" `
+        -Body $generateBody -VerboseOutput:$VerboseOutput
+    Handle-Response -Response $resp -SuccessMsg "Organizer key generated successfully" -VerboseOutput:$VerboseOutput
 
-    try {
-        $headers = @{
-            "Content-Type" = "application/json"
-            "Authorization" = "Bearer $token"
-        }
-        $resp = Invoke-Web -Uri "$BaseUrl/api/auth/organizer-key/generate" -Method "POST" `
-            -Headers $headers -Body $generateBody -TimeoutSec 30
-        
-        $body = $resp.Content | ConvertFrom-Json
-        Write-Ok "Organizer key generated successfully"
-        
-        if ($VerboseOutput) {
-            Write-Host ""
-            Write-Info "Response:"
-            $responseText = $body | ConvertTo-Json -Depth 5
-            Write-Host (Redact-SensitiveText -Text $responseText) -ForegroundColor Gray
-        }
-    } catch {
-        Write-Err "Failed to generate organizer key: $($_.Exception.Message)"
-        exit 1
-    }
-
-    # Step 3: Get key from email
+    # Step 2: Get key from email
     Write-Sep
     Write-Host ""
     Write-Info "Check your inbox at: $Email"
@@ -77,14 +46,14 @@ function Invoke-TestOrganizerKey {
     Write-Info "Copy the 32-character invitation key from the email (letters and numbers)"
     Write-Host ""
     $keyValue = Read-Host "Paste the key here"
-    
+
     if (-not $keyValue -or $keyValue.Length -ne 32 -or $keyValue -notmatch '^[A-Za-z0-9]{32}$') {
         Write-Err "Invalid key format. Key must be exactly 32 alphanumeric characters."
         exit 1
     }
     Write-Ok "Key received"
 
-    # Step 4: Ask about registration method
+    # Step 3: Ask about registration method
     Write-Sep
     Write-Host ""
     Write-Host "How would you like to complete the registration?" -ForegroundColor Cyan
@@ -96,7 +65,7 @@ function Invoke-TestOrganizerKey {
     if ($regMethod -eq "1") {
         Invoke-RegistrationInTool -BaseUrl $BaseUrl -Email $Email -KeyValue $keyValue -VerboseOutput:$VerboseOutput
     } elseif ($regMethod -eq "2") {
-        Invoke-RegistrationOnWebsite -Email $Email -KeyValue $keyValue
+        Invoke-RegistrationOnWebsite -BaseUrl $BaseUrl -Email $Email -KeyValue $keyValue
     } else {
         Write-Err "Invalid choice '$regMethod'. Expected 1 or 2."
         exit 1
@@ -113,30 +82,15 @@ function Invoke-RegistrationInTool {
         [switch]$VerboseOutput
     )
 
-    $BaseUrl = Assert-ValidBaseUrl -BaseUrl $BaseUrl
-    if (-not (Test-ValidEmail -Email $Email)) {
-        Write-Err "Invalid email address: $Email"
-        exit 1
-    }
-    if (-not $KeyValue -or $KeyValue -notmatch '^[A-Za-z0-9]{32}$') {
-        Write-Err "Invalid organizer key format"
-        exit 1
-    }
-
     Write-Step "[1/3] Verifying organizer key..."
-    
-    $verifyBody = @{
-        key = $KeyValue
-    } | ConvertTo-Json -Compress
+
+    $verifyBody = @{ key = $KeyValue } | ConvertTo-Json -Compress
 
     try {
-        $headers = @{ "Content-Type" = "application/json" }
         $resp = Invoke-Web -Uri "$BaseUrl/api/auth/organizer-key/verify" -Method "POST" `
-            -Headers $headers -Body $verifyBody -TimeoutSec 30
-        
+            -Headers @{ "Content-Type" = "application/json" } -Body $verifyBody -TimeoutSec 30
         $verified = $resp.Content | ConvertFrom-Json
         $confirmationToken = $verified.confirmationToken
-        
         Write-Ok "Key verified successfully"
         if ($VerboseOutput) {
             Write-Info "Confirmation token expires in: $($verified.expiresIn) seconds"
@@ -151,7 +105,7 @@ function Invoke-RegistrationInTool {
     Write-Step "[2/3] Enter registration details"
     $username = Read-Host "Username (3-50 characters)"
     Assert-NonEmpty -Name "Username" -Value $username
-    
+
     if ($username.Length -lt 3 -or $username.Length -gt 50) {
         Write-Err "Username must be 3-50 characters"
         exit 1
@@ -173,7 +127,7 @@ function Invoke-RegistrationInTool {
 
     # Complete registration
     Write-Step "[3/3] Completing registration..."
-    
+
     $registerBody = @{
         confirmationToken = $confirmationToken
         username = $username
@@ -182,13 +136,11 @@ function Invoke-RegistrationInTool {
     } | ConvertTo-Json -Compress
 
     try {
-        $headers = @{ "Content-Type" = "application/json" }
         $resp = Invoke-Web -Uri "$BaseUrl/api/auth/register-with-key" -Method "POST" `
-            -Headers $headers -Body $registerBody -TimeoutSec 30
-        
+            -Headers @{ "Content-Type" = "application/json" } -Body $registerBody -TimeoutSec 30
         $result = $resp.Content | ConvertFrom-Json
         Write-Ok "Registration successful!"
-        
+
         if ($VerboseOutput) {
             Write-Host ""
             Write-Info "New organizer account created:"
@@ -217,6 +169,7 @@ function Invoke-RegistrationInTool {
 
 function Invoke-RegistrationOnWebsite {
     param(
+        [string]$BaseUrl,
         [string]$Email,
         [string]$KeyValue
     )
@@ -228,20 +181,13 @@ function Invoke-RegistrationOnWebsite {
     Write-Host "Next steps:" -ForegroundColor Cyan
     Write-Host ""
     Write-Host "1. Go to the registration page:"
-    Write-Host "   http://localhost:3000/signup-organizer" -ForegroundColor Green
+    Write-Host "   $BaseUrl/signup-organizer" -ForegroundColor Green
     Write-Host ""
     Write-Host "2. On the registration form:"
     Write-Host ""
-    
-    if ($KeyValue) {
-        Write-Host "   Invitation Key: ********************************" -ForegroundColor Yellow
-        Write-Host "   (Key already in your clipboard from the email - paste it into the form)"
-    } else {
-        Write-Host "   Get the key from your email at: $Email" -ForegroundColor Yellow
-        Write-Host "   Look for subject: 'You're Invited to Organize Events on UniEvent!'"
-        Write-Host "   Copy the 32-character key from the email"
-    }
-    
+    Write-Host "   Get the key from your email at: $Email" -ForegroundColor Yellow
+    Write-Host "   Look for subject: 'You're Invited to Organize Events on UniEvent!'"
+    Write-Host "   Copy the 32-character key from the email and paste it into the form"
     Write-Host ""
     Write-Host "3. Fill in registration details:"
     Write-Host "   - Username (3-50 characters)"
@@ -253,4 +199,3 @@ function Invoke-RegistrationOnWebsite {
     Write-Host "Your organizer account will be created with role: organizer" -ForegroundColor Green
     Write-Host ""
 }
-

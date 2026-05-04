@@ -1,3 +1,8 @@
+spring:
+  jpa:
+    hibernate:
+      ddl-auto: update
+
 logging:
   level:
     root: INFO
@@ -11,6 +16,7 @@ unievent:
   security:
     cookies:
       secure: false
+      same-site: Lax
     csrf:
       secret: dev-csrf-secret-key-change-in-production
     jwt:

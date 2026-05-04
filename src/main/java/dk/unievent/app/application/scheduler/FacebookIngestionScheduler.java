@@ -65,7 +65,7 @@ public class FacebookIngestionScheduler {
                         failureCount++;
                         log.error("Facebook API error ingesting events for page: {} - {} ({})",
                             page.getId(), e.getErrorType(), e.getStatusCode());
-                        // An OAuthException means the token is dead — mark it invalid in the registry
+                        // An OAuthException means the token is dead - mark it invalid in the registry
                         if ("OAuthException".equals(e.getErrorType())) {
                             vaultService.ifPresent(v -> v.markPageTokenInvalid(page.getId()));
                         }

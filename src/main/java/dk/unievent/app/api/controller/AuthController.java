@@ -18,6 +18,8 @@ import dk.unievent.app.infrastructure.config.CookieConfig;
 import dk.unievent.app.infrastructure.security.UserDetailsAdapter;
 import dk.unievent.app.application.service.EmailService;
 import dk.unievent.app.infrastructure.config.RoleConstants;
+import dk.unievent.app.infrastructure.exception.UnauthorizedTokenException;
+import io.github.resilience4j.ratelimiter.RequestNotPermitted;
 import io.github.resilience4j.ratelimiter.annotation.RateLimiter;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -210,7 +212,7 @@ public class AuthController {
         if (refreshCookie != null && !refreshCookie.getValue().isBlank()) {
             return refreshCookie.getValue();
         }
-        throw new IllegalArgumentException("Refresh token cookie is required.");
+        throw new UnauthorizedTokenException("Refresh token cookie is missing.");
     }
 
     private String resolveOptionalRefreshToken(HttpServletRequest request) {
@@ -285,32 +287,46 @@ public class AuthController {
         return "ROLE_" + trimmed.toUpperCase();
     }
 
-    // Rate limit fallback methods
+    // Rate limit fallback methods - only intercept RequestNotPermitted (actual rate limit).
+    // All other exceptions are re-thrown so the global exception handler maps them correctly.
+    private static void rethrowIfNotRateLimited(Exception ex) {
+        if (ex instanceof RequestNotPermitted) return;
+        if (ex instanceof RuntimeException re) throw re;
+        throw new RuntimeException(ex);
+    }
+
     public ResponseEntity<AuthResponse> registerFallback(RegisterRequest request, HttpServletResponse response, Exception ex) {
+        rethrowIfNotRateLimited(ex);
         return ResponseEntity.status(429).body(null);
     }
 
     public ResponseEntity<AuthResponse> loginFallback(LoginRequest request, HttpServletResponse response, Exception ex) {
+        rethrowIfNotRateLimited(ex);
         return ResponseEntity.status(429).body(null);
     }
 
     public ResponseEntity<AuthResponse> refreshFallback(HttpServletRequest httpRequest, HttpServletResponse response, Exception ex) {
+        rethrowIfNotRateLimited(ex);
         return ResponseEntity.status(429).body(null);
     }
 
     public ResponseEntity<Void> logoutFallback(HttpServletRequest httpRequest, HttpServletResponse response, Exception ex) {
+        rethrowIfNotRateLimited(ex);
         return ResponseEntity.status(429).build();
     }
 
     public ResponseEntity<GenerateOrganizerKeyResponse> generateKeyFallback(GenerateOrganizerKeyRequest request, Authentication authentication, Exception ex) {
+        rethrowIfNotRateLimited(ex);
         return ResponseEntity.status(429).build();
     }
 
     public ResponseEntity<OrganizerKeyVerifyResponse> verifyKeyFallback(OrganizerKeyVerifyRequest request, Exception ex) {
+        rethrowIfNotRateLimited(ex);
         return ResponseEntity.status(429).build();
     }
 
     public ResponseEntity<AuthResponse> registerWithKeyFallback(OrganizerRegisterWithKeyRequest request, HttpServletResponse response, Exception ex) {
+        rethrowIfNotRateLimited(ex);
         return ResponseEntity.status(429).body(null);
     }
 }

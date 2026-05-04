@@ -108,7 +108,7 @@ public class FacebookOAuthService {
             vaultService.storePageToken(fbPage.getId(), pageToken);
             log.debug("Page token stored in Vault for page: {}", fbPage.getId());
 
-            // Create or update PageEntity — this computes the token expiration date
+            // Create or update PageEntity - this computes the token expiration date
             PageEntity pageEntity = pageService.createOrUpdatePageFromFacebook(fbPage);
             log.info("Page entity created/updated: {} ({})", pageEntity.getName(), pageEntity.getId());
 
