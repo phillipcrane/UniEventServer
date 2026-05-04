@@ -134,3 +134,63 @@ export interface EventDetailsProps {
 export interface EventDescriptionProps {
   description: string | undefined;
 }
+
+/**
+ * Response from verifying an organizer key
+ * Received from: POST /api/auth/organizer-key/verify
+ */
+export type OrganizerKeyVerifyResponse = {
+    confirmationToken: string;  // JWT token, valid for 10 minutes
+    expiresIn: number;          // Expiration time in seconds (e.g., 600)
+    email: string;              // Email associated with this key
+};
+
+/**
+ * Request body for completing organizer registration with key
+ * Sent to: POST /api/auth/register-with-key
+ */
+export type OrganizerRegisterWithKeyRequest = {
+    confirmationToken: string;  // JWT token from Step 1
+    username: string;           // 3-50 chars
+    password: string;           // 12-100 chars minimum
+    email: string;              // Must match email from key verification
+};
+
+/**
+ * Request body for organizer key application
+ * Sent to: POST /api/auth/organizer-key-request
+ */
+export type OrganizerKeyRequestData = {
+    fullName: string;
+    email: string;
+    phone: string;
+    organization: string;
+    organizationFacebookPage: string;
+    personalFacebookProfile: string;
+    proofOfEligibility: string;
+    comment?: string;
+};
+
+/**
+ * Response after submitting organizer key request
+ */
+export type OrganizerKeyRequestResponse = {
+    message: string;
+};
+
+/**
+ * Request body for generating an organizer key (Admin only)
+ * Sent to: POST /api/auth/organizer-key/generate
+ */
+export type GenerateOrganizerKeyRequest = {
+    email: string;
+};
+
+/**
+ * Response from generating an organizer key
+ * Received from: POST /api/auth/organizer-key/generate
+ */
+export type GenerateOrganizerKeyResponse = {
+    message: string;
+    expiresIn: number;
+};

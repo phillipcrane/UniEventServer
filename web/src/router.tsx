@@ -29,6 +29,9 @@ const OrganizerSignupPage = lazy(() =>
 const BecomeOrganizerOnboardingPage = lazy(() =>
   import('./pages/BecomeOrganizerOnboardingPage.tsx').then(m => ({ default: m.BecomeOrganizerOnboardingPage }))
 );
+const GenerateOrganizerKeyPage = lazy(() =>
+  import('./pages/admin/GenerateOrganizerKeyPage.tsx').then(m => ({ default: m.GenerateOrganizerKeyPage }))
+);
 
 export const router = createBrowserRouter([
   {
@@ -70,6 +73,10 @@ export const router = createBrowserRouter([
   {
     path: '/organizer/onboarding',
     element: <Suspense fallback={null}><BecomeOrganizerOnboardingPage /></Suspense>,
+  },
+  {
+    path: '/admin/generate-organizer-key',
+    element: <GenerateOrganizerKeyPage />,
   },
   {
     path: '/profile',
