@@ -1,0 +1,79 @@
+.organizer-flow-card {
+    width: min(920px, 100%);
+}
+
+.organizer-flow-options {
+    margin-top: 1.4rem;
+    display: grid;
+    gap: 0.9rem;
+    grid-template-columns: 1fr;
+}
+
+.organizer-flow-option {
+    border-radius: 16px;
+    border: 1px solid var(--panel-border);
+    background: color-mix(in srgb, var(--panel-bg) 78%, var(--input-bg) 22%);
+    padding: 1rem;
+    display: grid;
+    gap: 0.55rem;
+}
+
+.organizer-flow-option h3 {
+    margin: 0.1rem 0 0;
+    color: var(--text-primary);
+    font-size: 1.05rem;
+    font-weight: 800;
+}
+
+.organizer-flow-option p {
+    margin: 0;
+    color: var(--text-subtle);
+    line-height: 1.5;
+    font-size: 0.92rem;
+}
+
+.organizer-flow-option-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--editor-step-icon-bg);
+    color: var(--text-primary);
+}
+
+.organizer-flow-btn {
+    margin-top: 0.35rem;
+}
+
+.organizer-flow-textarea {
+    resize: vertical;
+    min-height: 96px;
+    font-family: inherit;
+}
+
+.organizer-flow-link-btn {
+    text-decoration: none;
+    background: var(--panel-bg);
+    border-color: var(--panel-border);
+    color: var(--text-primary);
+}
+
+.organizer-flow-link-btn:hover {
+    text-decoration: none;
+}
+
+.signup-status-success {
+    color: var(--status-success);
+}
+
+html.dark .signup-status-success {
+    color: var(--status-success);
+}
+
+@media (min-width: 768px) {
+    .organizer-flow-options {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
