@@ -1,4 +1,4 @@
-package dk.unievent.app.tools.controller;
+package dk.unievent.app.api.controller;
 
 import dk.unievent.app.application.service.EventService;
 import dk.unievent.app.db.model.EventEntity;
@@ -20,7 +20,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @ExtendWith(MockitoExtension.class)
-class IngestControllerTests {
+class AdminIngestControllerTests {
 
     @Mock
     private EventService eventService;
@@ -29,7 +29,7 @@ class IngestControllerTests {
     private PageRepository pageRepository;
 
     @InjectMocks
-    private IngestController ingestController;
+    private AdminIngestController ingestController;
 
     private MockMvc mockMvc;
 

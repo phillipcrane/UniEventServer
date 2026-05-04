@@ -20,9 +20,14 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @SpringBootTest(classes = WebApplication.class, webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @ActiveProfiles("test")
-@TestPropertySource(properties = "spring.aop.auto=false")
+@TestPropertySource(properties = {
+        "spring.aop.auto=false",
+        "ADMIN_PASSWORD=admin-password-123456"
+})
 class SecurityIntegrationTests {
 
+    private static final String ADMIN_EMAIL = "cli@unievent.internal";
+    private static final String ADMIN_PASSWORD = "admin-password-123456";
     private static final String ACCESS_COOKIE = "auth_access";
     private static final String REFRESH_COOKIE = "auth_refresh";
     private static final String CSRF_COOKIE = "csrf_token";
@@ -104,12 +109,73 @@ class SecurityIntegrationTests {
     @Test
     void protectedAdminEndpointShouldRejectAnonymousRequests() throws Exception {
         HttpRequest request = HttpRequest.newBuilder()
-            .uri(URI.create(url("/admin/seed")))
+            .uri(URI.create(url("/admin/tools/refresh-tokens")))
             .POST(HttpRequest.BodyPublishers.noBody())
             .build();
 
         HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
         assertEquals(403, response.statusCode());
+    }
+
+    @Test
+    void adminFacebookEndpointsShouldRejectRegularUsers() throws Exception {
+        String suffix = String.valueOf(System.nanoTime());
+        AuthSession session = registerSession("adminregular" + suffix, "adminregular" + suffix + "@example.com");
+
+        HttpRequest request = HttpRequest.newBuilder()
+            .uri(URI.create(url("/admin/tools/refresh-tokens/missing-page")))
+            .header("Cookie", session.cookieHeader(ACCESS_COOKIE, CSRF_COOKIE))
+            .header(CSRF_HEADER, session.csrfToken())
+            .POST(HttpRequest.BodyPublishers.noBody())
+            .build();
+
+        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+        assertEquals(403, response.statusCode());
+    }
+
+    @Test
+    void adminFacebookPostEndpointsShouldRequireCsrf() throws Exception {
+        AuthSession session = loginSession(ADMIN_EMAIL, ADMIN_PASSWORD);
+
+        HttpRequest request = HttpRequest.newBuilder()
+            .uri(URI.create(url("/admin/tools/ingest/missing-page")))
+            .header("Cookie", session.cookieHeader(ACCESS_COOKIE, CSRF_COOKIE))
+            .POST(HttpRequest.BodyPublishers.noBody())
+            .build();
+
+        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+        assertEquals(403, response.statusCode());
+    }
+
+    @Test
+    void adminWithCsrfShouldReachManualFacebookEndpoints() throws Exception {
+        AuthSession session = loginSession(ADMIN_EMAIL, ADMIN_PASSWORD);
+
+        HttpRequest refreshRequest = HttpRequest.newBuilder()
+            .uri(URI.create(url("/admin/tools/refresh-tokens/missing-page")))
+            .header("Cookie", session.cookieHeader(ACCESS_COOKIE, CSRF_COOKIE))
+            .header(CSRF_HEADER, session.csrfToken())
+            .POST(HttpRequest.BodyPublishers.noBody())
+            .build();
+        HttpResponse<String> refreshResponse = httpClient.send(refreshRequest, HttpResponse.BodyHandlers.ofString());
+        assertEquals(404, refreshResponse.statusCode());
+
+        HttpRequest ingestRequest = HttpRequest.newBuilder()
+            .uri(URI.create(url("/admin/tools/ingest/missing-page")))
+            .header("Cookie", session.cookieHeader(ACCESS_COOKIE, CSRF_COOKIE))
+            .header(CSRF_HEADER, session.csrfToken())
+            .POST(HttpRequest.BodyPublishers.noBody())
+            .build();
+        HttpResponse<String> ingestResponse = httpClient.send(ingestRequest, HttpResponse.BodyHandlers.ofString());
+        assertEquals(404, ingestResponse.statusCode());
+
+        HttpRequest pagesRequest = HttpRequest.newBuilder()
+            .uri(URI.create(url("/admin/tools/pages")))
+            .header("Cookie", session.cookieHeader(ACCESS_COOKIE, CSRF_COOKIE))
+            .GET()
+            .build();
+        HttpResponse<String> pagesResponse = httpClient.send(pagesRequest, HttpResponse.BodyHandlers.ofString());
+        assertEquals(200, pagesResponse.statusCode());
     }
 
     @Test
@@ -267,6 +333,23 @@ class SecurityIntegrationTests {
         JsonNode payload = objectMapper.readTree(registerResponse.body());
         assertTrue(!payload.path("csrfToken").asText().isBlank());
         return AuthSession.from(registerResponse);
+    }
+
+    private AuthSession loginSession(String email, String password) throws Exception {
+        String loginJson = "{\"email\":\"" + email + "\",\"password\":\"" + password + "\"}";
+
+        HttpRequest loginRequest = HttpRequest.newBuilder()
+            .uri(URI.create(url("/api/auth/login")))
+            .header("Content-Type", "application/json")
+            .POST(HttpRequest.BodyPublishers.ofString(loginJson))
+            .build();
+
+        HttpResponse<String> loginResponse = httpClient.send(loginRequest, HttpResponse.BodyHandlers.ofString());
+        assertEquals(200, loginResponse.statusCode());
+
+        JsonNode payload = objectMapper.readTree(loginResponse.body());
+        assertTrue(!payload.path("csrfToken").asText().isBlank());
+        return AuthSession.from(loginResponse);
     }
 
     private record AuthSession(String accessToken, String refreshToken, String csrfToken) {

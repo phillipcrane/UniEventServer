@@ -1,10 +1,10 @@
-package dk.unievent.app.tools.controller;
+package dk.unievent.app.api.controller;
 
+import dk.unievent.app.api.dto.AdminIngestResponse;
 import dk.unievent.app.application.service.EventService;
 import dk.unievent.app.db.model.EventEntity;
 import dk.unievent.app.db.repository.PageRepository;
 import dk.unievent.app.infrastructure.exception.FacebookApiException;
-import dk.unievent.app.tools.models.IngestResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.extern.slf4j.Slf4j;
@@ -19,19 +19,18 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Manual trigger for Facebook event ingestion - same per-page flow the
- * FacebookIngestionScheduler runs every 12 hours, but scoped to one page.
+ * Manual admin trigger for Facebook event ingestion, scoped to one page.
  */
 @Slf4j
 @RestController
 @RequestMapping("/admin/tools/ingest")
 @Tag(name = "Admin Tools - Ingest", description = "Manually ingest Facebook events for one page")
-public class IngestController {
+public class AdminIngestController {
 
     private final EventService eventService;
     private final PageRepository pageRepository;
 
-    public IngestController(EventService eventService, PageRepository pageRepository) {
+    public AdminIngestController(EventService eventService, PageRepository pageRepository) {
         this.eventService = eventService;
         this.pageRepository = pageRepository;
     }
@@ -48,7 +47,7 @@ public class IngestController {
         try {
             List<EventEntity> events = eventService.ingestFacebookEvents(pageId);
             List<String> titles = events.stream().map(EventEntity::getTitle).toList();
-            return ResponseEntity.ok(new IngestResponse(pageId, events.size(), titles));
+            return ResponseEntity.ok(new AdminIngestResponse(pageId, events.size(), titles));
         } catch (FacebookApiException e) {
             log.error("Facebook API error during manual ingest for page: {}", pageId, e);
             return ResponseEntity.status(HttpStatus.BAD_GATEWAY).body(Map.of(

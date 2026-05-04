@@ -1,4 +1,4 @@
-package dk.unievent.app.tools.controller;
+package dk.unievent.app.api.controller;
 
 import dk.unievent.app.db.model.PageEntity;
 import dk.unievent.app.db.repository.PageRepository;
@@ -21,13 +21,13 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @ExtendWith(MockitoExtension.class)
-class PagesControllerTests {
+class AdminPagesControllerTests {
 
     @Mock
     private PageRepository pageRepository;
 
     @InjectMocks
-    private PagesController pagesController;
+    private AdminPagesController pagesController;
 
     private MockMvc mockMvc;
 

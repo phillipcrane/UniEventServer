@@ -1,9 +1,9 @@
-package dk.unievent.app.tools.controller;
+package dk.unievent.app.api.controller;
 
+import dk.unievent.app.application.dto.TokenRefreshResult;
+import dk.unievent.app.application.dto.TokenRefreshSummary;
+import dk.unievent.app.application.service.FacebookTokenRefreshService;
 import dk.unievent.app.db.repository.PageRepository;
-import dk.unievent.app.tools.models.RefreshResult;
-import dk.unievent.app.tools.models.RefreshSummary;
-import dk.unievent.app.tools.services.TokenRefreshService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -18,16 +18,16 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @ExtendWith(MockitoExtension.class)
-class TokenRefreshControllerTests {
+class AdminTokenRefreshControllerTests {
 
     @Mock
-    private TokenRefreshService tokenRefreshService;
+    private FacebookTokenRefreshService tokenRefreshService;
 
     @Mock
     private PageRepository pageRepository;
 
     @InjectMocks
-    private TokenRefreshController controller;
+    private AdminTokenRefreshController controller;
 
     private MockMvc mockMvc;
 
@@ -38,7 +38,7 @@ class TokenRefreshControllerTests {
 
     @Test
     void refreshAllShouldReturn200WithSummary() throws Exception {
-        when(tokenRefreshService.refreshAllForce()).thenReturn(new RefreshSummary(3, 1, 420L));
+        when(tokenRefreshService.refreshAllForce()).thenReturn(new TokenRefreshSummary(3, 1, 420L));
 
         mockMvc.perform(post("/admin/tools/refresh-tokens"))
             .andExpect(status().isOk())
@@ -59,7 +59,7 @@ class TokenRefreshControllerTests {
     void refreshOneShouldReturn200OnSuccess() throws Exception {
         when(pageRepository.existsById("page-1")).thenReturn(true);
         when(tokenRefreshService.refreshOne("page-1"))
-            .thenReturn(new RefreshResult("page-1", true, "Token refreshed"));
+            .thenReturn(new TokenRefreshResult("page-1", true, "Token refreshed"));
 
         mockMvc.perform(post("/admin/tools/refresh-tokens/page-1"))
             .andExpect(status().isOk())
@@ -71,7 +71,7 @@ class TokenRefreshControllerTests {
     void refreshOneShouldReturn500OnFailure() throws Exception {
         when(pageRepository.existsById("page-1")).thenReturn(true);
         when(tokenRefreshService.refreshOne("page-1"))
-            .thenReturn(new RefreshResult("page-1", false, "Facebook API error: OAuthException (status 401)"));
+            .thenReturn(new TokenRefreshResult("page-1", false, "Facebook API error: OAuthException (status 401)"));
 
         mockMvc.perform(post("/admin/tools/refresh-tokens/page-1"))
             .andExpect(status().isInternalServerError())

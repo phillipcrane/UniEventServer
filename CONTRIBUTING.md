@@ -85,7 +85,7 @@ UniEventServer/
 │   │   │   │   ├── exception/
 │   │   │   │   ├── filter/
 │   │   │   │   └── security/
-│   │   │   └── tools/            # Admin CLI endpoints (@Profile("dev"))
+│   │   │   └── tools/            # Dev-only local admin helpers
 │   │   │       ├── controller/
 │   │   │       ├── models/
 │   │   │       └── services/
@@ -185,7 +185,7 @@ Data Layer:
 Infrastructure Layer:
 - **`/config/`** - Spring config beans
 - **`/exception/`** - one `RuntimeException` subclass per failure case
-- **`tools/`** - `@Profile("dev")` admin endpoints only; never ships to production
+- **`tools/`** - `@Profile("dev")` local helpers only; production admin endpoints live in the API layer
 
 ---
 
@@ -252,16 +252,16 @@ Infrastructure Layer:
 | Method | Path | Purpose |
 |--------|------|---------|
 | `POST` | `/api/auth/organizer-key/generate` | Generate organizer invite |
+| `GET` | `/admin/tools/pages` | List all tracked pages with token status |
+| `POST` | `/admin/tools/ingest/{pageId}` | Manually ingest Facebook events for a page |
+| `POST` | `/admin/tools/refresh-tokens` | Refresh tokens for all pages |
+| `POST` | `/admin/tools/refresh-tokens/{pageId}` | Refresh token for one page |
 
 **Dev profile only (`@Profile("dev")`) - not available in production:**
 | Method | Path | Purpose |
 |--------|------|---------|
-| `POST` | `/admin/tools/ingest/{pageId}` | Manually ingest Facebook events for a page |
-| `GET` | `/admin/tools/pages` | List all tracked pages with token status |
 | `POST` | `/admin/tools/seed` | Seed test data |
 | `DELETE` | `/admin/tools/seed` | Clear seeded test data |
-| `POST` | `/admin/tools/refresh-tokens` | Refresh tokens for all pages |
-| `POST` | `/admin/tools/refresh-tokens/{pageId}` | Refresh token for one page |
 
 ## TODO
 
@@ -272,7 +272,7 @@ Backend
 - [in progress] Auto Facebook token refresh
 - [x] Persist likes to backend (`/api/users/me/likes`)
 - [x] Migrate schema to Flyway - `ddl-auto` is now `validate`; any schema change needs a Flyway migration file before deploy
-- [ ] Add manual ADMIN endpoint for Facebook token refresh and page ingestion (non-dev profile)
+- [x] Add manual ADMIN endpoint for Facebook token refresh and page ingestion (non-dev profile)
 - [ ] PicoCLI for proper tool CLI
 - [ ] DB: Quartz scheduler
 

@@ -1,13 +1,10 @@
-package dk.unievent.app.tools.services;
+package dk.unievent.app.application.service;
 
 import dk.unievent.app.api.dto.FbLongLivedTokenResponse;
-import dk.unievent.app.application.service.FacebookGraphApiService;
-import dk.unievent.app.application.service.PageService;
-import dk.unievent.app.application.service.VaultService;
+import dk.unievent.app.application.dto.TokenRefreshResult;
+import dk.unievent.app.application.dto.TokenRefreshSummary;
 import dk.unievent.app.db.model.PageEntity;
 import dk.unievent.app.infrastructure.exception.FacebookApiException;
-import dk.unievent.app.tools.models.RefreshResult;
-import dk.unievent.app.tools.models.RefreshSummary;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -24,7 +21,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
-class TokenRefreshServiceTests {
+class FacebookTokenRefreshServiceTests {
 
     @Mock
     private PageService pageService;
@@ -36,16 +33,16 @@ class TokenRefreshServiceTests {
     private VaultService vaultService;
 
     @InjectMocks
-    private TokenRefreshService tokenRefreshService;
+    private FacebookTokenRefreshService tokenRefreshService;
 
     @Test
     void refreshOneShouldReturnFailureWhenNoTokenInVault() {
         when(vaultService.getPageToken("page-1")).thenReturn(Optional.empty());
 
-        RefreshResult result = tokenRefreshService.refreshOne("page-1");
+        TokenRefreshResult result = tokenRefreshService.refreshOne("page-1");
 
-        assertFalse(result.isSuccess());
-        assertEquals("No token found in Vault", result.getMessage());
+        assertFalse(result.success());
+        assertEquals("No token found in Vault", result.message());
         verify(pageService).logRefreshFailure("page-1", "No token found in Vault");
     }
 
@@ -57,10 +54,10 @@ class TokenRefreshServiceTests {
         when(vaultService.getPageToken("page-1")).thenReturn(Optional.of("old-token"));
         when(facebookGraphApiService.refreshPageToken("old-token")).thenReturn(response);
 
-        RefreshResult result = tokenRefreshService.refreshOne("page-1");
+        TokenRefreshResult result = tokenRefreshService.refreshOne("page-1");
 
-        assertTrue(result.isSuccess());
-        assertEquals("Token refreshed", result.getMessage());
+        assertTrue(result.success());
+        assertEquals("Token refreshed", result.message());
         verify(vaultService).updatePageToken("page-1", "new-token");
         verify(pageService).refreshToken("page-1");
     }
@@ -71,10 +68,10 @@ class TokenRefreshServiceTests {
         when(facebookGraphApiService.refreshPageToken("old-token"))
             .thenThrow(new FacebookApiException("Token invalid", 401, "OAuthException"));
 
-        RefreshResult result = tokenRefreshService.refreshOne("page-1");
+        TokenRefreshResult result = tokenRefreshService.refreshOne("page-1");
 
-        assertFalse(result.isSuccess());
-        assertTrue(result.getMessage().contains("OAuthException"));
+        assertFalse(result.success());
+        assertTrue(result.message().contains("OAuthException"));
         verify(pageService).logRefreshFailure(eq("page-1"), anyString());
     }
 
@@ -82,10 +79,10 @@ class TokenRefreshServiceTests {
     void refreshOneShouldReturnFailureOnUnexpectedException() {
         when(vaultService.getPageToken("page-1")).thenThrow(new RuntimeException("Vault down"));
 
-        RefreshResult result = tokenRefreshService.refreshOne("page-1");
+        TokenRefreshResult result = tokenRefreshService.refreshOne("page-1");
 
-        assertFalse(result.isSuccess());
-        assertEquals("Vault down", result.getMessage());
+        assertFalse(result.success());
+        assertEquals("Vault down", result.message());
     }
 
     @Test
@@ -101,10 +98,10 @@ class TokenRefreshServiceTests {
         when(vaultService.getPageToken(any())).thenReturn(Optional.of("current-token"));
         when(facebookGraphApiService.refreshPageToken("current-token")).thenReturn(response);
 
-        RefreshSummary summary = tokenRefreshService.refreshAllForce();
+        TokenRefreshSummary summary = tokenRefreshService.refreshAllForce();
 
-        assertEquals(2, summary.getRefreshedCount());
-        assertEquals(0, summary.getFailedCount());
+        assertEquals(2, summary.refreshedCount());
+        assertEquals(0, summary.failedCount());
     }
 
     @Test
@@ -119,9 +116,9 @@ class TokenRefreshServiceTests {
         when(vaultService.getPageToken("p1")).thenReturn(Optional.of("old-token"));
         when(facebookGraphApiService.refreshPageToken("old-token")).thenReturn(response);
 
-        RefreshSummary summary = tokenRefreshService.refreshAll();
+        TokenRefreshSummary summary = tokenRefreshService.refreshAll();
 
-        assertEquals(1, summary.getRefreshedCount());
-        assertEquals(0, summary.getFailedCount());
+        assertEquals(1, summary.refreshedCount());
+        assertEquals(0, summary.failedCount());
     }
 }
