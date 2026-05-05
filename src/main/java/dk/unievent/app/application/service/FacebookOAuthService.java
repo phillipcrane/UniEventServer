@@ -4,7 +4,7 @@ import dk.unievent.app.api.dto.FbLongLivedTokenResponse;
 import dk.unievent.app.api.dto.FbPageResponse;
 import dk.unievent.app.api.dto.FbShortLivedTokenResponse;
 import dk.unievent.app.db.model.PageEntity;
-import dk.unievent.app.infrastructure.config.FacebookApiConstants;
+import dk.unievent.app.infrastructure.constants.FacebookApiConstants;
 import dk.unievent.app.infrastructure.exception.FacebookApiException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;

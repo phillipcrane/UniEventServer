@@ -12,6 +12,9 @@ resilience4j:
       register:
         limitForPeriod: 50
         limitRefreshPeriod: 1h
+      csrf-token:
+        limitForPeriod: 100
+        limitRefreshPeriod: 1h
       verify-organizer-key:
         limitForPeriod: 50
         limitRefreshPeriod: 1h

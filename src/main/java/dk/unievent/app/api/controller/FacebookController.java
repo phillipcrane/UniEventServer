@@ -2,8 +2,8 @@ package dk.unievent.app.api.controller;
 
 import dk.unievent.app.application.service.FacebookOAuthService;
 import dk.unievent.app.db.model.PageEntity;
-import dk.unievent.app.infrastructure.config.FacebookApiConstants;
 import dk.unievent.app.infrastructure.config.FacebookConfig;
+import dk.unievent.app.infrastructure.constants.FacebookApiConstants;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;

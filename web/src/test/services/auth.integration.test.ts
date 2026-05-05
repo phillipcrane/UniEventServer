@@ -43,6 +43,10 @@ function emptyResponse(status = 204, headers: HeadersInit = {}): Response {
     return new Response(null, { status, headers });
 }
 
+function csrfResponse(token: string): Response {
+    return jsonResponse({ csrfToken: token });
+}
+
 function lastFetchCall(): [string, RequestInit] {
     return mockFetch.mock.lastCall as [string, RequestInit];
 }
@@ -65,6 +69,7 @@ describe('frontend auth integration flow', () => {
 
     describe('loginWithEmail', () => {
         it('calls the login endpoint with credentials and stores the CSRF token in memory', async () => {
+            mockFetch.mockResolvedValueOnce(csrfResponse('bootstrap-csrf-token'));
             mockFetch.mockResolvedValueOnce(jsonResponse(authResponse({
                 username: 'alice',
                 email: 'alice@example.com',
@@ -99,6 +104,7 @@ describe('frontend auth integration flow', () => {
         });
 
         it('returns the stored token after login', async () => {
+            mockFetch.mockResolvedValueOnce(csrfResponse('bootstrap-csrf-token'));
             mockFetch.mockResolvedValueOnce(jsonResponse(authResponse({ csrfToken: 'stored-csrf-token' })));
 
             await loginWithEmail('alice@example.com', 'secret123');
@@ -119,6 +125,7 @@ describe('frontend auth integration flow', () => {
         });
 
         it('includes X-CSRF-Token for POST requests after login and always includes credentials', async () => {
+            mockFetch.mockResolvedValueOnce(csrfResponse('bootstrap-csrf-token'));
             mockFetch.mockResolvedValueOnce(jsonResponse(authResponse({ csrfToken: 'post-csrf-token' })));
             await loginWithEmail('alice@example.com', 'secret123');
             mockFetch.mockResolvedValueOnce(jsonResponse({ id: 'event-1' }));
@@ -136,6 +143,7 @@ describe('frontend auth integration flow', () => {
         });
 
         it('refreshes the session and retries once when an API call returns 401', async () => {
+            mockFetch.mockResolvedValueOnce(csrfResponse('bootstrap-csrf-token'));
             mockFetch.mockResolvedValueOnce(jsonResponse(authResponse({ csrfToken: 'initial-csrf-token' })));
             await loginWithEmail('alice@example.com', 'secret123');
             mockFetch.mockResolvedValueOnce(jsonResponse({ message: 'Access token expired.' }, 401));
@@ -148,9 +156,9 @@ describe('frontend auth integration flow', () => {
             });
 
             expect(response.status).toBe(201);
-            expect(mockFetch).toHaveBeenCalledTimes(4);
-            const refreshCall = mockFetch.mock.calls[2] as [string, RequestInit];
-            const retriedCall = mockFetch.mock.calls[3] as [string, RequestInit];
+            expect(mockFetch).toHaveBeenCalledTimes(5);
+            const refreshCall = mockFetch.mock.calls[3] as [string, RequestInit];
+            const retriedCall = mockFetch.mock.calls[4] as [string, RequestInit];
             expect(refreshCall[0]).toContain('/api/auth/refresh');
             expect(headersFrom(refreshCall[1]).get('X-CSRF-Token')).toBe('initial-csrf-token');
             expect(retriedCall[0]).toBe('/api/events');
@@ -160,6 +168,7 @@ describe('frontend auth integration flow', () => {
 
         it('clears the session when a protected request fails CSRF validation', async () => {
             window.history.pushState({}, '', '/login');
+            mockFetch.mockResolvedValueOnce(csrfResponse('bootstrap-csrf-token'));
             mockFetch.mockResolvedValueOnce(jsonResponse(authResponse({ csrfToken: 'csrf-token' })));
             await loginWithEmail('alice@example.com', 'secret123');
             mockFetch.mockResolvedValueOnce(jsonResponse({ message: 'CSRF token validation failed' }, 403));
@@ -178,6 +187,7 @@ describe('frontend auth integration flow', () => {
 
     describe('logout', () => {
         it('calls the logout endpoint and clears the in-memory CSRF token while the server clears cookies', async () => {
+            mockFetch.mockResolvedValueOnce(csrfResponse('bootstrap-csrf-token'));
             mockFetch.mockResolvedValueOnce(jsonResponse(authResponse({ csrfToken: 'logout-csrf-token' })));
             await loginWithEmail('alice@example.com', 'secret123');
             document.cookie = 'csrf_token=logout-csrf-token; Path=/';
@@ -203,6 +213,7 @@ describe('frontend auth integration flow', () => {
 
     describe('refreshSession', () => {
         it('updates the CSRF token and returns true on success', async () => {
+            mockFetch.mockResolvedValueOnce(csrfResponse('bootstrap-csrf-token'));
             mockFetch.mockResolvedValueOnce(jsonResponse(authResponse({ csrfToken: 'initial-csrf-token' })));
             await loginWithEmail('alice@example.com', 'secret123');
             mockFetch.mockResolvedValueOnce(jsonResponse(authResponse({
@@ -223,6 +234,7 @@ describe('frontend auth integration flow', () => {
         });
 
         it('returns false on failure and clears state for unauthorized refresh responses', async () => {
+            mockFetch.mockResolvedValueOnce(csrfResponse('bootstrap-csrf-token'));
             mockFetch.mockResolvedValueOnce(jsonResponse(authResponse({ csrfToken: 'initial-csrf-token' })));
             await loginWithEmail('alice@example.com', 'secret123');
             mockFetch.mockResolvedValueOnce(jsonResponse({ message: 'Unauthorized' }, 401));

@@ -5,8 +5,8 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import jakarta.validation.constraints.*;
+import dk.unievent.app.infrastructure.constants.ValidationConstants;
 import jakarta.validation.Valid;
-import dk.unievent.app.infrastructure.config.ValidationConstants;
 
 @Getter
 @Setter

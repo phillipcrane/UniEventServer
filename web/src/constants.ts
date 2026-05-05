@@ -6,6 +6,7 @@ export const CSRF_COOKIE_NAME = 'csrf_token';
 export const BACKEND_URL = import.meta.env.VITE_BACKEND_URL ?? '';
 
 export const API_AUTH_LOGIN = '/api/auth/login';
+export const API_AUTH_CSRF_TOKEN = '/api/auth/csrf-token';
 export const API_AUTH_REGISTER = '/api/auth/register';
 export const API_AUTH_REGISTER_WITH_KEY = '/api/auth/register-with-key';
 export const API_AUTH_ORGANIZER_KEY_VERIFY = '/api/auth/organizer-key/verify';

@@ -1,4 +1,5 @@
-﻿import { CSRF_COOKIE_NAME } from '../constants';
+﻿import { API_AUTH_CSRF_TOKEN, BACKEND_URL, CSRF_COOKIE_NAME } from '../constants';
+import { createHttpError } from '../utils/authUtils';
 
 let csrfToken: string | null = null;
 
@@ -11,6 +12,35 @@ export function getCsrfToken(): string {
 
 export function setCsrfToken(token: string | null): void {
   csrfToken = token ?? '';
+}
+
+export async function fetchCsrfToken(): Promise<string> {
+  const response = await fetch(`${BACKEND_URL}${API_AUTH_CSRF_TOKEN}`, {
+    method: 'GET',
+    credentials: 'include',
+  });
+
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({})) as Record<string, unknown>;
+    throw createHttpError(
+      response.status,
+      (body['message'] as string | undefined) ?? response.statusText,
+    );
+  }
+
+  const data = await response.json() as { csrfToken?: string };
+  const token = typeof data.csrfToken === 'string' ? data.csrfToken : '';
+  setCsrfToken(token);
+  return token;
+}
+
+export async function ensureCsrfToken(): Promise<string> {
+  const existing = getCsrfToken();
+  if (existing) {
+    return existing;
+  }
+
+  return fetchCsrfToken();
 }
 
 export function resetCsrfTokenForTesting(): void {

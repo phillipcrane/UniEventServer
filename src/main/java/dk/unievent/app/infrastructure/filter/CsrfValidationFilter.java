@@ -69,16 +69,11 @@ public class CsrfValidationFilter extends OncePerRequestFilter {
             return false;
         }
 
-        // The refresh endpoint authenticates via the refresh cookie alone and must
-        // work on page reload before any CSRF token exists in memory. A stale access
-        // cookie must not trigger CSRF validation here and block the bootstrap refresh.
-        if ("/api/auth/refresh".equals(request.getRequestURI())) {
+        if ("/api/auth/refresh".equals(request.getRequestURI()) || "/api/auth/csrf-token".equals(request.getRequestURI())) {
             return false;
         }
 
-        // Only validate when the access cookie is present (authenticated session).
-        Cookie accessCookie = WebUtils.getCookie(request, cookieConfig.getAccessName());
-        return accessCookie != null;
+        return true;
     }
 
     private boolean isSafeMethod(String method) {

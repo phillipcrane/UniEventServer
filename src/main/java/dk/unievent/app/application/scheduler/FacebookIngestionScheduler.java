@@ -4,7 +4,7 @@ import dk.unievent.app.application.service.EventService;
 import dk.unievent.app.application.service.PageService;
 import dk.unievent.app.application.service.VaultService;
 import dk.unievent.app.application.dto.PageDTO;
-import dk.unievent.app.infrastructure.config.SchedulingConstants;
+import dk.unievent.app.infrastructure.constants.SchedulingConstants;
 import dk.unievent.app.infrastructure.exception.FacebookApiException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;

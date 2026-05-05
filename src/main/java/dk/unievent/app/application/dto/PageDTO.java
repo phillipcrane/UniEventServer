@@ -4,8 +4,8 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import dk.unievent.app.infrastructure.constants.ValidationConstants;
 import jakarta.validation.constraints.*;
-import dk.unievent.app.infrastructure.config.ValidationConstants;
 
 /**
  * Data Transfer Object for Pages - what the frontend receives

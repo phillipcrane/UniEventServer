@@ -371,21 +371,28 @@ function Get-AdminSession {
     # Create a WebSession so auth cookies from the login response are auto-sent on subsequent requests.
     $webSession = New-Object Microsoft.PowerShell.Commands.WebRequestSession
     try {
+        # Login now requires CSRF protection, so bootstrap the cookie/token first.
+        $csrfResp = Invoke-Web -Uri "$BaseUrl/api/auth/csrf-token" -Method "GET" -TimeoutSec 15 -WebSession $webSession
+        $csrfToken = ($csrfResp.Content | ConvertFrom-Json).csrfToken
+        if (-not $csrfToken) {
+            throw "CSRF bootstrap response contained no csrfToken."
+        }
+
         $resp      = Invoke-Web -Uri "$BaseUrl/api/auth/login" -Method "POST" `
-            -Headers @{ "Content-Type" = "application/json" } -Body $loginBody -TimeoutSec 15 -WebSession $webSession
-        $csrfToken = ($resp.Content | ConvertFrom-Json).csrfToken
+            -Headers @{ "Content-Type" = "application/json"; "X-CSRF-Token" = $csrfToken } -Body $loginBody -TimeoutSec 15 -WebSession $webSession
+        $loginCsrfToken = ($resp.Content | ConvertFrom-Json).csrfToken
     } catch {
         Write-Err "Could not authenticate CLI service account: $($_.Exception.Message)"
         Write-Warn "Ensure the server is running and ADMIN_PASSWORD matches what the server was started with."
         exit 1
     }
 
-    if (-not $csrfToken) {
+    if (-not $loginCsrfToken) {
         Write-Err "Login succeeded but response contained no csrfToken - check server logs"
         exit 1
     }
 
-    $session = @{ WebSession = $webSession; CsrfToken = $csrfToken }
+    $session = @{ WebSession = $webSession; CsrfToken = $loginCsrfToken }
     $script:_adminSessionByBaseUrl[$BaseUrl] = $session
     return $session
 }

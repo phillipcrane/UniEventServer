@@ -68,6 +68,17 @@ class CsrfValidationFilterTests {
     }
 
     @Test
+    void csrfTokenEndpointShouldBypassCsrfValidation() throws Exception {
+        request.setMethod("GET");
+        request.setRequestURI("/api/auth/csrf-token");
+
+        filter.doFilter(request, response, filterChain);
+
+        verify(filterChain).doFilter(request, response);
+        verifyNoInteractions(csrfTokenService);
+    }
+
+    @Test
     void postRequestsShouldPassWithValidCsrfToken() throws Exception {
         request.setMethod("POST");
         request.setCookies(
@@ -83,6 +94,20 @@ class CsrfValidationFilterTests {
         filter.doFilter(request, response, filterChain);
 
         verify(filterChain).doFilter(request, response);
+        assertEquals(200, response.getStatus());
+    }
+
+    @Test
+    void postRequestsWithoutAccessCookieShouldStillValidateCsrf() throws Exception {
+        request.setMethod("POST");
+        request.setCookies(new jakarta.servlet.http.Cookie("csrf_token", "cookie-token"));
+        request.addHeader("X-CSRF-Token", "header-token");
+        when(csrfTokenService.validateToken("header-token", "cookie-token")).thenReturn(true);
+
+        filter.doFilter(request, response, filterChain);
+
+        verify(filterChain).doFilter(request, response);
+        verify(csrfTokenService).validateToken("header-token", "cookie-token");
         assertEquals(200, response.getStatus());
     }
 
@@ -144,14 +169,15 @@ class CsrfValidationFilterTests {
     }
 
     @Test
-    void unauthenticatedRequestsShouldBypassCsrfValidation() throws Exception {
+    void unauthenticatedRequestsShouldStillRequireCsrfValidation() throws Exception {
         request.setMethod("POST");
         request.setCookies(new jakarta.servlet.http.Cookie("csrf_token", "cookie-token"));
-        request.addHeader("X-CSRF-Token", "header-token");
+        when(csrfTokenService.validateToken(isNull(), eq("cookie-token"))).thenReturn(false);
 
         filter.doFilter(request, response, filterChain);
 
-        verify(filterChain).doFilter(request, response);
-        verifyNoInteractions(csrfTokenService);
+        verifyNoInteractions(filterChain);
+        verify(csrfTokenService).validateToken(isNull(), eq("cookie-token"));
+        assertEquals(403, response.getStatus());
     }
 }

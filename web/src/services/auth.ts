@@ -17,7 +17,7 @@ import type { AccountRole, AuthApiResponse, SignupRequest, User,
     OrganizerRegisterWithKeyRequest,
 } from '../types';
 import { createHttpError } from '../utils/authUtils';
-import { getCsrfToken, resetCsrfTokenForTesting, setCsrfToken } from './csrf';
+import { ensureCsrfToken, getCsrfToken, resetCsrfTokenForTesting, setCsrfToken } from './csrf';
 import { apiCall } from './http';
 import { sanitizeErrorMessage } from '../utils/securityUtils';
 
@@ -181,6 +181,7 @@ export function getCurrentUser(): User | null {
 }
 
 export async function loginWithEmail(email: string, password: string): Promise<AuthUser> {
+  await ensureCsrfToken();
   const response = await apiCall(`${BACKEND_URL}${API_AUTH_LOGIN}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -209,6 +210,7 @@ export async function loginWithEmail(email: string, password: string): Promise<A
 }
 
 export async function signupWithEmail({ username, email, password, role, confirmationToken, organizerNames }: SignupInput): Promise<AuthUser> {
+  await ensureCsrfToken();
   const response = await apiCall(`${BACKEND_URL}${confirmationToken ? API_AUTH_REGISTER_WITH_KEY : API_AUTH_REGISTER}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -394,6 +396,7 @@ export async function verifyOrganizerKey(key: string): Promise<OrganizerKeyVerif
 export async function registerOrganizerWithKey(
     data: OrganizerRegisterWithKeyRequest
 ): Promise<AuthUser> {
+  await ensureCsrfToken();
   const response = await apiCall(`${BACKEND_URL}/api/auth/register-with-key`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

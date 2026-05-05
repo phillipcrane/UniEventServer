@@ -148,6 +148,19 @@ class AuthControllerIntegrationTest {
     }
 
     @Test
+        void csrfTokenEndpointShouldIssueTokenAndCookie() throws Exception {
+        when(csrfTokenService.generateToken()).thenReturn("bootstrap-csrf-token");
+
+        MvcResult result = mockMvc.perform(get("/api/auth/csrf-token"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.csrfToken").value("bootstrap-csrf-token"))
+            .andReturn();
+
+        List<String> setCookieHeaders = result.getResponse().getHeaders(HttpHeaders.SET_COOKIE);
+        assertCookieHeader(setCookieHeaders, CSRF_COOKIE, "bootstrap-csrf-token", 3_600, false);
+        }
+
+        @Test
     void loginShouldSetAuthCookiesAndReturnCsrfToken() throws Exception {
         UserDetailsAdapter principal = new UserDetailsAdapter(testUser);
         UsernamePasswordAuthenticationToken authentication =
@@ -155,9 +168,20 @@ class AuthControllerIntegrationTest {
 
         when(authenticationManager.authenticate(any(UsernamePasswordAuthenticationToken.class))).thenReturn(authentication);
         when(refreshTokenService.issueTokenPair(testUser)).thenReturn(tokenPair);
-        when(csrfTokenService.generateToken()).thenReturn("login-csrf-token");
+
+        when(csrfTokenService.generateToken()).thenReturn("bootstrap-csrf-token", "login-csrf-token");
+        when(csrfTokenService.validateToken("bootstrap-csrf-token", "bootstrap-csrf-token")).thenReturn(true);
+
+        MvcResult csrfResult = mockMvc.perform(get("/api/auth/csrf-token"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.csrfToken").value("bootstrap-csrf-token"))
+            .andReturn();
+
+        assertCookieHeader(csrfResult.getResponse().getHeaders(HttpHeaders.SET_COOKIE), CSRF_COOKIE, "bootstrap-csrf-token", 3_600, false);
 
         MvcResult result = mockMvc.perform(post("/api/auth/login")
+                .cookie(new Cookie(CSRF_COOKIE, "bootstrap-csrf-token"))
+                .header(CSRF_HEADER, "bootstrap-csrf-token")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"email":"test@example.com","password":"password123456"}

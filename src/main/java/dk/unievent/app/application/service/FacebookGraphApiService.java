@@ -1,8 +1,8 @@
 package dk.unievent.app.application.service;
 
 import dk.unievent.app.api.dto.*;
-import dk.unievent.app.infrastructure.config.FacebookApiConstants;
 import dk.unievent.app.infrastructure.config.FacebookConfig;
+import dk.unievent.app.infrastructure.constants.FacebookApiConstants;
 import dk.unievent.app.infrastructure.exception.FacebookApiException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;

@@ -19,7 +19,6 @@ import dk.unievent.app.infrastructure.config.CookieConfig;
 import dk.unievent.app.infrastructure.security.UserDetailsAdapter;
 import dk.unievent.app.application.service.EmailService;
 import dk.unievent.app.infrastructure.config.RoleConstants;
-import dk.unievent.app.infrastructure.exception.UnauthorizedTokenException;
 import io.github.resilience4j.ratelimiter.RequestNotPermitted;
 import io.github.resilience4j.ratelimiter.annotation.RateLimiter;
 import io.swagger.v3.oas.annotations.Operation;
@@ -51,6 +50,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.util.WebUtils;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -82,6 +82,19 @@ public class AuthController {
         String csrfToken = csrfTokenService.generateToken();
         writeAuthCookies(response, tokenPair, csrfToken);
         return ResponseEntity.ok(buildAuthResponse(user, tokenPair, csrfToken));
+    }
+
+    @GetMapping("/csrf-token")
+    @RateLimiter(name = "csrf-token", fallbackMethod = "csrfTokenFallback")
+    @Operation(summary = "Get CSRF token", description = "Issue a CSRF token and cookie for unauthenticated clients before login or registration")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "CSRF token issued"),
+            @ApiResponse(responseCode = "429", description = "Too many requests")
+    })
+    public ResponseEntity<Map<String, String>> getCsrfToken(HttpServletResponse response) {
+        String csrfToken = csrfTokenService.generateToken();
+        addCookie(response, cookieConfig.getCsrfName(), csrfToken, cookieConfig.getCsrfMaxAge(), false);
+        return ResponseEntity.ok(Map.of("csrfToken", csrfToken));
     }
 
     @PostMapping("/login")
@@ -313,6 +326,11 @@ public class AuthController {
     }
 
     public ResponseEntity<AuthResponse> registerFallback(RegisterRequest request, HttpServletResponse response, Exception ex) {
+        rethrowIfNotRateLimited(ex);
+        return ResponseEntity.status(429).body(null);
+    }
+
+    public ResponseEntity<Map<String, String>> csrfTokenFallback(HttpServletResponse response, Exception ex) {
         rethrowIfNotRateLimited(ex);
         return ResponseEntity.status(429).body(null);
     }
