@@ -11,6 +11,7 @@ import dk.unievent.app.infrastructure.exception.OrganizerKeyAlreadyUsedException
 import dk.unievent.app.infrastructure.exception.OrganizerKeyExpiredException;
 import dk.unievent.app.infrastructure.exception.OrganizerKeyNotFoundException;
 import dk.unievent.app.infrastructure.exception.UsernameAlreadyTakenException;
+import dk.unievent.app.infrastructure.config.RoleConstants;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import lombok.RequiredArgsConstructor;
@@ -153,6 +154,42 @@ public class OrganizerKeyService {
         log.info("Completed organizer registration for email: {}", email);
 
         return organizer;
+    }
+
+    /**
+     * Upgrades an already-authenticated user's role to organizer using a confirmation token.
+     * The key's email must match the authenticated user's email.
+     */
+    @Transactional
+    public UserEntity upgradeToOrganizer(String confirmationToken, String authenticatedEmail) {
+        Long keyId = validateConfirmationToken(confirmationToken);
+
+        OrganizerKeyEntity keyEntity = organizerKeyRepository.findById(keyId)
+                .orElseThrow(OrganizerKeyNotFoundException::new);
+
+        if (keyEntity.getUsedAt() != null) {
+            throw new OrganizerKeyAlreadyUsedException();
+        }
+
+        if (Instant.now().isAfter(keyEntity.getExpiresAt())) {
+            throw new OrganizerKeyExpiredException();
+        }
+
+        if (!keyEntity.getEmail().equalsIgnoreCase(authenticatedEmail)) {
+            throw new IllegalArgumentException("The invitation key was not issued for this account.");
+        }
+
+        UserEntity user = userRepository.findByEmail(authenticatedEmail)
+                .orElseThrow(() -> new IllegalStateException("Authenticated user not found"));
+
+        user.setRole(RoleConstants.ORGANIZER);
+        userRepository.save(user);
+
+        keyEntity.setUsedAt(Instant.now());
+        organizerKeyRepository.save(keyEntity);
+
+        log.info("Upgraded user to organizer: {}", authenticatedEmail);
+        return user;
     }
 
     /**

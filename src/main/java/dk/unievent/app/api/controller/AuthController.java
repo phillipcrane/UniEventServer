@@ -15,6 +15,7 @@ import dk.unievent.app.api.dto.OrganizerKeyVerifyResponse;
 import dk.unievent.app.api.dto.OrganizerRegisterWithKeyRequest;
 import dk.unievent.app.api.dto.GenerateOrganizerKeyRequest;
 import dk.unievent.app.api.dto.GenerateOrganizerKeyResponse;
+import dk.unievent.app.api.dto.UpgradeToOrganizerRequest;
 import dk.unievent.app.infrastructure.config.CookieConfig;
 import dk.unievent.app.infrastructure.security.UserDetailsAdapter;
 import dk.unievent.app.application.service.EmailService;
@@ -212,6 +213,29 @@ public class AuthController {
         return ResponseEntity.ok(response);
     }
 
+    @PostMapping("/organizer-key/upgrade")
+    @RateLimiter(name = "upgrade-organizer", fallbackMethod = "upgradeOrganizerFallback")
+    @Operation(summary = "Upgrade existing account to organizer", description = "Upgrade an already-authenticated user account to organizer role using a confirmation token from key verification")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Account upgraded to organizer", content = @Content(schema = @Schema(implementation = AuthResponse.class))),
+            @ApiResponse(responseCode = "400", description = "Invalid request body or key email mismatch"),
+            @ApiResponse(responseCode = "401", description = "Not authenticated or confirmation token invalid/expired"),
+            @ApiResponse(responseCode = "410", description = "Invitation key already used")
+    })
+    public ResponseEntity<AuthResponse> upgradeToOrganizer(
+            @Valid @RequestBody UpgradeToOrganizerRequest request,
+            Authentication auth,
+            HttpServletResponse response) {
+        if (auth == null || auth instanceof AnonymousAuthenticationToken) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        UserEntity user = organizerKeyService.upgradeToOrganizer(request.confirmationToken(), auth.getName());
+        RefreshTokenService.TokenPair tokenPair = refreshTokenService.issueTokenPair(user);
+        String csrfToken = csrfTokenService.generateToken();
+        writeAuthCookies(response, tokenPair, csrfToken);
+        return ResponseEntity.ok(buildAuthResponse(user, tokenPair, csrfToken));
+    }
+
     @PostMapping("/register-with-key")
     @RateLimiter(name = "register-with-key", fallbackMethod = "registerWithKeyFallback")
     @Operation(summary = "Register organizer with key", description = "Complete organizer registration using a confirmation token from key verification")
@@ -361,6 +385,11 @@ public class AuthController {
     }
 
     public ResponseEntity<AuthResponse> registerWithKeyFallback(OrganizerRegisterWithKeyRequest request, HttpServletResponse response, Exception ex) {
+        rethrowIfNotRateLimited(ex);
+        return ResponseEntity.status(429).body(null);
+    }
+
+    public ResponseEntity<AuthResponse> upgradeOrganizerFallback(UpgradeToOrganizerRequest request, Authentication auth, HttpServletResponse response, Exception ex) {
         rethrowIfNotRateLimited(ex);
         return ResponseEntity.status(429).body(null);
     }

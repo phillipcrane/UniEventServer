@@ -57,17 +57,20 @@ function Invoke-TestOrganizerKey {
     Write-Sep
     Write-Host ""
     Write-Host "How would you like to complete the registration?" -ForegroundColor Cyan
-    Write-Host "  [1] Complete registration in this tool"
-    Write-Host "  [2] Complete registration on the website (frontend)"
+    Write-Host "  [1] New account - register in this tool"
+    Write-Host "  [2] Existing account - upgrade in this tool"
+    Write-Host "  [3] Complete on the website (frontend)"
     Write-Host ""
-    $regMethod = Read-Host "Choose [1 or 2]"
+    $regMethod = Read-Host "Choose [1, 2, or 3]"
 
     if ($regMethod -eq "1") {
         Invoke-RegistrationInTool -BaseUrl $BaseUrl -Email $Email -KeyValue $keyValue -VerboseOutput:$VerboseOutput
     } elseif ($regMethod -eq "2") {
+        Invoke-UpgradeInTool -BaseUrl $BaseUrl -Email $Email -KeyValue $keyValue -VerboseOutput:$VerboseOutput
+    } elseif ($regMethod -eq "3") {
         Invoke-RegistrationOnWebsite -BaseUrl $BaseUrl -Email $Email -KeyValue $keyValue
     } else {
-        Write-Err "Invalid choice '$regMethod'. Expected 1 or 2."
+        Write-Err "Invalid choice '$regMethod'. Expected 1, 2, or 3."
         exit 1
     }
 
@@ -167,6 +170,92 @@ function Invoke-RegistrationInTool {
     Write-Host ""
 }
 
+function Invoke-UpgradeInTool {
+    param(
+        [string]$BaseUrl,
+        [string]$Email,
+        [string]$KeyValue,
+        [switch]$VerboseOutput
+    )
+
+    Write-Step "[1/3] Verifying organizer key..."
+
+    $verifyBody = @{ key = $KeyValue } | ConvertTo-Json -Compress
+
+    try {
+        $resp = Invoke-Web -Uri "$BaseUrl/api/auth/organizer-key/verify" -Method "POST" `
+            -Headers @{ "Content-Type" = "application/json" } -Body $verifyBody -TimeoutSec 30
+        $verified = $resp.Content | ConvertFrom-Json
+        $confirmationToken = $verified.confirmationToken
+        Write-Ok "Key verified successfully"
+        if ($VerboseOutput) {
+            Write-Info "Confirmation token expires in: $($verified.expiresIn) seconds"
+        }
+    } catch {
+        Write-Err "Key verification failed: $($_.Exception.Message)"
+        exit 1
+    }
+
+    # Get user credentials for the existing account
+    Write-Host ""
+    Write-Step "[2/3] Sign in to the existing account at: $Email"
+    $password = Read-Host "Password" -AsSecureString
+    $bstr = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($password)
+    $passwordPlain = $null
+    try {
+        $passwordPlain = [System.Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr)
+    } finally {
+        [System.Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr)
+    }
+
+    Write-Step "[3/3] Upgrading account to organizer..."
+
+    $userSession = New-Object Microsoft.PowerShell.Commands.WebRequestSession
+    try {
+        # Bootstrap CSRF cookie for the user session (login requires it)
+        $csrfResp = Invoke-Web -Uri "$BaseUrl/api/auth/csrf-token" -Method "GET" -TimeoutSec 15 -WebSession $userSession
+        $csrfToken = ($csrfResp.Content | ConvertFrom-Json).csrfToken
+        if (-not $csrfToken) { throw "CSRF bootstrap response contained no csrfToken." }
+
+        # Log in as the existing user
+        $loginBody = @{ email = $Email; password = $passwordPlain } | ConvertTo-Json -Compress
+        $loginResp = Invoke-Web -Uri "$BaseUrl/api/auth/login" -Method "POST" `
+            -Headers @{ "Content-Type" = "application/json"; "X-CSRF-Token" = $csrfToken } `
+            -Body $loginBody -TimeoutSec 30 -WebSession $userSession
+        $loginCsrf = ($loginResp.Content | ConvertFrom-Json).csrfToken
+        if (-not $loginCsrf) { throw "Login response contained no csrfToken - check server logs." }
+
+        # Upgrade the account
+        $upgradeBody = @{ confirmationToken = $confirmationToken } | ConvertTo-Json -Compress
+        $upgradeResp = Invoke-Web -Uri "$BaseUrl/api/auth/organizer-key/upgrade" -Method "POST" `
+            -Headers @{ "Content-Type" = "application/json"; "X-CSRF-Token" = $loginCsrf } `
+            -Body $upgradeBody -TimeoutSec 30 -WebSession $userSession
+        $result = $upgradeResp.Content | ConvertFrom-Json
+        Write-Ok "Account upgraded to organizer!"
+
+        if ($VerboseOutput) {
+            Write-Host ""
+            Write-Info "Account details:"
+            Write-Host "  Username: $($result.username)" -ForegroundColor Gray
+            Write-Host "  Email: $($result.email)" -ForegroundColor Gray
+            Write-Host "  Role: $($result.role)" -ForegroundColor Gray
+        }
+    } catch {
+        Write-Err "Upgrade failed: $($_.Exception.Message)"
+        exit 1
+    } finally {
+        if ($null -ne $passwordPlain) { $passwordPlain = "" }
+    }
+
+    Write-Host ""
+    Write-Host "Account Upgraded Successfully!" -ForegroundColor Green
+    Write-Host ""
+    Write-Host "Details:" -ForegroundColor Cyan
+    Write-Host "  Email: $Email"
+    Write-Host "  Role: organizer"
+    Write-Host ""
+}
+
 function Invoke-RegistrationOnWebsite {
     param(
         [string]$BaseUrl,
@@ -189,12 +278,16 @@ function Invoke-RegistrationOnWebsite {
     Write-Host "   Look for subject: 'You're Invited to Organize Events on UniEvent!'"
     Write-Host "   Copy the 32-character key from the email and paste it into the form"
     Write-Host ""
-    Write-Host "3. Fill in registration details:"
+    Write-Host "3. If the email address already has an account:"
+    Write-Host "   Log in first, then visit the registration page - it will offer"
+    Write-Host "   an 'Upgrade to Organizer' option instead of a new-account form."
+    Write-Host ""
+    Write-Host "   If the email is new, fill in registration details:"
     Write-Host "   - Username (3-50 characters)"
     Write-Host "   - Password (12-100 characters, secure)"
     Write-Host "   - Email: $Email"
     Write-Host ""
-    Write-Host "4. Click 'Register' to complete"
+    Write-Host "4. Click 'Complete Registration' or 'Upgrade to Organizer' to finish"
     Write-Host ""
     Write-Host "Your organizer account will be created with role: organizer" -ForegroundColor Green
     Write-Host ""

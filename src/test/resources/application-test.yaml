@@ -73,6 +73,9 @@ resilience4j:
       register-with-key:
         limitForPeriod: 100000
         limitRefreshPeriod: 1s
+      upgrade-organizer:
+        limitForPeriod: 100000
+        limitRefreshPeriod: 1s
       refresh-token:
         limitForPeriod: 100000
         limitRefreshPeriod: 1s

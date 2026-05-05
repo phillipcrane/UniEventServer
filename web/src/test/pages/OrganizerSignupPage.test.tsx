@@ -27,6 +27,10 @@ vi.mock('../../utils/authUtils', () => ({
     isValidEmail: (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v),
 }));
 
+vi.mock('../../context/AuthContext', () => ({
+    useAuth: () => ({ currentUser: null }),
+}));
+
 function renderPage() {
     return render(
         <MemoryRouter>

@@ -241,6 +241,31 @@ export async function refreshSession(): Promise<boolean> {
   }
 }
 
+export async function upgradeToOrganizer(confirmationToken: string): Promise<AuthUser> {
+  const response = await apiCall(`${BACKEND_URL}/api/auth/organizer-key/upgrade`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ confirmationToken }),
+    skipAuthErrorHandling: true,
+  });
+
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({})) as Record<string, unknown>;
+    throw createHttpError(
+      response.status,
+      (body['message'] as string | undefined) ?? response.statusText,
+    );
+  }
+
+  const data = await response.json() as AuthApiResponse;
+  setCsrfToken(data.csrfToken);
+  storeTokenExpiry(data.accessTokenExpiresInMs);
+  const user = buildUserFromResponse(data, getCurrentUser());
+  setCurrentUser(user);
+  notifyListeners(user);
+  return user;
+}
+
 export async function logout(): Promise<void> {
   try {
     await apiCall(`${BACKEND_URL}${API_AUTH_LOGOUT}`, {

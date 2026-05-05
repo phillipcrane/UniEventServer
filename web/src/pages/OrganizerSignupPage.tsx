@@ -6,6 +6,7 @@ import { useOrganizerSignupPage } from '../hooks/useOrganizerSignupPage';
 
 export function OrganizerSignupPage() {
   const {
+    currentUser,
     keyInput,
     setKeyInput,
     isVerifying,
@@ -22,6 +23,7 @@ export function OrganizerSignupPage() {
     setCurrentStep,
     showSuccessMessage,
     handleVerifyKey,
+    handleUpgrade,
     handleRegister,
     navigate,
   } = useOrganizerSignupPage();
@@ -85,6 +87,46 @@ export function OrganizerSignupPage() {
                         onClick={() => navigate('/signup-organizer-landing')}
                       >
                         Cancel
+                      </button>
+                    </div>
+                  </form>
+                </>
+              ) : currentUser ? (
+                <>
+                  <p className="signup-eyebrow">STEP 2 OF 2</p>
+                  <h2 className="signup-title">Upgrade Your Account</h2>
+                  <p className="signup-description">
+                    You're signed in as <strong>{currentUser.email}</strong>. Click below to upgrade your account to organizer.
+                  </p>
+
+                  <form className="signup-form" onSubmit={handleUpgrade} noValidate>
+                    {errorMessage && (
+                      <p className="signup-status signup-status-error">
+                        <AlertCircle size={16} style={{ display: 'inline-block', marginRight: '8px' }} />
+                        {errorMessage}
+                      </p>
+                    )}
+
+                    {showSuccessMessage && (
+                      <p className="signup-status signup-status-success">
+                        <CheckCircle size={16} style={{ display: 'inline-block', marginRight: '8px' }} />
+                        Account upgraded! Redirecting to your profile...
+                      </p>
+                    )}
+
+                    <div className="signup-actions">
+                      <button type="submit" className="signup-btn signup-btn-primary" disabled={isRegistering || showSuccessMessage}>
+                        {isRegistering ? 'Upgrading...' : 'Upgrade to Organizer'}
+                      </button>
+
+                      <button
+                        type="button"
+                        className="signup-btn signup-btn-secondary"
+                        onClick={() => setCurrentStep(1)}
+                        disabled={isRegistering}
+                      >
+                        <ArrowLeft size={16} />
+                        Go Back
                       </button>
                     </div>
                   </form>

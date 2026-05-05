@@ -1,13 +1,15 @@
-﻿import { useState } from 'react';
+import { useState } from 'react';
 import type { FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { signupWithEmail } from '../services/auth';
+import { signupWithEmail, upgradeToOrganizer } from '../services/auth';
 import { verifyOrganizerKey } from '../services/dal';
 import { isValidEmail, mapAuthError } from '../utils/authUtils';
+import { useAuth } from '../context/AuthContext';
 import { ORGANIZER_SIGNUP_SUCCESS_REDIRECT_MS, PASSWORD_MIN_LENGTH } from '../constants';
 
 export function useOrganizerSignupPage() {
   const navigate = useNavigate();
+  const { currentUser } = useAuth();
   const [keyInput, setKeyInput] = useState('');
   const [isVerifying, setIsVerifying] = useState(false);
   const [confirmationToken, setConfirmationToken] = useState('');
@@ -48,6 +50,23 @@ export function useOrganizerSignupPage() {
     }
   }
 
+  // Used when the user is already logged in - upgrades their existing account.
+  async function handleUpgrade(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setErrorMessage('');
+    setIsRegistering(true);
+    try {
+      await upgradeToOrganizer(confirmationToken);
+      setShowSuccessMessage(true);
+      window.setTimeout(() => navigate('/profile', { replace: true }), ORGANIZER_SIGNUP_SUCCESS_REDIRECT_MS);
+    } catch (error) {
+      setErrorMessage(mapAuthError(error));
+    } finally {
+      setIsRegistering(false);
+    }
+  }
+
+  // Used when the user is not logged in - creates a new organizer account.
   async function handleRegister(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setErrorMessage('');
@@ -94,6 +113,7 @@ export function useOrganizerSignupPage() {
   }
 
   return {
+    currentUser,
     keyInput,
     setKeyInput,
     isVerifying,
@@ -110,6 +130,7 @@ export function useOrganizerSignupPage() {
     setCurrentStep,
     showSuccessMessage,
     handleVerifyKey,
+    handleUpgrade,
     handleRegister,
     navigate,
   };
