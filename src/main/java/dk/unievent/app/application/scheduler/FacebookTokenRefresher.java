@@ -1,7 +1,7 @@
 package dk.unievent.app.application.scheduler;
 
+import dk.unievent.app.application.service.TokenRefreshService;
 import dk.unievent.app.infrastructure.constants.SchedulingConstants;
-import dk.unievent.app.tools.services.TokenRefreshService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;

@@ -1,8 +1,5 @@
-package dk.unievent.app.tools.services;
+package dk.unievent.app.application.service;
 
-import dk.unievent.app.application.service.FacebookGraphApiService;
-import dk.unievent.app.application.service.PageService;
-import dk.unievent.app.application.service.VaultService;
 import dk.unievent.app.db.model.PageEntity;
 import dk.unievent.app.infrastructure.exception.FacebookApiException;
 import dk.unievent.app.tools.models.RefreshResult;

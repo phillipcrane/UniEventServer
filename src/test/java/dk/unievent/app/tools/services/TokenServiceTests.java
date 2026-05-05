@@ -3,6 +3,7 @@ package dk.unievent.app.tools.services;
 import dk.unievent.app.api.dto.FbLongLivedTokenResponse;
 import dk.unievent.app.application.service.FacebookGraphApiService;
 import dk.unievent.app.application.service.PageService;
+import dk.unievent.app.application.service.TokenRefreshService;
 import dk.unievent.app.application.service.VaultService;
 import dk.unievent.app.db.model.PageEntity;
 import dk.unievent.app.infrastructure.exception.FacebookApiException;
@@ -24,7 +25,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
-class TokenRefreshServiceTests {
+class TokenServiceTests {
 
     @Mock
     private PageService pageService;

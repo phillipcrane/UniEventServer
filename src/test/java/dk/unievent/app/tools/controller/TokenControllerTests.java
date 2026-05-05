@@ -1,9 +1,10 @@
 package dk.unievent.app.tools.controller;
 
+import dk.unievent.app.application.service.TokenRefreshService;
 import dk.unievent.app.db.repository.PageRepository;
 import dk.unievent.app.tools.models.RefreshResult;
 import dk.unievent.app.tools.models.RefreshSummary;
-import dk.unievent.app.tools.services.TokenRefreshService;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -27,7 +28,7 @@ class TokenRefreshControllerTests {
     private PageRepository pageRepository;
 
     @InjectMocks
-    private TokenRefreshController controller;
+    private TokenController controller;
 
     private MockMvc mockMvc;
 

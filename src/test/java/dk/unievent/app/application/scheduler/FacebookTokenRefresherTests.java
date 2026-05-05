@@ -1,11 +1,12 @@
 package dk.unievent.app.application.scheduler;
 
-import dk.unievent.app.tools.services.TokenRefreshService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+
+import dk.unievent.app.application.service.TokenRefreshService;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.mockito.Mockito.*;
