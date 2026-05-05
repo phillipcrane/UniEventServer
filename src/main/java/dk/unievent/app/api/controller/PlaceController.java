@@ -93,7 +93,7 @@ public class PlaceController {
     }
     
     @PostMapping
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('admin')")
     @RateLimiter(name = "place-create", fallbackMethod = "createFallback")
     @Operation(summary = "Create a new place", description = "Create a new venue/location")
     @ApiResponse(responseCode = "201", description = "Place created successfully")
@@ -105,7 +105,7 @@ public class PlaceController {
     }
     
     @PutMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('admin')")
     @RateLimiter(name = "place-update", fallbackMethod = "updateFallback")
     @Operation(summary = "Update a place", description = "Update venue information")
     @ApiResponse(responseCode = "200", description = "Place updated successfully")
@@ -127,7 +127,7 @@ public class PlaceController {
     }
     
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('admin')")
     @RateLimiter(name = "place-delete", fallbackMethod = "deleteFallback")
     @Operation(summary = "Delete a place", description = "Delete a venue/location")
     @ApiResponse(responseCode = "204", description = "Place deleted successfully")

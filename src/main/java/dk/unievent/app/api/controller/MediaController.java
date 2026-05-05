@@ -39,7 +39,7 @@ public class MediaController {
     private final MediaService mediaService;
 
     @PostMapping
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('admin')")
     @RateLimiter(name = "media-upload", fallbackMethod = "uploadFallback")
     @Operation(
         summary = "Upload a media file",
@@ -89,7 +89,7 @@ public class MediaController {
     }
 
     @GetMapping
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('admin')")
     @Operation(
         summary = "List all media files",
         description = "Retrieve a list of all uploaded media files with their metadata."

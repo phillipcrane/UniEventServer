@@ -176,7 +176,7 @@ public class AuthController {
     }
 
     @PostMapping("/organizer-key/generate")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('admin')")
     @RateLimiter(name = "generate-organizer-key", fallbackMethod = "generateKeyFallback")
     @Operation(summary = "Generate organizer invitation key", description = "Admin only: Generate a single-use key for organizer registration (sends key via email)")
     @ApiResponses(value = {

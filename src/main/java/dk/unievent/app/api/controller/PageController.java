@@ -80,7 +80,7 @@ public class PageController {
     }
 
     @PostMapping
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('admin')")
     @RateLimiter(name = "page-create", fallbackMethod = "createFallback")
     @Operation(summary = "Create a new page", description = "Create a new event organizer page")
     @ApiResponse(responseCode = "201", description = "Page created successfully")
@@ -92,7 +92,7 @@ public class PageController {
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('admin')")
     @RateLimiter(name = "page-update", fallbackMethod = "updateFallback")
     @Operation(summary = "Update a page", description = "Update page information")
     @ApiResponse(responseCode = "200", description = "Page updated successfully")
@@ -112,7 +112,7 @@ public class PageController {
     }
 
     @PostMapping("/{id}/picture")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('admin')")
     @Operation(summary = "Upload picture for page", description = "Upload a picture for a specific page")
     @ApiResponse(responseCode = "200", description = "Picture uploaded successfully")
     @ApiResponse(responseCode = "404", description = "Page not found")
@@ -130,7 +130,7 @@ public class PageController {
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('admin')")
     @RateLimiter(name = "page-delete", fallbackMethod = "deleteFallback")
     @Operation(summary = "Delete a page", description = "Delete a page and all its events (cascading delete)")
     @ApiResponse(responseCode = "204", description = "Page deleted successfully")
