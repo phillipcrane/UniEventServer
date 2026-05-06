@@ -98,7 +98,7 @@ class DeploymentConfigContractTests {
         String ci = file(".github/workflows/ci.yml");
 
         assertAll(
-            () -> assertTrue(ci.contains("branches: [main, de-firebasing]")),
+            () -> assertTrue(ci.contains("branches: [main]")),
             () -> assertTrue(ci.contains("pull_request:")),
             () -> assertTrue(ci.contains("java-version: '25'")),
             () -> assertTrue(ci.contains("run: ./mvnw test -B")),
