@@ -7,6 +7,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import dk.unievent.app.application.service.TokenRefreshService;
+import dk.unievent.app.tools.models.RefreshSummary;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.mockito.Mockito.*;
@@ -32,5 +33,17 @@ class FacebookTokenRefresherTests {
         doThrow(new RuntimeException("Vault unavailable")).when(tokenRefreshService).refreshAll();
 
         assertDoesNotThrow(() -> tokenRefresher.refreshPageTokens());
+    }
+
+    @Test
+    void refreshPageTokensShouldKeepWorkingAfterAFailedRun() {
+        when(tokenRefreshService.refreshAll())
+            .thenThrow(new RuntimeException("Vault unavailable"))
+            .thenReturn(new RefreshSummary(1, 0, 25));
+
+        assertDoesNotThrow(() -> tokenRefresher.refreshPageTokens());
+        assertDoesNotThrow(() -> tokenRefresher.refreshPageTokens());
+
+        verify(tokenRefreshService, times(2)).refreshAll();
     }
 }

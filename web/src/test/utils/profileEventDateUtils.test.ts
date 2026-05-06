@@ -50,7 +50,7 @@ describe('dateUtils', () => {
 
 describe('eventUtils', () => {
     it('resolves organizer names by explicit event fields before page lookup', () => {
-        const pages: Page[] = [{ id: 'page-1', name: 'S-Huset', active: true }];
+        const pages: Page[] = [{ id: 'page-1', name: 'S-Huset', url: 'https://example.com/shuset', active: true }];
 
         expect(getOrganizerName(null, pages)).toBe('Unknown');
         expect(getOrganizerName(event({ organizerName: 'Explicit Organizer' } as Partial<Event>), pages)).toBe('Explicit Organizer');

@@ -15,6 +15,7 @@ import org.springframework.data.domain.PageRequest;
 import java.util.List;
 import java.util.Optional;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
@@ -96,6 +97,21 @@ class FacebookIngestionSchedulerTests {
     }
 
     @Test
+    void ingestFacebookEventsShouldNotMarkTokenInvalidWhenTokenIsMissing() {
+        PageDTO page = pageDto("p1", "Alpha");
+        when(pageService.getActivePages(any()))
+            .thenReturn(new PageImpl<>(List.of(page), PageRequest.of(0, 50), 1));
+        doThrow(new FacebookApiException("Token missing", 404, "TOKEN_NOT_FOUND"))
+            .when(eventService).ingestFacebookEvents("p1");
+
+        FacebookIngestionScheduler scheduler =
+            new FacebookIngestionScheduler(pageService, eventService, Optional.of(vaultService), 50);
+        scheduler.ingestFacebookEvents();
+
+        verify(vaultService, never()).markPageTokenInvalid(any());
+    }
+
+    @Test
     void ingestFacebookEventsShouldContinueAfterGenericException() {
         PageDTO page1 = pageDto("p1", "Alpha");
         PageDTO page2 = pageDto("p2", "Beta");
@@ -135,6 +151,22 @@ class FacebookIngestionSchedulerTests {
         scheduler.ingestFacebookEvents();
 
         verifyNoInteractions(eventService);
+    }
+
+    @Test
+    void ingestFacebookEventsShouldSwallowPageListingFailuresSoSchedulerCanRunAgain() {
+        PageDTO page = pageDto("p1", "Alpha");
+        when(pageService.getActivePages(any()))
+            .thenThrow(new RuntimeException("database unavailable"))
+            .thenReturn(new PageImpl<>(List.of(page), PageRequest.of(0, 50), 1));
+
+        FacebookIngestionScheduler scheduler =
+            new FacebookIngestionScheduler(pageService, eventService, Optional.empty(), 50);
+
+        assertDoesNotThrow(scheduler::ingestFacebookEvents);
+        assertDoesNotThrow(scheduler::ingestFacebookEvents);
+
+        verify(eventService).ingestFacebookEvents("p1");
     }
 
     private PageDTO pageDto(String id, String name) {

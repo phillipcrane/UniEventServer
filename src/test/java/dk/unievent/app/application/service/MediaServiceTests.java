@@ -16,14 +16,23 @@ import org.springframework.mock.web.MockMultipartFile;
 
 import java.io.IOException;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -142,6 +151,58 @@ class MediaServiceTests {
     }
 
     @Test
+    void storeAndSaveShouldNotPersistMetadataWhenStorageUploadFails() throws IOException {
+        MockMultipartFile file = new MockMultipartFile("file", "poster.png", "image/png",
+                new byte[] {(byte) 0x89, 'P', 'N', 'G', '\r', '\n', 0x1a, '\n'});
+        SeaweedFsClient.FileAssignment assignment = new SeaweedFsClient.FileAssignment("1,fail", "127.0.0.1:8080");
+        when(seaweedClient.assignFile()).thenReturn(assignment);
+        doThrow(new IOException("volume unavailable"))
+                .when(seaweedClient)
+                .uploadFile(eq("127.0.0.1:8080"), eq("1,fail"), eq("poster.png"), any(byte[].class));
+
+        IOException exception = assertThrows(IOException.class, () -> mediaService.storeAndSave(file));
+
+        assertTrue(exception.getMessage().contains("Error uploading file to SeaweedFS"));
+        verify(mediaRepository, never()).save(any(MediaEntity.class));
+    }
+
+    @Test
+    void storeShouldHandleConcurrentImageUploadsWithDistinctAssignments() throws Exception {
+        AtomicInteger sequence = new AtomicInteger();
+        Set<String> uploadedFileIds = java.util.concurrent.ConcurrentHashMap.newKeySet();
+        when(seaweedClient.assignFile()).thenAnswer(invocation ->
+                new SeaweedFsClient.FileAssignment("1," + sequence.incrementAndGet(), "127.0.0.1:8080"));
+        org.mockito.Mockito.doAnswer(invocation -> {
+            uploadedFileIds.add(invocation.getArgument(1));
+            return null;
+        }).when(seaweedClient).uploadFile(eq("127.0.0.1:8080"), any(), any(), any(byte[].class));
+
+        ExecutorService executor = Executors.newFixedThreadPool(4);
+        try {
+            List<Future<String>> futures = new ArrayList<>();
+            for (int i = 0; i < 8; i++) {
+                int index = i;
+                futures.add(executor.submit(() -> mediaService.store(new MockMultipartFile(
+                        "file",
+                        "poster-" + index + ".png",
+                        "image/png",
+                        new byte[] {(byte) 0x89, 'P', 'N', 'G', '\r', '\n', 0x1a, '\n'}))));
+            }
+
+            Set<String> returnedFileIds = new HashSet<>();
+            for (Future<String> future : futures) {
+                returnedFileIds.add(future.get(2, TimeUnit.SECONDS));
+            }
+
+            assertEquals(8, returnedFileIds.size());
+            assertEquals(returnedFileIds, uploadedFileIds);
+            verify(seaweedClient, times(8)).assignFile();
+        } finally {
+            executor.shutdownNow();
+        }
+    }
+
+    @Test
     void loadShouldReturnPathForCompatibility() {
         var loadResult = mediaService.load("test-file-123");
 
@@ -165,6 +226,24 @@ class MediaServiceTests {
 
         assertEquals("Invalid file ID", exception.getMessage());
         verify(seaweedClient, never()).downloadFile(any());
+    }
+
+    @Test
+    void loadAsResourceShouldWrapUnexpectedStorageFailures() throws IOException {
+        when(seaweedClient.downloadFile("1,boom")).thenThrow(new IllegalStateException("lookup failed"));
+
+        IOException exception = assertThrows(IOException.class, () -> mediaService.loadAsResource("1,boom"));
+
+        assertEquals("Could not read file: 1,boom", exception.getMessage());
+        assertInstanceOf(IllegalStateException.class, exception.getCause());
+    }
+
+    @Test
+    void deleteShouldRejectBlankFileIdBeforeStorageCall() throws IOException {
+        IOException exception = assertThrows(IOException.class, () -> mediaService.delete(""));
+
+        assertEquals("Invalid file ID", exception.getMessage());
+        verify(seaweedClient, never()).deleteFile(any());
     }
 
     @Test

@@ -33,9 +33,18 @@ export function MultiSelectFilter({
   return (
     <div ref={containerRef} className="relative w-full">
       {/* Input/Display Area */}
-      <button
-        type="button"
+      <div
+        role="button"
+        tabIndex={0}
+        aria-label="Toggle organizer filter"
         onClick={() => setIsOpen(!isOpen)}
+        onKeyDown={(event) => {
+          if (event.key !== 'Enter' && event.key !== ' ') {
+            return;
+          }
+          event.preventDefault();
+          setIsOpen(!isOpen);
+        }}
         className="w-full flex items-center flex-wrap gap-2 px-4 py-2.5 bg-[var(--input-bg)] border-2 border-[var(--input-border)] text-[var(--input-text)] rounded-lg focus:outline-none focus:border-[var(--input-focus-border)] focus:ring-3 focus:ring-[var(--button-hover)] min-h-[44px] hover:border-[var(--dtu-accent)] transition-all duration-200 cursor-pointer"
       >
         {selectedPages.length > 0 ? (
@@ -47,6 +56,7 @@ export function MultiSelectFilter({
               {page.name}
               <button
                 type="button"
+                aria-label={`Remove ${page.name}`}
                 onClick={e => handleRemoveTag(page.id, e)}
                 className="ml-0.5 text-[var(--link-primary)] hover:text-[var(--link-primary-hover)] font-bold text-sm leading-none"
               >
@@ -57,7 +67,7 @@ export function MultiSelectFilter({
         ) : (
           <span className="text-[var(--text-subtle)] text-sm">Select organizers...</span>
         )}
-      </button>
+      </div>
 
       {/* Dropdown Menu */}
       {isOpen && (

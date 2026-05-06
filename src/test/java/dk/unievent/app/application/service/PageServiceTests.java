@@ -8,13 +8,16 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.mock.web.MockMultipartFile;
 
 import dk.unievent.app.application.dto.PageDTO;
 import dk.unievent.app.application.mapper.PageMapper;
+import dk.unievent.app.db.model.MediaEntity;
 import dk.unievent.app.db.model.PageEntity;
 import dk.unievent.app.db.repository.MediaRepository;
 import dk.unievent.app.db.repository.PageRepository;
 
+import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -238,6 +241,43 @@ class PageServiceTests {
         
         verify(pageRepository, times(1)).findById("page-1");
         verify(pageRepository, times(1)).save(any(PageEntity.class));
+    }
+
+    @Test
+    void uploadPictureShouldReplacePictureAndDeleteOldFile() throws IOException {
+        MediaEntity oldPicture = MediaEntity.builder().id(1L).fileId("1,old").filename("old.jpg").build();
+        testPageEntity.setPicture(oldPicture);
+        MockMultipartFile file = new MockMultipartFile("file", "new.png", "image/png",
+                new byte[] {(byte) 0x89, 'P', 'N', 'G'});
+        when(pageRepository.findById("page-1")).thenReturn(Optional.of(testPageEntity));
+        when(mediaService.store(file)).thenReturn("1,new");
+        when(mediaRepository.save(any(MediaEntity.class))).thenAnswer(invocation -> {
+            MediaEntity saved = invocation.getArgument(0);
+            saved.setId(2L);
+            return saved;
+        });
+        when(pageRepository.save(testPageEntity)).thenReturn(testPageEntity);
+        when(pageMapper.toDTO(testPageEntity)).thenReturn(testPageDTO);
+
+        Optional<PageDTO> result = pageService.uploadPicture("page-1", file);
+
+        assertTrue(result.isPresent());
+        assertEquals("1,new", testPageEntity.getPicture().getFileId());
+        verify(mediaService).delete("1,old");
+    }
+
+    @Test
+    void deletePageShouldDeletePictureAndContinueWhenStorageDeleteFails() throws IOException {
+        MediaEntity picture = MediaEntity.builder().id(1L).fileId("1,missing").filename("picture.jpg").build();
+        testPageEntity.setPicture(picture);
+        when(pageRepository.findById("page-1")).thenReturn(Optional.of(testPageEntity));
+        doThrow(new IOException("already deleted")).when(mediaService).delete("1,missing");
+
+        boolean result = pageService.deletePage("page-1");
+
+        assertTrue(result);
+        verify(pageRepository).deleteById("page-1");
+        verify(mediaService).delete("1,missing");
     }
     
     @Test

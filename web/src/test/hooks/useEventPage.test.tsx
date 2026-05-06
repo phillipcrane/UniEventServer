@@ -52,7 +52,7 @@ describe('useEventPage', () => {
     });
 
     it('loads an event by id and derives organizer and cover image data', async () => {
-        mockPages = [{ id: 'page-1', name: 'S-Huset', active: true }];
+        mockPages = [{ id: 'page-1', name: 'S-Huset', url: 'https://example.com/shuset', active: true }];
         mockGetEventById.mockResolvedValueOnce(event());
 
         const { result } = renderHook(() => useEventPage('event-1'));

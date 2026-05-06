@@ -189,6 +189,7 @@ public class SeedService {
             // Delete unique fileIds from SeaweedFS (all seed records share one file)
             seededMedia.stream()
                 .map(MediaEntity::getFileId)
+                .filter(fid -> fid != null && !fid.isBlank())
                 .distinct()
                 .forEach(fid -> {
                     try { mediaService.delete(fid); } catch (Exception e) { log.warn("Could not delete seed file from SeaweedFS: {}", fid, e); }
@@ -217,6 +218,9 @@ public class SeedService {
         List<MediaEntity> staleMedia = mediaRepository.findAll().stream()
             .filter(m -> m.getFilename() != null && m.getFilename().startsWith(SEED_PREFIX)).toList();
         staleMedia.stream().map(MediaEntity::getFileId).distinct().forEach(fid -> {
+            if (fid == null || fid.isBlank()) {
+                return;
+            }
             try { mediaService.delete(fid); } catch (Exception e) { log.warn("Could not delete seed file from SeaweedFS: {}", fid, e); }
         });
         mediaRepository.deleteAll(staleMedia);

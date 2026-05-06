@@ -64,7 +64,7 @@ describe('useMainPage', () => {
     });
 
     it('loads events and exposes page context data', async () => {
-        const pages = [{ id: 'page-1', name: 'S-Huset', active: true }];
+        const pages = [{ id: 'page-1', name: 'S-Huset', url: 'https://example.com/shuset', active: true }];
         mockPages = pages;
         mockGetEvents.mockResolvedValueOnce([
             event({ id: 'future-2', title: 'Later Event', startTime: '2099-05-08T18:00:00.000Z' }),

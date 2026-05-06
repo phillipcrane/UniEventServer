@@ -7,8 +7,10 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.transaction.annotation.Transactional;
 
+import dk.unievent.app.api.dto.FbEventResponse;
 import dk.unievent.app.application.dto.EventDTO;
 import dk.unievent.app.application.dto.PlaceDTO;
 import dk.unievent.app.db.model.EventEntity;
@@ -18,10 +20,12 @@ import dk.unievent.app.db.repository.EventRepository;
 import dk.unievent.app.db.repository.PageRepository;
 import dk.unievent.app.db.repository.PlaceRepository;
 
+import java.time.OffsetDateTime;
 import java.time.LocalDateTime;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.when;
 
 /**
  * Integration tests for Event operations
@@ -44,6 +48,12 @@ class EventIntegrationTests {
     
     @Autowired
     private EventService eventService;
+
+    @MockitoBean
+    private FacebookGraphApiService facebookGraphApiService;
+
+    @MockitoBean
+    private VaultService vaultService;
     
     private PageEntity testPage;
     private PlaceEntity testPlace;
@@ -262,6 +272,29 @@ class EventIntegrationTests {
         boolean deleted = eventService.deleteEvent("nonexistent");
         
         assertFalse(deleted);
+    }
+
+    @Test
+    void ingestFacebookEventsShouldPersistImportedEvents() {
+        FbEventResponse fbEvent = new FbEventResponse();
+        fbEvent.setId("fb-event-1");
+        fbEvent.setName("Imported Facebook Event");
+        fbEvent.setDescription("Imported through Graph API");
+        fbEvent.setStartTime(OffsetDateTime.parse("2030-05-01T18:00:00+02:00"));
+        fbEvent.setEndTime(OffsetDateTime.parse("2030-05-01T20:00:00+02:00"));
+        fbEvent.setTimezone("Europe/Copenhagen");
+
+        when(vaultService.getPageToken(testPage.getId())).thenReturn(Optional.of("page-token"));
+        when(facebookGraphApiService.getPageEvents(testPage.getId(), "page-token")).thenReturn(java.util.List.of(fbEvent));
+
+        java.util.List<EventEntity> imported = eventService.ingestFacebookEvents(testPage.getId());
+
+        assertEquals(1, imported.size());
+        Optional<EventEntity> persisted = eventRepository.findById("fb-event-1");
+        assertTrue(persisted.isPresent());
+        assertEquals("Imported Facebook Event", persisted.get().getTitle());
+        assertEquals(testPage.getId(), persisted.get().getPage().getId());
+        assertEquals("https://facebook.com/events/fb-event-1", persisted.get().getEventUrl());
     }
     
     // ============= Helper Methods =============

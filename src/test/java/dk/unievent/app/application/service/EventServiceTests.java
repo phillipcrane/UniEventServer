@@ -9,15 +9,18 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.mock.web.MockMultipartFile;
 
 import dk.unievent.app.application.dto.EventDTO;
 import dk.unievent.app.application.mapper.EventMapper;
 import dk.unievent.app.db.model.EventEntity;
+import dk.unievent.app.db.model.MediaEntity;
 import dk.unievent.app.db.model.PageEntity;
 import dk.unievent.app.db.repository.EventRepository;
 import dk.unievent.app.db.repository.MediaRepository;
 import dk.unievent.app.db.repository.PageRepository;
 
+import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -40,6 +43,9 @@ class EventServiceTests {
 
     @Mock
     private PageRepository pageRepository;
+
+    @Mock
+    private MediaService mediaService;
     
     @InjectMocks
     private EventService eventService;
@@ -255,6 +261,43 @@ class EventServiceTests {
         assertTrue(result.isEmpty());
         verify(eventRepository, times(1)).findById("non-existent");
         verify(eventRepository, never()).save(any());
+    }
+
+    @Test
+    void uploadCoverImageShouldReplaceCoverImageAndDeleteOldFile() throws IOException {
+        MediaEntity oldCoverImage = MediaEntity.builder().id(1L).fileId("1,old").filename("old.jpg").build();
+        testEventEntity.setCoverImage(oldCoverImage);
+        MockMultipartFile file = new MockMultipartFile("file", "new.png", "image/png",
+                new byte[] {(byte) 0x89, 'P', 'N', 'G'});
+        when(eventRepository.findById("event-1")).thenReturn(Optional.of(testEventEntity));
+        when(mediaService.store(file)).thenReturn("1,new");
+        when(mediaRepository.save(any(MediaEntity.class))).thenAnswer(invocation -> {
+            MediaEntity saved = invocation.getArgument(0);
+            saved.setId(2L);
+            return saved;
+        });
+        when(eventRepository.save(testEventEntity)).thenReturn(testEventEntity);
+        when(eventMapper.toDTO(testEventEntity)).thenReturn(testEventDTO);
+
+        Optional<EventDTO> result = eventService.uploadCoverImage("event-1", file);
+
+        assertTrue(result.isPresent());
+        assertEquals("1,new", testEventEntity.getCoverImage().getFileId());
+        verify(mediaService).delete("1,old");
+    }
+
+    @Test
+    void deleteEventShouldDeleteCoverImageAndContinueWhenStorageDeleteFails() throws IOException {
+        MediaEntity coverImage = MediaEntity.builder().id(1L).fileId("1,missing").filename("cover.jpg").build();
+        testEventEntity.setCoverImage(coverImage);
+        when(eventRepository.findById("event-1")).thenReturn(Optional.of(testEventEntity));
+        doThrow(new IOException("already deleted")).when(mediaService).delete("1,missing");
+
+        boolean result = eventService.deleteEvent("event-1");
+
+        assertTrue(result);
+        verify(eventRepository).deleteById("event-1");
+        verify(mediaService).delete("1,missing");
     }
     
     @Test
