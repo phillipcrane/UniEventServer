@@ -210,8 +210,6 @@ class OrganizerKeyServiceTests {
             () -> organizerKeyService.completeOrganizerRegistration(token, "neworg", "password123456", TEST_EMAIL));
     }
 
-    // ── helpers ───────────────────────────────────────────────────────────────
-
     private UserEntity adminUser() {
         UserEntity admin = UserEntity.builder()
             .username("admin").email(TEST_ADMIN_EMAIL).role("admin").build();

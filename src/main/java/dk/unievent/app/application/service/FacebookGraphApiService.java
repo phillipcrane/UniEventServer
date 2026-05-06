@@ -20,6 +20,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+// wraps the Facebook Graph API: token exchange (short-lived to long-lived), page listing,
+// event fetching with cursor pagination, token refresh, and token validation.
 @Slf4j
 @Service
 public class FacebookGraphApiService {
@@ -188,6 +190,7 @@ public class FacebookGraphApiService {
             List<Map<String, Object>> allEventsData = new ArrayList<>();
             String nextUrl = null;
 
+            // follow paging.next cursors until all events are collected (Facebook paginates large result sets)
             do {
                 Map<String, Object> responseMap = objectMapper.readValue(responseBody, Map.class);
                 Object dataObj = responseMap.get("data");
@@ -292,7 +295,7 @@ public class FacebookGraphApiService {
         } catch (RestClientResponseException e) {
             if (e.getStatusCode() == HttpStatus.UNAUTHORIZED || e.getStatusCode() == HttpStatus.FORBIDDEN) {
                 log.debug("Page token rejected for page: {}. Status: {}", pageId, e.getStatusCode());
-                return false;
+                return false; // 401/403 = token is definitively invalid, not a transient error
             }
             log.warn("Page token validation failed for page: {}. Status: {}", pageId, e.getStatusCode());
             throw new FacebookApiException(

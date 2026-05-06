@@ -3,20 +3,22 @@
 # Default: targets https://localhost with test@example.com
 # Key is sent via email, then choose to complete registration in tool or on website
 
-# This CLI tool tests the organizer invitation and registration flow. It simulates:
-# - generating an organizer key for a given email (which would normally be sent via email)
-# - verifying the key
-# - completing registration with the key (either in the tool or on the website)
+# this CLI tool tests the organizer invitation and registration flow. It simulates:
+# 1) generating an organizer key for a given email (normally sent via email); 2) verifying the key;
+# 3) completing registration with the key, either in the tool or on the website.
 
+# NB: Generally I'm not happy that we have to run -e or --email flags as arguments, but after
+# looking around, passing arguments through flags (rather than "positional arguments", i.e. just
+# right after the keyword) is the norm. But I'm not happy ab it. Same for -r or --oRg flags.
 function Invoke-TestOrganizerKey {
     param(
         [string]$BaseUrl,
         [string]$Email = "test@example.com",
         [string]$OrgName = "Test Organization",
-        [switch]$VerboseOutput # this param is for the -v flag
+        [switch]$VerboseOutput # -v flag
     )
 
-    $BaseUrl = Assert-ValidBaseUrl -BaseUrl $BaseUrl # ensure baseurl is valid in shared.ps1
+    $BaseUrl = Assert-ValidBaseUrl -BaseUrl $BaseUrl # defined in shared.ps1
 
     # 0. validate email and name before doing anything
     if (-not (Test-ValidEmail -Email $Email)) {
@@ -31,14 +33,16 @@ function Invoke-TestOrganizerKey {
     Write-Info "Test Email: $Email"
     Write-Sep
 
-    # Step 1: Generate organizer key (admin-authenticated endpoint)
+    # 1. generate the organizer key via the admin endpoint. Normally the app would email this to
+    # the future organizer, but here we trigger it manually and intercept from the inbox.
     Write-Info "Generating organizer key for: $Email"
     $generateBody = @{ email = $Email; organizationName = $OrgName } | ConvertTo-Json -Compress
     $resp = Invoke-AdminRequest -Method "POST" -Url "$BaseUrl/api/auth/organizer-key/generate" `
         -Body $generateBody -VerboseOutput:$VerboseOutput
     Handle-Response -Response $resp -SuccessMsg "Organizer key generated successfully" -VerboseOutput:$VerboseOutput
 
-    # Step 2: Get key from email
+    # 2. the key was just emailed, ask the user to fish it out and paste it here.
+    # format check: Must be exactly 32 characters, letters and numbers only.
     Write-Sep
     Write-Host ""
     Write-Info "Check your inbox at: $Email"
@@ -53,7 +57,8 @@ function Invoke-TestOrganizerKey {
     }
     Write-Ok "Key received"
 
-    # Step 3: Ask about registration method
+    # 3. ask how to complete registration. Three paths: 1) new account in tool; 2) upgrade an
+    # existing account; 3) hand off to the website to test the frontend flow end-to-end.
     Write-Sep
     Write-Host ""
     Write-Host "How would you like to complete the registration?" -ForegroundColor Cyan
@@ -77,6 +82,8 @@ function Invoke-TestOrganizerKey {
     Write-Sep
 }
 
+# registers a brand-new organizer account using the key: 1) verify key for a confirmation token;
+# 2) collect username + password; 3) post to register-with-key.
 function Invoke-RegistrationInTool {
     param(
         [string]$BaseUrl,
@@ -85,6 +92,8 @@ function Invoke-RegistrationInTool {
         [switch]$VerboseOutput
     )
 
+    # 1. verify the key. This exchanges it for a confirmationToken (a temp code proving the key was
+    # valid) that we'll pass along in step 3 for the actual registration call.
     Write-Step "[1/3] Verifying organizer key..."
 
     $verifyBody = @{ key = $KeyValue } | ConvertTo-Json -Compress
@@ -103,7 +112,8 @@ function Invoke-RegistrationInTool {
         exit 1
     }
 
-    # Get registration details
+    # 2. collect username and password. password comes in as SecureString so it's not
+    # sitting in plaintext in memory any longer than necessary.
     Write-Host ""
     Write-Step "[2/3] Enter registration details"
     $username = Read-Host "Username (3-50 characters)"
@@ -115,12 +125,14 @@ function Invoke-RegistrationInTool {
     }
 
     $password = Read-Host "Password (12-100 characters, keep secure)" -AsSecureString
+    # NB: BSTR is just a low-level string type PowerShell uses internally. SecureString -> BSTR ->
+    # plain string keeps the password out of the console buffer. We zero out the BSTR right after.
     $bstr = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($password)
     $passwordPlain = $null
     try {
         $passwordPlain = [System.Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr)
     } finally {
-        [System.Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr)
+        [System.Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr) # zero it out immediately
     }
 
     if ($passwordPlain.Length -lt 12 -or $passwordPlain.Length -gt 100) {
@@ -128,7 +140,7 @@ function Invoke-RegistrationInTool {
         exit 1
     }
 
-    # Complete registration
+    # 3. register: send the confirmationToken from step 1 + credentials from step 2
     Write-Step "[3/3] Completing registration..."
 
     $registerBody = @{
@@ -155,6 +167,7 @@ function Invoke-RegistrationInTool {
         Write-Err "Registration failed: $($_.Exception.Message)"
         exit 1
     } finally {
+        # zero out the plaintext password whether we succeeded or not
         if ($null -ne $passwordPlain) {
             $passwordPlain = ""
         }
@@ -170,6 +183,8 @@ function Invoke-RegistrationInTool {
     Write-Host ""
 }
 
+# upgrades an existing user account to organizer using the key. More involved than new-account
+# registration because it needs to log in first, which requires a CSRF dance.
 function Invoke-UpgradeInTool {
     param(
         [string]$BaseUrl,
@@ -178,6 +193,7 @@ function Invoke-UpgradeInTool {
         [switch]$VerboseOutput
     )
 
+    # 1. same as registration, exchange the raw key for a confirmationToken
     Write-Step "[1/3] Verifying organizer key..."
 
     $verifyBody = @{ key = $KeyValue } | ConvertTo-Json -Compress
@@ -196,7 +212,7 @@ function Invoke-UpgradeInTool {
         exit 1
     }
 
-    # Get user credentials for the existing account
+    # 2. get the password for the existing account (same SecureString dance as registration)
     Write-Host ""
     Write-Step "[2/3] Sign in to the existing account at: $Email"
     $password = Read-Host "Password" -AsSecureString
@@ -208,16 +224,20 @@ function Invoke-UpgradeInTool {
         [System.Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr)
     }
 
+    # 3. upgrade via three sub-requests on a shared WebRequestSession (keeps cookies across calls).
+    # NB: the server uses CSRF tokens (anti-forgery protection) and rotates them on login, so we
+    # need two: one to authenticate the login call, and a fresh one from the login response for the
+    # upgrade. Using the pre-login token on the upgrade call would 403.
     Write-Step "[3/3] Upgrading account to organizer..."
 
     $userSession = New-Object Microsoft.PowerShell.Commands.WebRequestSession
     try {
-        # Bootstrap CSRF cookie for the user session (login requires it)
+        # 3a. GET /csrf-token to seed the session cookie and grab the initial token
         $csrfResp = Invoke-Web -Uri "$BaseUrl/api/auth/csrf-token" -Method "GET" -TimeoutSec 15 -WebSession $userSession
         $csrfToken = ($csrfResp.Content | ConvertFrom-Json).csrfToken
-        if (-not $csrfToken) { throw "CSRF bootstrap response contained no csrfToken." }
+        if (-not $csrfToken) { throw "CSRF token endpoint returned no csrfToken." }
 
-        # Log in as the existing user
+        # 3b. log in as the existing user with the pre-login token
         $loginBody = @{ email = $Email; password = $passwordPlain } | ConvertTo-Json -Compress
         $loginResp = Invoke-Web -Uri "$BaseUrl/api/auth/login" -Method "POST" `
             -Headers @{ "Content-Type" = "application/json"; "X-CSRF-Token" = $csrfToken } `
@@ -225,7 +245,7 @@ function Invoke-UpgradeInTool {
         $loginCsrf = ($loginResp.Content | ConvertFrom-Json).csrfToken
         if (-not $loginCsrf) { throw "Login response contained no csrfToken - check server logs." }
 
-        # Upgrade the account
+        # 3c. upgrade with the post-login token and the confirmationToken from step 1
         $upgradeBody = @{ confirmationToken = $confirmationToken } | ConvertTo-Json -Compress
         $upgradeResp = Invoke-Web -Uri "$BaseUrl/api/auth/organizer-key/upgrade" -Method "POST" `
             -Headers @{ "Content-Type" = "application/json"; "X-CSRF-Token" = $loginCsrf } `
@@ -256,6 +276,7 @@ function Invoke-UpgradeInTool {
     Write-Host ""
 }
 
+# just prints instructions for completing registration on the website instead of in the tool.
 function Invoke-RegistrationOnWebsite {
     param(
         [string]$BaseUrl,

@@ -1,7 +1,8 @@
 # tools setup
 # checks dependencies, creates TLS certs, installs CLI to ~/.local/bin, optional docker stack bringup.
-# CLI install to ~/.local/bin, optional docker stack bringup.
 
+# full local dev setup in order: dependencies, .env, frontend packages, TLS certs, CLI install.
+# Safe to re-run, each step skips if already done. Optionally starts the docker stack at the end.
 function Invoke-Setup {
     param([switch]$VerboseOutput, [switch]$Yes, [switch]$Rebuild)
 
@@ -12,8 +13,7 @@ function Invoke-Setup {
     Write-Host "  UniEvent Local Dev Setup" -ForegroundColor Cyan
     Write-Sep
 
-    # ── Step 1: Dependency checks ─────────────────────────────────────────────
-
+    # 1. check dependencies before doing anything else
     Write-Step "Checking dependencies..."
     $failed = @()
 
@@ -93,8 +93,7 @@ function Invoke-Setup {
         exit 1
     }
 
-    # ── Step 2: .env check ────────────────────────────────────────────────────
-
+    # 2. make sure .env exists
     Write-Step "Checking .env..."
     $envFile = Join-Path $repoRoot ".env"
     if (-not (Test-Path $envFile)) {
@@ -106,8 +105,7 @@ function Invoke-Setup {
     }
     Write-Ok ".env found"
 
-    # ── Step 3: Frontend dependencies ────────────────────────────────────────
-
+    # 3. install frontend dependencies (npm install in web/)
     Write-Step "Installing frontend dependencies (web/)..."
     $webDir = Join-Path $repoRoot "web"
     $nodeModules = Join-Path $webDir "node_modules"
@@ -127,8 +125,7 @@ function Invoke-Setup {
         }
     }
 
-    # ── Step 5: docker-compose.override.yml ──────────────────────────────────
-
+    # 4. create docker-compose.override.yml from the example if it's missing
     Write-Step "Checking docker-compose.override.yml..."
     $overrideDst = Join-Path $repoRoot "docker-compose.override.yml"
     $overrideSrc = Join-Path $repoRoot "docker-compose.override.yml.example"
@@ -142,8 +139,7 @@ function Invoke-Setup {
         Write-Warn "docker-compose.override.yml.example not found - skipping"
     }
 
-    # ── Step 6: TLS certificate ───────────────────────────────────────────────
-
+    # 5. generate a self-signed TLS cert for localhost if we don't have one yet
     Write-Step "Checking TLS certificate..."
     $certsDir  = Join-Path $repoRoot "certs"
     $certFile  = Join-Path $certsDir "fullchain.pem"
@@ -163,8 +159,8 @@ function Invoke-Setup {
 
         Write-Info "Generating self-signed certificate (CN=localhost, SAN=DNS:localhost,IP:127.0.0.1)..."
 
-        # Write a temporary OpenSSL config so SANs work across all OpenSSL versions.
-        # Without SAN, Chrome 66+ rejects the cert even for self-signed certs.
+        # Write a temporary OpenSSL config so SANs (subject alternative names, i.e. which hostnames
+        # the cert covers) work across all OpenSSL versions. Without them, Chrome 66+ rejects the cert.
         $nginxSanConf = @"
 [req]
 distinguished_name = req_distinguished_name
@@ -201,8 +197,7 @@ subjectAltName = DNS:localhost,IP:127.0.0.1
         }
     }
 
-    # ── Step 7: Vault TLS certificate ────────────────────────────────────────
-
+    # 6. same for the Vault TLS cert
     Write-Step "Checking Vault TLS certificate..."
     $vaultCertFile = Join-Path $certsDir "vault.crt"
     $vaultKeyFile  = Join-Path $certsDir "vault.key"
@@ -212,7 +207,7 @@ subjectAltName = DNS:localhost,IP:127.0.0.1
     } else {
         Write-Info "Generating Vault TLS certificate (CN=vault, SAN=DNS:vault,DNS:localhost,IP:127.0.0.1)..."
 
-        # Write a temporary OpenSSL config so SANs work across all OpenSSL versions
+        # Same deal: temp OpenSSL config so SANs work across all OpenSSL versions.
         $sanConf = @"
 [req]
 distinguished_name = req_distinguished_name
@@ -249,8 +244,7 @@ subjectAltName = DNS:vault,DNS:localhost,IP:127.0.0.1
         }
     }
 
-    # ── Step 7a: MySQL SSL certificates ──────────────────────────────────────
-
+    # 7. generate MySQL SSL certificates (CA + server cert)
     Write-Step "Checking MySQL SSL certificates..."
     $mysqlCertsDir = Join-Path $certsDir "mysql"
     $caCert = Join-Path $mysqlCertsDir "ca.pem"
@@ -271,36 +265,36 @@ subjectAltName = DNS:vault,DNS:localhost,IP:127.0.0.1
         Write-Info "Generating MySQL SSL certificates (CA, server)..."
 
         try {
-            # Generate CA key
+            # 1. generate CA key
             $ErrorActionPreference = "Continue"
             & $opensslPath genrsa -out $caKey 2048 2>&1 | Out-Null
             $ErrorActionPreference = "Stop"
 
-            # Generate CA certificate
+            # 2. generate CA certificate (self-signed, used to sign the server cert)
             $ErrorActionPreference = "Continue"
             & $opensslPath req -new -x509 -days 3650 -key $caKey -out $caCert `
                 -subj "/C=DK/ST=Denmark/L=Copenhagen/O=UniEvent/CN=UniEvent-CA" 2>&1 | Out-Null
             $ErrorActionPreference = "Stop"
 
-            # Generate server key
+            # 3. generate server key
             $ErrorActionPreference = "Continue"
             & $opensslPath genrsa -out $serverKey 2048 2>&1 | Out-Null
             $ErrorActionPreference = "Stop"
 
-            # Generate server certificate signing request
+            # 4. create a certificate signing request (CSR) for the server cert
             $serverCsr = Join-Path $mysqlCertsDir "server.csr"
             $ErrorActionPreference = "Continue"
             & $opensslPath req -new -key $serverKey -out $serverCsr `
                 -subj "/C=DK/ST=Denmark/L=Copenhagen/O=UniEvent/CN=mysql" 2>&1 | Out-Null
             $ErrorActionPreference = "Stop"
 
-            # Sign server certificate
+            # 5. sign the server cert with our CA
             $ErrorActionPreference = "Continue"
             & $opensslPath x509 -req -days 3650 -in $serverCsr `
                 -CA $caCert -CAkey $caKey -CAcreateserial -out $serverCert 2>&1 | Out-Null
             $ErrorActionPreference = "Stop"
 
-            # Clean up CSR
+            # 6. clean up the CSR, we don't need it anymore
             Remove-Item $serverCsr -ErrorAction SilentlyContinue
 
             if ((Test-Path $caCert) -and (Test-Path $caKey) -and (Test-Path $serverCert) -and (Test-Path $serverKey)) {
@@ -316,8 +310,7 @@ subjectAltName = DNS:vault,DNS:localhost,IP:127.0.0.1
         }
     }
 
-    # ── Step 7b: Java truststore ─────────────────────────────────────────────
-
+    # 8. build the Java truststore so the app can trust MySQL SSL and public CAs like Gmail
     Write-Step "Checking Java truststore..."
     $truststorePath = Join-Path $certsDir "truststore.jks"
 
@@ -340,16 +333,16 @@ subjectAltName = DNS:vault,DNS:localhost,IP:127.0.0.1
         Write-Info "Creating/merging Java truststore..."
 
         try {
-            # Find keytool
+            # 1. find keytool (it ships with the JDK, not the JRE)
             $keytoolPath = Find-Executable -Name "keytool"
             if (-not $keytoolPath) {
                 Write-Err "keytool not found"
-                Write-Warn "keytool is part of the Java JDK. Ensure Java is properly installed."
+                Write-Warn "keytool is part of the Java JDK. Make sure Java is properly installed."
                 exit 1
             }
 
-            # Strategy: copy JDK cacerts (includes public CAs) then import MySQL CA.
-            # This ensures BOTH MySQL SSL and public CA trust (e.g., Gmail SMTP).
+            # 2. copy JDK cacerts (includes public CAs like Gmail SMTP) then import MySQL CA on
+            # top. This way both MySQL SSL and public CA trust work from the same truststore.
             if (-not (Test-Path $truststorePath)) {
                 $cacertsCopied = $false
                 if ($javaPath) {
@@ -374,10 +367,9 @@ subjectAltName = DNS:vault,DNS:localhost,IP:127.0.0.1
                 }
             }
 
-            # Import MySQL CA certificate into truststore
-            # Use the provided TRUSTSTORE_PASSWORD when available. Do NOT alter or re-password
-            # any copied JDK cacerts. If we copied cacerts and no password was provided, fall
-            # back to the cacerts default password so the import can proceed non-interactively.
+            # 3. import the MySQL CA into the truststore. Use TRUSTSTORE_PASSWORD when available.
+            # If we copied JDK cacerts and no password was set, fall back to "changeit" (the JDK
+            # default) so keytool can run without prompting.
             $effectivePassword = $truststorePassword
             if (-not $effectivePassword -and $cacertsCopied) {
                 $effectivePassword = 'changeit'
@@ -398,12 +390,11 @@ subjectAltName = DNS:vault,DNS:localhost,IP:127.0.0.1
             }
 
             if (Test-Path $truststorePath) {
-                # Verify the truststore contains both MySQL CA and public CAs
+                # 4. verify the import worked and print how many certs ended up in the truststore
                 $listOutput = @(& $keytoolPath -list -keystore $truststorePath -storepass $effectivePassword 2>&1)
                 $certCount = @($listOutput | Where-Object { $_ -match 'Alias name:' }).Count
                 Write-Ok "Java truststore created with $certCount certificate(s) (password: $effectivePassword)"
-                
-                # Emit note about which password will be used by the container
+
                 if ($effectivePassword -eq $truststorePassword) {
                     Write-Info "Using provided TRUSTSTORE_PASSWORD for container"
                 } else {
@@ -419,8 +410,7 @@ subjectAltName = DNS:vault,DNS:localhost,IP:127.0.0.1
         }
     }
 
-    # ── Step 8: Install CLI on PATH ───────────────────────────────────────────
-
+    # 9. install the CLI on PATH so you can run 'tools' from anywhere
     Write-Step "Installing CLI..."
 
     if ($IsLinux -or $IsMacOS) {
@@ -474,7 +464,7 @@ subjectAltName = DNS:vault,DNS:localhost,IP:127.0.0.1
             Write-Info "You can now run: tools setup, tools seed, tools refresh"
         }
     } else {
-        # Windows: drop a stub tools.bat into ~\.local\bin (already on PATH via Claude, etc.)
+        # Windows: drop a stub tools.bat into ~\.local\bin and make sure it's on PATH
         $localBin  = Join-Path $env:USERPROFILE ".local\bin"
         $stubPath  = Join-Path $localBin "tools.bat"
         $scriptAbs = Join-Path $repoRoot "tools.ps1"
@@ -498,13 +488,14 @@ subjectAltName = DNS:vault,DNS:localhost,IP:127.0.0.1
             Write-Ok "tools installed at $stubPath"
         }
 
-        # Ensure ~\.local\bin is on user PATH (read directly from registry to avoid stale $env:PATH)
+        # make sure ~\.local\bin is on the user PATH. We read from the registry directly to avoid
+        # stale $env:PATH, which only reflects what was set when this terminal session started.
         $regKey   = "HKCU:\Environment"
         $userPath = $null
         try {
             $userPath = (Get-ItemProperty -Path $regKey -Name PATH -ErrorAction Stop).PATH
         } catch {
-            # PATH key may not exist in HKCU:\Environment on a clean profile - that's fine
+            # PATH key may not exist in HKCU:\Environment on a clean profile, that's fine
         }
 
         if ($VerboseOutput) {
@@ -541,7 +532,7 @@ subjectAltName = DNS:vault,DNS:localhost,IP:127.0.0.1
             Write-Ok "Added $localBin to user PATH (registry)"
         }
 
-        # Also update PowerShell profiles
+        # Also update PowerShell profiles so the tool works in new shell sessions
         $profileLine = "if (`"`$env:USERPROFILE\.local\bin`" -notin (`$env:PATH -split `";`")) { `$env:PATH = `"`$env:USERPROFILE\.local\bin;`$env:PATH`" }"
         $profilePaths = @(
             "$env:USERPROFILE\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1"  # PS5
@@ -564,8 +555,6 @@ subjectAltName = DNS:vault,DNS:localhost,IP:127.0.0.1
 
         Write-Info "You can now run: tools seed, tools setup, tools refresh"
     }
-
-    # ── Step 9: Done ──────────────────────────────────────────────────────────
 
     Write-Host ""
     Write-Sep

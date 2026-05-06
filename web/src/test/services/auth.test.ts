@@ -191,8 +191,6 @@ describe('auth service', () => {
         expect(getCurrentUser()).toBeNull();
     });
 
-    // ── mapAuthError ─────────────────────────────────────────────────────────
-
     it('returns "Invalid email or password" for 401', () => {
         expect(mapAuthError({ status: 401 })).toBe('Invalid email or password.');
     });

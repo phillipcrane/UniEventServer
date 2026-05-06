@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main, de-firebasing]
+    branches: [main]
   pull_request:
     branches: [main]
 

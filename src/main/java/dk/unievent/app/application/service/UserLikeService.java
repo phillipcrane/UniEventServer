@@ -19,6 +19,8 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+// manages user event likes. like/unlike are idempotent; mergeLikedEventIds bulk-imports a list
+// of event IDs used to transfer pre-login guest likes to the authenticated user after sign-in.
 @Service
 @RequiredArgsConstructor
 public class UserLikeService {

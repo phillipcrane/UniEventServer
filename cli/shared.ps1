@@ -1,7 +1,5 @@
 # Shared helpers for the admin CLI: output, paths, env, HTTP, discovery.
 
-# ── Output ────────────────────────────────────────────────────────────────────
-
 function Write-Info  { param([string]$Msg) Write-Host "  $Msg" -ForegroundColor Cyan }
 function Write-Ok    { param([string]$Msg) Write-Host "  $Msg" -ForegroundColor Green }
 function Write-Err   { param([string]$Msg) Write-Host "  ERROR: $Msg" -ForegroundColor Red }
@@ -9,6 +7,8 @@ function Write-Warn  { param([string]$Msg) Write-Host "  WARN: $Msg" -Foreground
 function Write-Sep   { Write-Host ("-" * 50) -ForegroundColor DarkGray }
 function Write-Step  { param([string]$Msg) Write-Host "`n  $Msg" -ForegroundColor White }
 
+# scrubs tokens, passwords, and other secrets from a string before printing. Runs a bunch of regex
+# patterns over the text and replaces matched values with ***REDACTED***. Safe to call on any output.
 function Redact-SensitiveText {
     param([string]$Text)
 
@@ -30,6 +30,7 @@ function Redact-SensitiveText {
     return $redacted
 }
 
+# validates and normalises the base URL: rejects plain HTTP for non-localhost, strips path/query/fragment.
 function Resolve-BaseUrl {
     param([string]$RawBaseUrl)
 
@@ -43,11 +44,11 @@ function Resolve-BaseUrl {
         throw "Invalid URL format: '$candidate'"
     }
 
-    if ($uri.Scheme -ne "http" -and $uri.Scheme -ne "https") {
+    if ($uri.Scheme -ne "http" -and $uri.Scheme -ne "https") { # only http/https, nothing weird
         throw "Unsupported URL scheme '$($uri.Scheme)'. Use http:// or https://"
     }
 
-    if ($uri.Scheme -eq "http") {
+    if ($uri.Scheme -eq "http") { # plain HTTP only OK for localhost, not real servers
         $hostname = $uri.Host.ToLowerInvariant()
         $isLocal = ($hostname -eq "localhost" -or $hostname -eq "127.0.0.1" -or $hostname -eq "::1")
         if (-not $isLocal) {
@@ -55,7 +56,7 @@ function Resolve-BaseUrl {
         }
     }
 
-    $builder = New-Object System.UriBuilder($uri)
+    $builder = New-Object System.UriBuilder($uri) # strip path, query, fragment
     $builder.Path = ""
     $builder.Query = ""
     $builder.Fragment = ""
@@ -63,6 +64,7 @@ function Resolve-BaseUrl {
     return $builder.Uri.AbsoluteUri.TrimEnd('/')
 }
 
+# same as Resolve-BaseUrl but prints the error and exits instead of throwing.
 function Assert-ValidBaseUrl {
     param([string]$BaseUrl)
 
@@ -88,6 +90,8 @@ function Test-ValidEmail {
 
     if (-not $Email) { return $false }
     try {
+        # let .NET's MailAddress parser do the heavy lifting, then check the normalised address
+        # matches what we passed in. This catches things like "foo@" which .NET accepts but normalises.
         $mail = [System.Net.Mail.MailAddress]::new($Email)
         return ($mail.Address -eq $Email)
     } catch {
@@ -166,12 +170,10 @@ function Show-Help {
     Write-Host ""
 }
 
-# ── Paths ─────────────────────────────────────────────────────────────────────
-# Resolve the repo root from any script location under cli/.
-# Walks up from $PSScriptRoot looking for .git/ or pom.xml.
-
 $script:_repoRoot = $null
 
+# walks up from $PSScriptRoot looking for .git/ or pom.xml to find the repo root.
+# Cached in $_repoRoot after the first call.
 function Get-RepoRoot {
     param([string]$StartFrom = $PSScriptRoot)
 
@@ -191,8 +193,7 @@ function Get-RepoRoot {
     throw "Could not find repo root (no .git or pom.xml) walking up from $StartFrom"
 }
 
-# ── .env ──────────────────────────────────────────────────────────────────────
-
+# reads .env from the repo root and returns key-value pairs as a hashtable. Exits if .env is missing.
 function Load-DotEnv {
     $envFile = Join-Path (Get-RepoRoot) ".env"
     if (-not (Test-Path $envFile)) {
@@ -204,10 +205,10 @@ function Load-DotEnv {
     $vars = @{}
     foreach ($line in Get-Content $envFile) {
         $line = $line.Trim()
-        if ($line -eq "" -or $line.StartsWith("#")) { continue }
+        if ($line -eq "" -or $line.StartsWith("#")) { continue } # skip blank lines and comments
         if ($line -match "^([^=]+)=(.*)$") {
             $raw = $Matches[2].Trim()
-            if (($raw -match '^"(.*)"$') -or ($raw -match "^'(.*)'$")) { $raw = $Matches[1] }
+            if (($raw -match '^"(.*)"$') -or ($raw -match "^'(.*)'$")) { $raw = $Matches[1] } # strip surrounding quotes
             $vars[$Matches[1].Trim()] = $raw
         }
     }
@@ -220,6 +221,8 @@ function Update-EnvVar {
     Update-EnvVars -Pairs @{ $Key = $Value }
 }
 
+# writes lines as UTF-8 without a BOM, since PowerShell's Set-Content adds one by default
+# which breaks .env parsing on Linux. Writes to .tmp first so the target is never half-written.
 function Write-TextFileUtf8NoBom {
     param(
         [string]$Path,
@@ -232,6 +235,8 @@ function Write-TextFileUtf8NoBom {
     Move-Item -Path $tmpPath -Destination $Path -Force
 }
 
+# updates one or more keys in .env in-place. For each key, scans for an existing KEY=... line
+# and overwrites it, or appends KEY=value at the end if it's not there yet. Preserves everything else.
 function Update-EnvVars {
     param([hashtable]$Pairs)
 
@@ -247,21 +252,19 @@ function Update-EnvVars {
         $found = $false
         for ($i = 0; $i -lt $lines.Count; $i++) {
             if ($lines[$i] -match "^$([regex]::Escape($key))=") {
-                $lines[$i] = "$key=$value"
+                $lines[$i] = "$key=$value" # overwrite the existing line
                 $found = $true
                 break
             }
         }
-        if (-not $found) { $lines += "$key=$value" }
+        if (-not $found) { $lines += "$key=$value" } # key wasn't there, append it
     }
 
     Write-TextFileUtf8NoBom -Path $envFile -Lines $lines
 }
 
-# ── HTTP ──────────────────────────────────────────────────────────────────────
-# Self-signed-cert handling for https://localhost is the reason this is PowerShell
-# rather than bash/curl - PS 7's -SkipCertificateCheck is the load-bearing feature.
-
+# thin wrapper around Invoke-WebRequest. PS 7 has -SkipCertificateCheck so we can hit
+# localhost with a self-signed cert. PS 5 needs the compiled C# workaround below.
 function Invoke-Web {
     param(
         [string]$Method = "GET",
@@ -272,7 +275,7 @@ function Invoke-Web {
         $WebSession = $null
     )
     $skipCert = $false
-    try {
+    try { # figure out if we need to skip cert validation (only for https localhost)
         $parsedUri = [System.Uri]$Uri
         $hostname = $parsedUri.Host.ToLowerInvariant()
         $isLocalHost = ($hostname -eq "localhost" -or $hostname -eq "127.0.0.1" -or $hostname -eq "::1")
@@ -280,17 +283,17 @@ function Invoke-Web {
     } catch {
         $skipCert = $false
     }
-    if ($PSVersionTable.PSVersion.Major -ge 6) {
+    if ($PSVersionTable.PSVersion.Major -ge 6) { # PS 7+ - easy path, just pass the flag
         $splat = @{ Uri=$Uri; Method=$Method; Headers=$Headers; TimeoutSec=$TimeoutSec; ErrorAction="Stop"; SkipCertificateCheck=$skipCert }
         if ($null -ne $Body -and $Body -ne "") { $splat["Body"] = $Body }
         if ($null -ne $WebSession) { $splat["WebSession"] = $WebSession }
         return Invoke-WebRequest @splat
     }
 
-    # PS 5: Cannot use scriptblock callbacks for cert validation (no runspace in .NET callback)
-    # Solution: use compiled C# delegate instead of scriptblock
+    # PS 5 can't use a scriptblock for cert validation because there's no PowerShell runspace in
+    # the .NET callback. So we compile a small C# class on the fly with a static method that just
+    # returns true for every cert. .NET caches the compiled type, so this only pays the cost once.
     if ($skipCert) {
-        # Create compiled delegate for cert validation bypass (only once, cached by .NET runtime)
         if (-not ("CertificateBypass" -as [type])) {
             Add-Type -TypeDefinition @"
                 using System;
@@ -303,7 +306,7 @@ function Invoke-Web {
                 }
 "@
         }
-        $old = [System.Net.ServicePointManager]::ServerCertificateValidationCallback
+        $old = [System.Net.ServicePointManager]::ServerCertificateValidationCallback # save so we can restore after
         [System.Net.ServicePointManager]::ServerCertificateValidationCallback = [System.Net.Security.RemoteCertificateValidationCallback]::CreateDelegate([System.Net.Security.RemoteCertificateValidationCallback], [CertificateBypass], 'IgnoreSSLErrors')
     }
 
@@ -317,6 +320,8 @@ function Invoke-Web {
     }
 }
 
+# hits /actuator/health and returns true if the server is UP. Retries a few times so you can call
+# it right after starting the container and it'll wait for the app to come up.
 function Test-ServerHealth {
     param([string]$BaseUrl, [switch]$VerboseOutput, [int]$Retries = 3)
 
@@ -330,6 +335,8 @@ function Test-ServerHealth {
             if ($statusCode -lt 200 -or $statusCode -ge 300) {
                 if ($VerboseOutput) { Write-Warn "Health endpoint returned HTTP $statusCode" }
             } else {
+                # got a 2xx. if the body has a 'status' field, check it's UP. If not (or if
+                # it's not JSON at all), treat the 2xx itself as healthy.
                 $healthIsUp = $true
                 if ($resp.Content) {
                     try {
@@ -360,7 +367,7 @@ function Test-ServerHealth {
         }
 
         if ($attempt -lt $Retries) {
-            $delay = [math]::Min(2 * $attempt, 5)
+            $delay = [math]::Min(2 * $attempt, 5) # short backoff, capped at 5s
             Start-Sleep -Seconds $delay
         }
     }
@@ -370,13 +377,15 @@ function Test-ServerHealth {
 
 $script:_adminSessionByBaseUrl = @{}
 
-function Get-AdminSession {
+# logs in as the CLI service account and returns a session (auth cookie + CSRF token).
+# Cached per base URL so we only do the login flow once per run.
+function Get-AdminSession { 
     param([string]$BaseUrl)
 
     $BaseUrl = Assert-ValidBaseUrl -BaseUrl $BaseUrl
 
     if ($script:_adminSessionByBaseUrl.ContainsKey($BaseUrl) -and $script:_adminSessionByBaseUrl[$BaseUrl]) {
-        return $script:_adminSessionByBaseUrl[$BaseUrl]
+        return $script:_adminSessionByBaseUrl[$BaseUrl] # already logged in, reuse the session
     }
 
     $envVars  = Load-DotEnv
@@ -388,17 +397,17 @@ function Get-AdminSession {
         exit 1
     }
 
-    $email    = "cli@unievent.internal"
+    $email    = "cli@unievent.internal" # service account provisioned automatically by the server on startup
     $loginBody = @{ email = $email; password = $password } | ConvertTo-Json -Compress
 
     # Create a WebSession so auth cookies from the login response are auto-sent on subsequent requests.
     $webSession = New-Object Microsoft.PowerShell.Commands.WebRequestSession
     try {
-        # Login now requires CSRF protection, so bootstrap the cookie/token first.
+        # login requires CSRF protection, so get the token first before sending credentials
         $csrfResp = Invoke-Web -Uri "$BaseUrl/api/auth/csrf-token" -Method "GET" -TimeoutSec 15 -WebSession $webSession
         $csrfToken = ($csrfResp.Content | ConvertFrom-Json).csrfToken
         if (-not $csrfToken) {
-            throw "CSRF bootstrap response contained no csrfToken."
+            throw "CSRF token endpoint returned no csrfToken."
         }
 
         $resp      = Invoke-Web -Uri "$BaseUrl/api/auth/login" -Method "POST" `
@@ -406,7 +415,7 @@ function Get-AdminSession {
         $loginCsrfToken = ($resp.Content | ConvertFrom-Json).csrfToken
     } catch {
         Write-Err "Could not authenticate CLI service account: $($_.Exception.Message)"
-        Write-Warn "Ensure the server is running and ADMIN_PASSWORD matches what the server was started with."
+        Write-Warn "Make sure the server is running and ADMIN_PASSWORD matches what the server was started with."
         exit 1
     }
 
@@ -420,6 +429,8 @@ function Get-AdminSession {
     return $session
 }
 
+# sends an authenticated request to an admin endpoint and returns { StatusCode, Body } so the
+# caller can decide what counts as success.
 function Invoke-AdminRequest {
     param([string]$Method, [string]$Url, [string]$Body = $null, [switch]$VerboseOutput)
 
@@ -429,7 +440,7 @@ function Invoke-AdminRequest {
         exit 1
     }
 
-    $baseUrl      = "$($uri.Scheme)://$($uri.Authority)"
+    $baseUrl      = "$($uri.Scheme)://$($uri.Authority)" # extract base URL to look up the right session
     $adminSession = Get-AdminSession -BaseUrl $baseUrl
 
     $headers = @{ "Content-Type" = "application/json" }
@@ -446,6 +457,8 @@ function Invoke-AdminRequest {
         $resp = Invoke-Web -Uri $Url -Method $Method -Headers $headers -Body $Body -TimeoutSec 120 -WebSession $adminSession.WebSession
         return @{ StatusCode = $resp.StatusCode; Body = $resp.Content }
     } catch [System.Net.WebException] {
+        # PS5 throws WebException for non-2xx. The response body lives on the exception's Response
+        # object, not the return value, so we have to pull it out of the stream manually.
         $response = $_.Exception.Response
         if ($null -eq $response) {
             Write-Err "Request failed: $($_.Exception.Message)"
@@ -488,6 +501,8 @@ function Invoke-AdminRequest {
     }
 }
 
+# prints a success message on 2xx or exits with a friendly error. Covers the common cases:
+# validation errors (400/422), auth failures (401/403), missing endpoint (404), server error (500).
 function Handle-Response {
     param([hashtable]$Response, [string]$SuccessMsg, [switch]$VerboseOutput)
 
@@ -535,9 +550,7 @@ function Handle-Response {
     }
 }
 
-# ── Executable discovery ──────────────────────────────────────────────────────
-# Known off-PATH install locations per tool (Windows-first, cross-platform fallbacks)
-
+# known off-PATH install locations per tool (Windows-first, cross-platform fallbacks)
 $script:KnownPaths = @{
     openssl = @(
         "$env:PROGRAMFILES\Git\usr\bin\openssl.exe"
@@ -560,10 +573,11 @@ $script:KnownPaths = @{
     )
 }
 
+# looks for an executable on PATH first (-CommandType Application skips PS aliases like curl→Invoke-WebRequest),
+# then walks $Fallbacks for known off-PATH install locations.
 function Find-Executable {
     param([string]$Name, [string[]]$Fallbacks = @())
 
-    # -CommandType Application skips PowerShell aliases (e.g. curl -> Invoke-WebRequest)
     $cmd = Get-Command $Name -ErrorAction SilentlyContinue -CommandType Application | Select-Object -First 1
     if ($cmd) { return $cmd.Source }
 
@@ -578,11 +592,11 @@ function Find-Executable {
 }
 
 function Find-Java {
-    # 1. PATH
+    # 1. check PATH first, the normal case
     $cmd = Get-Command java -ErrorAction SilentlyContinue
     if ($cmd) { return $cmd.Source }
 
-    # 2. JAVA_HOME
+    # 2. check JAVA_HOME if PATH didn't have it
     if ($env:JAVA_HOME) {
         $candidate = Join-Path $env:JAVA_HOME "bin\java.exe"
         if (-not (Test-Path $candidate)) { $candidate = Join-Path $env:JAVA_HOME "bin/java" }
@@ -592,7 +606,7 @@ function Find-Java {
         }
     }
 
-    # 3. Common Windows install roots
+    # 3. scan common Windows install roots for people who installed Java but never set PATH or JAVA_HOME
     $roots = @(
         "$env:PROGRAMFILES\Java"
         "$env:PROGRAMFILES\Eclipse Adoptium"

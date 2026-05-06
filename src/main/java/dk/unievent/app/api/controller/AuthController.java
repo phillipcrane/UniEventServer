@@ -341,8 +341,9 @@ public class AuthController {
         return "ROLE_" + trimmed.toUpperCase();
     }
 
-    // Rate limit fallback methods - only intercept RequestNotPermitted (actual rate limit).
-    // All other exceptions are re-thrown so the global exception handler maps them correctly.
+    // Rate limit fallback methods. From this file and the following, these fallbacks exist 
+    // for rate limiting reasons. RequestNotPermitted is the actual rate limit. All other 
+    // exceptions are re-thrown so the global exception handler maps them correctly.
     private static void rethrowIfNotRateLimited(Exception ex) {
         if (ex instanceof RequestNotPermitted) return;
         if (ex instanceof RuntimeException re) throw re;

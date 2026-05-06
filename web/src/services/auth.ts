@@ -32,9 +32,6 @@ let tokenExpiresAt: number | null = null;
 
 const listeners: Array<(user: User | null) => void> = [];
 
-// Evict any stale user data left by the old localStorage-based session strategy.
-try { localStorage.removeItem('unievent_user'); } catch { /* SSR / restricted env */ }
-
 export type AuthUser = User;
 export type { AccountRole };
 

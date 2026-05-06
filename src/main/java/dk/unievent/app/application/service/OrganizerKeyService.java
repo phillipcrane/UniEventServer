@@ -28,6 +28,9 @@ import java.time.Instant;
 import java.util.Date;
 import java.util.UUID;
 
+// manages single-use organizer invitation keys. flow: admin generates a 32-char key, the recipient
+// verifies it (getting a short-lived JWT confirmation token back), then submits the token to
+// complete registration or upgrade their account. the key is marked used only after that final step.
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -75,10 +78,8 @@ public class OrganizerKeyService {
         return keyValue;
     }
 
-    /**
-     * Verifies a single-use key and returns a confirmation token.
-     * Returns a JWT token valid for 10 minutes.
-     */
+    // verifies a single-use key and returns a short-lived JWT confirmation token (10 min).
+    // the token embeds the keyId so the registration step can look it up without another key lookup.
     @Transactional
     public OrganizerKeyVerifyResponse verifyOrganizerKey(String keyValue) {
         OrganizerKeyEntity keyEntity = organizerKeyRepository.findByKeyValue(keyValue)
@@ -92,7 +93,6 @@ public class OrganizerKeyService {
             throw new OrganizerKeyExpiredException();
         }
 
-        // Generate confirmation token
         String confirmationToken = generateConfirmationToken(keyEntity.getId(), keyEntity.getEmail());
 
         log.info("Verified organizer key for email: {}", keyEntity.getEmail());
@@ -104,50 +104,38 @@ public class OrganizerKeyService {
         );
     }
 
-    /**
-     * Completes the registration with a confirmation token.
-     * Creates a new organizer account.
-     */
     @Transactional
     public UserEntity completeOrganizerRegistration(String confirmationToken, String username, String password, String email) {
-        // Validate confirmation token
+        // 1. validate the confirmation token and re-check the key (it could have been used in a race)
         Long keyId = validateConfirmationToken(confirmationToken);
-
-        // Verify the key still exists and hasn't been used
         OrganizerKeyEntity keyEntity = organizerKeyRepository.findById(keyId)
                 .orElseThrow(OrganizerKeyNotFoundException::new);
 
         if (keyEntity.getUsedAt() != null) {
             throw new OrganizerKeyAlreadyUsedException();
         }
-
         if (Instant.now().isAfter(keyEntity.getExpiresAt())) {
             throw new OrganizerKeyExpiredException();
         }
-
         if (!keyEntity.getEmail().equalsIgnoreCase(email)) {
             throw new IllegalArgumentException("Email does not match the key");
         }
-
         if (userRepository.existsByUsername(username)) {
             throw new UsernameAlreadyTakenException();
         }
-
         if (userRepository.existsByEmail(email)) {
             throw new EmailAlreadyRegisteredException();
         }
 
-        // Create new organizer user
+        // 2. create the organizer account and mark the key used atomically in the same transaction
         UserEntity organizer = UserEntity.builder()
                 .username(username)
                 .email(email)
                 .password(passwordEncoder.encode(password))
                 .role("organizer")
                 .build();
-
         userRepository.save(organizer);
 
-        // Mark the key as used
         keyEntity.setUsedAt(Instant.now());
         organizerKeyRepository.save(keyEntity);
 
@@ -156,10 +144,8 @@ public class OrganizerKeyService {
         return organizer;
     }
 
-    /**
-     * Upgrades an already-authenticated user's role to organizer using a confirmation token.
-     * The key's email must match the authenticated user's email.
-     */
+    // same as completeOrganizerRegistration but for existing accounts: upgrades role rather than creating a new user.
+    // the key's email must match the authenticated user's email so you can't use someone else's invite.
     @Transactional
     public UserEntity upgradeToOrganizer(String confirmationToken, String authenticatedEmail) {
         Long keyId = validateConfirmationToken(confirmationToken);
@@ -192,9 +178,6 @@ public class OrganizerKeyService {
         return user;
     }
 
-    /**
-     * Generates a random key of 32 characters.
-     */
     private String generateRandomKey() {
         StringBuilder sb = new StringBuilder(KEY_LENGTH);
 
@@ -205,9 +188,7 @@ public class OrganizerKeyService {
         return sb.toString();
     }
 
-    /**
-     * Generates a JWT confirmation token with 10-minute expiration.
-     */
+    // short-lived JWT (10 min) that carries the keyId as a claim so registration doesn't need the raw key again
     private String generateConfirmationToken(Long keyId, String email) {
         Date issuedAt = new Date();
         Date expiration = new Date(issuedAt.getTime() + confirmationTokenExpirationMinutes * 60 * 1000);
@@ -223,9 +204,6 @@ public class OrganizerKeyService {
                 .compact();
     }
 
-    /**
-     * Validates a confirmation token and returns the key ID.
-     */
     private Long validateConfirmationToken(String token) {
         try {
             var claims = Jwts.parser()
@@ -234,17 +212,13 @@ public class OrganizerKeyService {
                     .parseSignedClaims(token)
                     .getPayload();
 
-            // Verify token type
             if (!CONFIRMATION_TOKEN_TYPE.equals(claims.get("type"))) {
                 throw new IllegalStateException("Invalid token type");
             }
-
-            // Verify not expired
             if (claims.getExpiration().before(new Date())) {
                 throw new IllegalStateException("Confirmation token has expired");
             }
 
-            // Extract keyId
             Object keyIdObj = claims.get("keyId");
             if (keyIdObj == null) {
                 throw new IllegalStateException("Invalid token: missing keyId");

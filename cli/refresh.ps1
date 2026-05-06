@@ -2,11 +2,14 @@
 # Without -p: refreshes tokens for every page (matches scheduler behavior).
 # With    -p: refreshes one page only.
 
+# refreshes Facebook page tokens so the app can keep pulling events. Two paths:
+# 1) single page (if -p was passed); 2) all pages at once (matches what the scheduler does).
 function Invoke-Refresh {
     param([string]$BaseUrl, [string]$Page, [switch]$VerboseOutput)
 
     $BaseUrl = Assert-ValidBaseUrl -BaseUrl $BaseUrl
 
+    # 1. if -p was passed, hit the per-page endpoint and print whatever message the server gives back
     if ($Page) {
         Assert-NonEmpty -Name "Page ID" -Value $Page
         Write-Info "Refreshing token for page: $Page"
@@ -15,6 +18,7 @@ function Invoke-Refresh {
         if ($resp.StatusCode -eq 200) {
             $body = $null
             try { $body = $resp.Body | ConvertFrom-Json } catch {}
+            # use the server's message if it gave one, otherwise just say "Token refreshed"
             $msg = if ($body -and $body.message) { $body.message } else { "Token refreshed" }
             Write-Ok "Page $Page`: $msg"
             if ($VerboseOutput -and $resp.Body) {
@@ -34,6 +38,7 @@ function Invoke-Refresh {
         exit 1
     }
 
+    # 2. no -p, so hit the bulk endpoint. The response has a summary with success/fail counts and duration.
     Write-Info "Refreshing tokens for all pages..."
     $resp = Invoke-AdminRequest -Method "POST" -Url "$BaseUrl/admin/tools/refresh-tokens" -VerboseOutput:$VerboseOutput
 

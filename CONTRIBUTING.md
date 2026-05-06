@@ -183,7 +183,7 @@ Data Layer:
 Infrastructure Layer:
 - **`/config/`** - Spring config beans
 - **`/exception/`** - one `RuntimeException` subclass per failure case
-- **`tools/`** - `@Profile("dev")` admin endpoints only; never ships to production
+- **`/tools/`** - `@Profile("dev")` admin endpoints only; never ships to production
 
 ---
 
@@ -198,59 +198,189 @@ Infrastructure Layer:
 - **`types.ts`** - all TS types (remember - TS types don't exist when the program is running, unlike in Java/C#)
 - **`constants.ts`** - all magic values: timeouts, thresholds, API paths, feature flags
 
-## Testing
 
-This project does **not** use the PHP Pest framework. The backend is tested with
-JUnit/Spring Boot through Maven, and the frontend is tested with Vitest through
-npm. When someone refers to "PEST tests" in this repository, treat that as a
-small system-suitability checklist, not as a new test framework.
+## Diagrams 
 
-Run the standard suites before opening a PR:
+### Infrastructure
 
-```bash
-./mvnw test
-cd web && npm test
+```mermaid
+flowchart LR
+    Student((Student))
+    Organizer((Organizer))
+    Admin((Admin))
+    CLI[CLI Tools]
+    FB[Facebook\nGraph API]
+    Email[Email / SMTP]
+
+    subgraph Docker Compose
+        Nginx[Nginx\nReverse Proxy]
+        Certbot[Certbot\nSSL]
+        Web[React/Vite\nFrontend]
+        Spring[Spring Boot\nAPI]
+        DB[(MySQL)]
+        Vault[HashiCorp\nVault]
+        SeaweedM[SeaweedFS\nMaster]
+        SeaweedV[(SeaweedFS\nVolume)]
+    end
+
+    Student --> Web
+    Organizer --> Web
+    Admin --> Web
+	Admin --> CLI
+    Web --> Nginx
+    Nginx --> Spring
+    Certbot -.->|renew certs| Nginx
+    CLI --> Spring
+    Spring --> DB
+    Spring --> Vault
+    Spring --> FB
+    Spring --> SeaweedM
+    Spring --> Email
+    SeaweedM --> SeaweedV
 ```
 
-### Backend Tests
+### Database Schema
 
-- Put Java tests under `src/test/java/dk/unievent/app/...`, mirroring the
-  production package being tested.
-- Use focused unit tests for mappers, DTOs, entities, services, filters, and
-  config classes.
-- Use `MockMvc` controller tests for HTTP status codes, JSON bodies, and auth
-  behavior.
-- Use Spring integration tests only when wiring, persistence, migrations, or
-  security filters are part of the behavior being verified.
-- Use the `test` profile and the existing H2-backed test resources under
-  `src/test/resources`.
+```mermaid
+erDiagram
+    USERS {
+      bigint id PK
+      string email
+      string role
+    }
+    ORGANIZER_KEYS {
+      bigint id PK
+      string keyValue
+      string email
+      datetime expiresAt
+      datetime usedAt
+    }
+    PAGES {
+      string id PK
+      string name
+      datetime tokenExpiresAt
+    }
+    EVENTS {
+      string id PK
+      string title
+      datetime startTime
+      datetime endTime
+    }
+    PLACES {
+      string id PK
+      string name
+      string city
+      string country
+    }
+    MEDIA_FILES {
+      bigint id PK
+      string fileId
+      string contentType
+    }
+    USER_EVENT_LIKES {
+      bigint userId FK
+      string eventId FK
+      datetime createdAt
+    }
+    REFRESH_TOKENS {
+      bigint id PK
+      string tokenId
+      string familyId
+      datetime expiresAt
+    }
+    SECRETS {
+      bigint id PK
+      string name
+      string secretType
+      string vaultPath
+    }
 
-### Frontend Tests
+    USERS ||--o{ REFRESH_TOKENS : has
+    USERS ||--o{ USER_EVENT_LIKES : likes
+    EVENTS ||--o{ USER_EVENT_LIKES : liked_by
+    PAGES ||--o{ EVENTS : publishes
+    PLACES ||--o{ EVENTS : hosts
+    MEDIA_FILES ||--|| EVENTS : cover_image
+    MEDIA_FILES ||--|| PAGES : picture
+```
 
-- Put Vitest tests under `web/src/test`, grouped by `pages/` and `services/`.
-- Test service modules as pure data-access code: URLs, HTTP methods, headers,
-  request bodies, retry behavior, and error handling.
-- Test pages through user-visible behavior with Testing Library rather than
-  component internals.
-- Keep browser/global state isolated with the existing reset helpers such as
-  `_resetForTesting`, `_resetLikesForTesting`, and `resetCsrfTokenForTesting`.
+### Token Refresh Flow
 
-### PEST Suitability Checklist
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Scheduler as FacebookTokenRefresher
+    participant Service as TokenRefreshService
+    participant Vault as VaultService
+    participant FB as FacebookGraphApiService
+    participant DB as PageService
 
-Use this lightweight checklist for changes that affect the whole running system,
-especially auth, Facebook ingestion, media, the admin tools, Docker, or the
-PicoCLI migration:
+    Scheduler->>Service: refreshAll()
+    loop each page
+        Service->>Vault: getPageToken(pageId)
+        Service->>FB: refreshPageToken(token)
+        Service->>Vault: updatePageToken(pageId, newToken)
+        Service->>DB: updateTokenMetadata(pageId)
+    end
+```
 
-| Area | Meaning for UniEvent | Suitable checks |
-|------|----------------------|-----------------|
-| Performance | Common public flows stay quick with realistic data. | Event list, page search, profile likes, media download, and `/actuator/health` return promptly against a seeded local stack. |
-| Endurance | Scheduled/background flows survive repeated use. | Repeated seed/clear, token refresh, Facebook ingest, and media storage operations leave the app healthy and logs free of repeated failures. |
-| Security | Auth boundaries still hold. | Public routes stay public; protected routes reject anonymous users; admin routes require admin auth; CSRF-protected unsafe methods reject missing/invalid CSRF; cookie and CORS settings match the target environment. |
-| Tooling | Developer tools work across supported environments. | `tools` wrappers, Docker startup, Vault setup, seed, ingest, refresh, invite, and future PicoCLI commands behave consistently on Windows PowerShell and Mac/Linux shells. |
+### Facebook Event Ingestion
 
-PEST checks do not all need to run in CI. Prefer automated JUnit/Vitest coverage
-for stable behavior, then add documented manual or scriptable checks for local
-Docker/Vault/Facebook flows that depend on external services.
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Scheduler as FacebookIngestionScheduler
+    participant EventSvc as EventService
+    participant Vault as VaultService
+    participant FB as FacebookGraphApiService
+    participant Media as MediaService/SeaweedFS
+    participant DB as EventRepository
+
+    Scheduler->>EventSvc: ingestFacebookEvents(pageId)
+    EventSvc->>Vault: getPageToken(pageId)
+    EventSvc->>FB: getPageEvents(pageId, token)
+    loop each event
+        EventSvc->>Media: downloadAndStoreImage(...)
+        EventSvc->>DB: save EventEntity
+    end
+```
+
+### Organizer Key Registration
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor User
+    participant Web as Web UI
+    participant Auth as AuthController
+    participant KeySvc as OrganizerKeyService
+    participant Keys as OrganizerKeyRepository
+    participant Users as UserRepository
+    participant Tokens as RefreshTokenService
+
+    User->>Web: Enter organizer key
+    Web->>Auth: POST /api/auth/organizer-key/verify
+    Auth->>KeySvc: verifyOrganizerKey
+    KeySvc->>Keys: findByKeyValue
+    KeySvc-->>Auth: confirmationToken
+    Auth-->>Web: confirmationToken + email
+
+    alt existing user
+        User->>Web: Upgrade account
+        Web->>Auth: POST /api/auth/organizer-key/upgrade
+        Auth->>KeySvc: upgradeToOrganizer
+        KeySvc->>Users: update role
+        Auth->>Tokens: issueTokenPair
+        Auth-->>Web: new auth cookies
+    else new user
+        User->>Web: Register with key
+        Web->>Auth: POST /api/auth/register-with-key
+        Auth->>KeySvc: completeOrganizerRegistration
+        KeySvc->>Users: create user
+        Auth->>Tokens: issueTokenPair
+        Auth-->>Web: new auth cookies
+    end
+```
 
 ## API Endpoints
 
@@ -277,6 +407,7 @@ Docker/Vault/Facebook flows that depend on external services.
 | `GET` | `/api/facebook/health` | Facebook integration health check |
 | `GET` | `/media/{id}` | Download media file |
 | `GET` | `/media` | List all media files (paginated) |
+| `GET` | `/api/auth/csrf-token` | Get CSRF token (call before login or register) |
 | `POST` | `/api/auth/register` | Register user |
 | `POST` | `/api/auth/login` | Login |
 | `POST` | `/api/auth/refresh` | Refresh access token |
@@ -286,6 +417,9 @@ Docker/Vault/Facebook flows that depend on external services.
 **Authenticated:**
 | Method | Path | Purpose |
 |--------|------|---------|
+| `GET` | `/api/auth/profile` | Get current user profile and role |
+| `POST` | `/api/auth/logout` | Logout |
+| `POST` | `/api/auth/organizer-key/upgrade` | Upgrade existing account to organizer role |
 | `POST` | `/api/events` | Create event |
 | `PUT` | `/api/events/{id}` | Update event |
 | `DELETE` | `/api/events/{id}` | Delete event |
@@ -298,12 +432,21 @@ Docker/Vault/Facebook flows that depend on external services.
 | `PUT` | `/api/places/{id}` | Update place |
 | `DELETE` | `/api/places/{id}` | Delete place |
 | `POST` | `/media` | Upload media file |
-| `POST` | `/api/auth/logout` | Logout |
+| `GET` | `/api/users/me/likes` | Get liked event IDs |
+| `POST` | `/api/users/me/likes` | Merge liked event IDs (sync from localStorage) |
+| `PUT` | `/api/users/me/likes/{eventId}` | Like an event |
+| `DELETE` | `/api/users/me/likes/{eventId}` | Unlike an event |
 
 **Admin only:**
 | Method | Path | Purpose |
 |--------|------|---------|
 | `POST` | `/api/auth/organizer-key/generate` | Generate organizer invite |
+| `GET` | `/api/admin/secrets` | List all secrets |
+| `GET` | `/api/admin/secrets/{id}` | Get secret by ID |
+| `GET` | `/api/admin/secrets/by-name/{name}` | Get secret by name |
+| `GET` | `/api/admin/secrets/by-type/{type}` | Get secrets by type |
+| `GET` | `/api/admin/secrets/by-status/{status}` | Get secrets by status |
+| `DELETE` | `/api/admin/secrets/{id}` | Delete secret |
 
 **Dev profile only (`@Profile("dev")`) - not available in production:**
 | Method | Path | Purpose |
@@ -319,15 +462,10 @@ Docker/Vault/Facebook flows that depend on external services.
 
 Backend
 
-**Feature & Refactor:**
-- [x] JWT auth - signed token, expiry, validation filter
-- [x] Pin Docker image versions
-- [in progress] Auto Facebook token refresh
-- [ ] Actually fix likes rather than just living in localstorage
-- [ ] Clean out controllers to just handle endpoints, put the rest into services
-- [ ] Persist likes to backend (`/api/users/me/likes`) - currently localStorage only
-- [ ] Migrate schema to Flyway - `ddl-auto` is now `validate`; any schema change needs a Flyway migration file before deploy
-- [ ] Add manual ADMIN endpoint for Facebook token refresh and page ingestion (non-dev profile)
+**Features & Refactor**
+- [ ] Rename TokenRefreshService to FacebookTokenRefreshService (also test)
+- [ ] JDoc everywhere.
+- [ ] Move to OpenAPI 
 - [ ] PicoCLI for proper tool CLI
 - [ ] DB: Quartz scheduler
 
@@ -348,14 +486,9 @@ Backend
 Frontend
 
 **Feature & Refactor:**
-- [in progress] Facebook Page Organizer onboarding flow
-- [in progress] Mobile layout improvements
-- [ ] Facebook OAuth login
-- [ ] Organizer dashboard (event sync status, token expiry)
-- [ ] Create Event page
-- [ ] Business Manager integration for stable API access
-- [ ] Admin Dashboard/Tool for using ADMIN endpoints
-- [ ] Zod + React Hook Form
+- [ ] Remove /admin/ directory in /web/src/pages; just flatten the folder with no subfolders.
+- [ ] AdminHeader, Calendar, HeaderLogoLink, adminTools.ts  should have types in types.ts, consts in constants.ts and functions in a util or 
+- [ ] Consolidate styles in /styles into one or two files, and not per page.
 
 **Security**
 - [ ] Validate image/media URLs for unsafe schemes; reject `javascript:` and `data:`, allow only `https:` and relative paths

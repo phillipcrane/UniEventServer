@@ -44,7 +44,7 @@ export interface Place {
 // "upcoming" = soonest first; "newest" = most recently added first; "all" = no future-only filter, sorted upcoming.
 export type SortMode = 'upcoming' | 'newest' | 'all';
 
-// ── Auth ───────────────────────────────────────────────────────────────────
+// Auth:
 
 export type AccountRole = 'user' | 'organizer' | 'admin';
 
@@ -82,7 +82,7 @@ export type AuthApiResponse = {
   accessTokenExpiresInMs: number;
 };
 
-// ── DAL ───────────────────────────────────────────────────────────────────
+// DAL:
 
 export interface ApiResponse<T> {
   content: T[];

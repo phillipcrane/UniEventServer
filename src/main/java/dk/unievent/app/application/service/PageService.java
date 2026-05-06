@@ -21,6 +21,8 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.Optional;
 
+// CRUD for Facebook pages and their token metadata. token status tracking lives here (valid, expired,
+// error) so the scheduler knows which pages to skip and the admin dashboard can show token health.
 @Slf4j
 @Service
 public class PageService {
@@ -205,12 +207,8 @@ public class PageService {
         return true;
     }
 
-    /**
-     * Create or update a PageEntity from Facebook Graph API response.
-     * Initializes token metadata and integration settings.
-     * @param fbPageResponse Facebook page response from Graph API
-     * @return Created or updated PageEntity
-     */
+    // upserts a PageEntity from the OAuth flow. sets token status to valid and initialises
+    // the expiration to 60 days out (Facebook long-lived token lifetime).
     public PageEntity createOrUpdatePageFromFacebook(FbPageResponse fbPageResponse) {
         log.debug("Processing Facebook page: {} ({})", fbPageResponse.getName(), fbPageResponse.getId());
 
@@ -226,17 +224,13 @@ public class PageService {
             log.debug("Creating new page from Facebook: {}", fbPageResponse.getId());
         }
 
-        // Update/set page information
         pageEntity.setName(fbPageResponse.getName());
         pageEntity.setTokenStatus("valid");
         pageEntity.setTokenRefreshedAt(LocalDateTime.now());
         pageEntity.setLastRefreshSuccess(true);
         pageEntity.setLastRefreshError(null);
         pageEntity.setLastRefreshAttempt(LocalDateTime.now());
-
-        // Token expiration: Facebook long-lived tokens expire in ~60 days
-        LocalDateTime expirationTime = LocalDateTime.now().plusDays(TokenConstants.TOKEN_EXPIRATION_DAYS);
-        pageEntity.setTokenExpiresAt(expirationTime);
+        pageEntity.setTokenExpiresAt(LocalDateTime.now().plusDays(TokenConstants.TOKEN_EXPIRATION_DAYS));
         pageEntity.setTokenExpiresInDays(60);
 
         PageEntity saved = pageRepository.save(pageEntity);
@@ -245,12 +239,8 @@ public class PageService {
         return saved;
     }
 
-    /**
-     * Update token status and expiration metadata in the database after a successful refresh.
-     * The actual token refresh (Vault read → Facebook API → Vault write) is handled by TokenRefreshService.
-     * @param pageId Facebook page ID
-     * @return true if the page was found and updated
-     */
+    // updates token metadata in the DB after a successful refresh. the actual Vault read/write
+    // and Graph API call happen in TokenRefreshService before this is called.
     public boolean updateTokenMetadata(String pageId) {
         log.debug("Refreshing token for page: {}", pageId);
 
@@ -261,20 +251,13 @@ public class PageService {
         }
 
         try {
-            // Note: FacebookTokenRefresher service calls FacebookGraphApiService.refreshPageToken()
-            // then calls this method to update metadata in database
-            // Token refresh happens at higher level to maintain separation of concerns
-
             PageEntity page = pageOpt.get();
             page.setTokenStatus("valid");
             page.setTokenRefreshedAt(LocalDateTime.now());
             page.setLastRefreshSuccess(true);
             page.setLastRefreshError(null);
             page.setLastRefreshAttempt(LocalDateTime.now());
-
-            // Update expiration: refresh adds another ~60 days
-            LocalDateTime expirationTime = LocalDateTime.now().plusDays(TokenConstants.TOKEN_EXPIRATION_DAYS);
-            page.setTokenExpiresAt(expirationTime);
+            page.setTokenExpiresAt(LocalDateTime.now().plusDays(TokenConstants.TOKEN_EXPIRATION_DAYS)); // refresh adds another ~60 days
             page.setTokenExpiresInDays(60);
 
             pageRepository.save(page);

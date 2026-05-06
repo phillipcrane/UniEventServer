@@ -76,8 +76,6 @@ describe('OrganizerSignupPage', () => {
         mockMapAuthError.mockReset();
     });
 
-    // ── Step 1 ───────────────────────────────────────────────────────────────
-
     it('shows step 1 by default', () => {
         renderPage();
 
@@ -154,8 +152,6 @@ describe('OrganizerSignupPage', () => {
 
         expect(mockNavigate).toHaveBeenCalledWith('/signup-organizer-landing');
     });
-
-    // ── Step 2 ───────────────────────────────────────────────────────────────
 
     it('shows registration form on step 2 with email pre-filled and disabled', async () => {
         const user = userEvent.setup();

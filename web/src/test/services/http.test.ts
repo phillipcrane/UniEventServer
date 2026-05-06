@@ -107,8 +107,6 @@ describe('http - apiCall', () => {
         expect((init.headers as Headers).get('X-CSRF-Token')).toBeNull();
     });
 
-    // ── 401 handling ─────────────────────────────────────────────────────────
-
     it('retries the request after a successful session refresh on 401', async () => {
         mockRefreshSession.mockResolvedValueOnce(true);
         mockFetch
@@ -146,8 +144,6 @@ describe('http - apiCall', () => {
         expect(response.status).toBe(401);
         expect(mockRefreshSession).not.toHaveBeenCalled();
     });
-
-    // ── 403 handling ─────────────────────────────────────────────────────────
 
     it('clears auth and throws on 403 with a CSRF error message', async () => {
         mockFetch.mockResolvedValueOnce(

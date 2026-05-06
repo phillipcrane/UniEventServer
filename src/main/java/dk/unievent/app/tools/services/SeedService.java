@@ -58,10 +58,10 @@ public class SeedService {
     public SeedResponse seedData() {
         log.info("Starting data seed operation...");
         try {
-            // Clear any existing seed data first so seeding is idempotent
+            // 1 Clear any existing seed data first so seeding is idempotent
             clearExistingSeedRecords();
 
-            // Try to upload a placeholder image to SeaweedFS; if unavailable, proceed without media
+            // 2 Try to upload a placeholder image to SeaweedFS; if unavailable, proceed without media
             String sharedFileId = null;
             try {
                 sharedFileId = mediaService.downloadAndStoreImage(PLACEHOLDER_IMAGE_URL, "SEED_placeholder.jpg");
@@ -70,7 +70,7 @@ public class SeedService {
                 log.warn("SeaweedFS unavailable - seeding without cover images: {}", e.getMessage());
             }
 
-            // Create 10 unique media records all pointing to the same image (or null if upload failed)
+            // 3. Create 10 unique media records all pointing to the same image (or null if upload failed)
             MediaEntity media1  = sharedFileId != null ? createAndSaveMedia("SEED_react_workshop.jpg",    "image/jpeg", sharedFileId) : null;
             MediaEntity media2  = sharedFileId != null ? createAndSaveMedia("SEED_spring_boot.jpg",       "image/jpeg", sharedFileId) : null;
             MediaEntity media3  = sharedFileId != null ? createAndSaveMedia("SEED_docker_k8s.jpg",        "image/jpeg", sharedFileId) : null;
@@ -82,15 +82,15 @@ public class SeedService {
             MediaEntity media9  = sharedFileId != null ? createAndSaveMedia("SEED_classical_concert.jpg", "image/jpeg", sharedFileId) : null;
             MediaEntity media10 = sharedFileId != null ? createAndSaveMedia("SEED_book_club.jpg",         "image/jpeg", sharedFileId) : null;
 
-            // Create places (UUIDs auto-generated; use SEED_ name prefix for identification)
+            // 4. Create places (UUIDs auto-generated; use SEED_ name prefix for identification)
             PlaceEntity copenhagenPlace = createAndSavePlace("SEED_Copenhagen", "Nørrebro", "1200", "Denmark", 55.6761, 12.5683);
             PlaceEntity aarhusPlace = createAndSavePlace("SEED_Aarhus", "Centrum", "8000", "Denmark", 56.1629, 10.2039);
 
-            // Create pages
+            // 5. Create pages
             PageEntity techEventsPage = createAndSavePage("SEED_TECH_EVENTS", "Tech Events");
             PageEntity cultureEventsPage = createAndSavePage("SEED_CULTURE_EVENTS", "Culture Events");
 
-            // Create events for Tech Events page
+            // 6. Create events for Tech Events page
             LocalDateTime now = LocalDateTime.now();
             createAndSaveEvent("SEED_EVENT_001", "React Workshop", "Deep dive into modern React patterns",
                 now.plus(7, ChronoUnit.DAYS).withHour(10).withMinute(0),
@@ -161,32 +161,32 @@ public class SeedService {
     public SeedResponse clearSeedData() {
         log.info("Starting data cleanup operation...");
         try {
-            // Delete events first (they reference pages and places and media)
+            // 1. Delete events first (they reference pages and places and media)
             List<EventEntity> seededEvents = eventRepository.findAll().stream()
                 .filter(e -> e.getId().startsWith(SEED_PREFIX))
                 .toList();
             eventRepository.deleteAll(seededEvents);
             long deletedEvents = seededEvents.size();
 
-            // Delete pages (events must be deleted first due to foreign key)
+            // 2. Delete pages (events must be deleted first due to foreign key)
             List<PageEntity> seededPages = pageRepository.findAll().stream()
                 .filter(p -> p.getId().startsWith(SEED_PREFIX))
                 .toList();
             pageRepository.deleteAll(seededPages);
             long deletedPages = seededPages.size();
 
-            // Delete places (events must be deleted first due to foreign key)
+            // 3. Delete places (events must be deleted first due to foreign key)
             List<PlaceEntity> seededPlaces = placeRepository.findAll().stream()
                 .filter(p -> p.getName() != null && p.getName().startsWith(SEED_PREFIX))
                 .toList();
             placeRepository.deleteAll(seededPlaces);
             long deletedPlaces = seededPlaces.size();
 
-            // Delete seeded media (must be after events since they reference it)
+            // 4. Delete seeded media (must be after events since they reference it)
             List<MediaEntity> seededMedia = mediaRepository.findAll().stream()
                 .filter(m -> m.getFilename() != null && m.getFilename().startsWith(SEED_PREFIX))
                 .toList();
-            // Delete unique fileIds from SeaweedFS (all seed records share one file)
+            // 5. Delete unique fileIds from SeaweedFS (all seed records share one file)
             seededMedia.stream()
                 .map(MediaEntity::getFileId)
                 .filter(fid -> fid != null && !fid.isBlank())
