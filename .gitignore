@@ -34,6 +34,11 @@ vault-init.json
 *.p12
 *.pfx
 
+# Generated truststores and serial files
+certs/truststore.jks
+certs/ca.srl
+certs/mysql/ca.srl
+
 
 # JAVA / MAVEN
 target/

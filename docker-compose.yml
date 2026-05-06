@@ -15,6 +15,8 @@ services:
       - "127.0.0.1:3307:3306"
     volumes:
       - mysql-data:/var/lib/mysql
+      - ./certs/mysql:/etc/mysql/certs:ro
+    command: --ssl-ca=/etc/mysql/certs/ca.pem --ssl-cert=/etc/mysql/certs/server-cert.pem --ssl-key=/etc/mysql/certs/server-key.pem
     networks:
       - unievent-network
     healthcheck:
@@ -77,9 +79,10 @@ services:
         condition: service_healthy
     environment:
       SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-prod}
-      SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL:-jdbc:mysql://mysql:3306/unievent?useSSL=true&serverTimezone=UTC&allowPublicKeyRetrieval=true}
-      SPRING_DATASOURCE_USERNAME: ${MYSQL_USER:-unievent_app}
-      SPRING_DATASOURCE_PASSWORD: ${MYSQL_PASSWORD:-}
+      SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL:-jdbc:mysql://mysql:3306/unievent?useSSL=true&serverSslVerification=false&allowPublicKeyRetrieval=false&serverTimezone=UTC}
+      SPRING_DATASOURCE_USERNAME: ${MYSQL_USER}
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_PASSWORD}
+      JAVA_TOOL_OPTIONS: -Djavax.net.ssl.trustStore=/app/truststore.jks -Djavax.net.ssl.trustStorePassword=${TRUSTSTORE_PASSWORD}
       UNIEVENT_MEDIA_SEAWEEDFS_MASTER_URL: ${SEAWEEDFS_MASTER_URL:-weed-master:9333}
       UNIEVENT_MEDIA_SEAWEEDFS_VOLUME_URL: ${SEAWEEDFS_VOLUME_URL:-http://weed-volume:8080}
       UNIEVENT_SECURITY_JWT_SECRET: ${UNIEVENT_SECURITY_JWT_SECRET}
@@ -108,6 +111,7 @@ services:
       VAULT_CACERT_PATH: /etc/vault-ca/vault.crt
     volumes:
       - ./certs/vault.crt:/etc/vault-ca/vault.crt:ro
+      - ./certs/truststore.jks:/app/truststore.jks:ro
       - logs:/app/logs
     ports:
       - "127.0.0.1:8080:8080"

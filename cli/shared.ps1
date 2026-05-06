@@ -95,6 +95,29 @@ function Test-ValidEmail {
     }
 }
 
+function Get-EnvVariable {
+    param([string]$Name, [string]$Default)
+
+    $envVar = [Environment]::GetEnvironmentVariable($Name)
+    return if ($envVar) { $envVar } else { $Default }
+}
+
+function Load-DotEnv {
+    param([string]$FilePath)
+
+    if (-not (Test-Path $FilePath)) {
+        return
+    }
+
+    Get-Content $FilePath | ForEach-Object {
+        if ($_ -match '^\s*([^#=]+?)\s*=\s*(.+?)\s*$') {
+            $name = $matches[1]
+            $value = $matches[2]
+            [Environment]::SetEnvironmentVariable($name, $value, "Process")
+        }
+    }
+}
+
 function Show-Help {
     $cli = if ($IsLinux -or $IsMacOS) { "./tools.sh" } else { "./tools" }
 

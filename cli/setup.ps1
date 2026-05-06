@@ -248,6 +248,188 @@ subjectAltName = DNS:vault,DNS:localhost,IP:127.0.0.1
         }
     }
 
+    # ── Step 7a: MySQL SSL certificates ──────────────────────────────────────
+
+    Write-Step "Checking MySQL SSL certificates..."
+    $mysqlCertsDir = Join-Path $certsDir "mysql"
+    $caCert = Join-Path $mysqlCertsDir "ca.pem"
+    $caKey = Join-Path $mysqlCertsDir "ca-key.pem"
+    $serverCert = Join-Path $mysqlCertsDir "server-cert.pem"
+    $serverKey = Join-Path $mysqlCertsDir "server-key.pem"
+
+    $mysqlCertsExist = (Test-Path $caCert) -and (Test-Path $caKey) -and (Test-Path $serverCert) -and (Test-Path $serverKey)
+
+    if ($mysqlCertsExist) {
+        Write-Ok "MySQL SSL certificates already exist"
+    } else {
+        if (-not (Test-Path $mysqlCertsDir)) {
+            New-Item -ItemType Directory -Path $mysqlCertsDir | Out-Null
+            Write-Info "Created mysql/ directory"
+        }
+
+        Write-Info "Generating MySQL SSL certificates (CA, server)..."
+
+        try {
+            # Generate CA key
+            $ErrorActionPreference = "Continue"
+            & $opensslPath genrsa -out $caKey 2048 2>&1 | Out-Null
+            $ErrorActionPreference = "Stop"
+
+            # Generate CA certificate
+            $ErrorActionPreference = "Continue"
+            & $opensslPath req -new -x509 -days 3650 -key $caKey -out $caCert `
+                -subj "/C=DK/ST=Denmark/L=Copenhagen/O=UniEvent/CN=UniEvent-CA" 2>&1 | Out-Null
+            $ErrorActionPreference = "Stop"
+
+            # Generate server key
+            $ErrorActionPreference = "Continue"
+            & $opensslPath genrsa -out $serverKey 2048 2>&1 | Out-Null
+            $ErrorActionPreference = "Stop"
+
+            # Generate server certificate signing request
+            $serverCsr = Join-Path $mysqlCertsDir "server.csr"
+            $ErrorActionPreference = "Continue"
+            & $opensslPath req -new -key $serverKey -out $serverCsr `
+                -subj "/C=DK/ST=Denmark/L=Copenhagen/O=UniEvent/CN=mysql" 2>&1 | Out-Null
+            $ErrorActionPreference = "Stop"
+
+            # Sign server certificate
+            $ErrorActionPreference = "Continue"
+            & $opensslPath x509 -req -days 3650 -in $serverCsr `
+                -CA $caCert -CAkey $caKey -CAcreateserial -out $serverCert 2>&1 | Out-Null
+            $ErrorActionPreference = "Stop"
+
+            # Clean up CSR
+            Remove-Item $serverCsr -ErrorAction SilentlyContinue
+
+            if ((Test-Path $caCert) -and (Test-Path $caKey) -and (Test-Path $serverCert) -and (Test-Path $serverKey)) {
+                Write-Ok "MySQL SSL certificates generated (valid 10 years)"
+            } else {
+                Write-Err "MySQL certificate generation failed - files not created"
+                exit 1
+            }
+        } catch {
+            Write-Err "MySQL certificate generation failed: $_"
+            Write-Warn "Check that OpenSSL is installed and runnable: openssl version"
+            exit 1
+        }
+    }
+
+    # ── Step 7b: Java truststore ─────────────────────────────────────────────
+
+    Write-Step "Checking Java truststore..."
+    $truststorePath = Join-Path $certsDir "truststore.jks"
+
+    # Prefer environment variable for non-interactive / production runs.
+    $truststorePassword = [Environment]::GetEnvironmentVariable("TRUSTSTORE_PASSWORD")
+    if (-not $truststorePassword) {
+        Write-Info "TRUSTSTORE_PASSWORD not set in environment. Prompting interactively."
+        Write-Info "Enter Java truststore password (input is hidden)."
+        $secureInput = Read-Host "Truststore password" -AsSecureString
+        if ($secureInput -and $secureInput.Length -gt 0) {
+            $bstr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($secureInput)
+            try { $truststorePassword = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr) } finally { [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr) }
+            # Only export to the environment if we prompted (do not overwrite an existing env var)
+            $env:TRUSTSTORE_PASSWORD = $truststorePassword
+        } else {
+            Write-Err "Truststore password is required. Aborting."
+            exit 1
+        }
+    } else {
+        Write-Info "Using TRUSTSTORE_PASSWORD from environment."
+    }
+
+    if (Test-Path $truststorePath) {
+        Write-Ok "Java truststore already exists"
+    } else {
+        if (-not (Test-Path $caCert)) {
+            Write-Err "CA certificate not found at $caCert"
+            Write-Warn "MySQL SSL certificates must be generated first"
+            exit 1
+        }
+
+        Write-Info "Creating/merging Java truststore..."
+
+        try {
+            # Find keytool
+            $keytoolPath = Find-Executable -Name "keytool"
+            if (-not $keytoolPath) {
+                Write-Err "keytool not found"
+                Write-Warn "keytool is part of the Java JDK. Ensure Java is properly installed."
+                exit 1
+            }
+
+            # Strategy: copy JDK cacerts (includes public CAs) then import MySQL CA.
+            # This ensures BOTH MySQL SSL and public CA trust (e.g., Gmail SMTP).
+            if (-not (Test-Path $truststorePath)) {
+                $cacertsCopied = $false
+                if ($javaPath) {
+                    try {
+                        $javaHome = Split-Path (Split-Path $javaPath -Parent) -Parent
+                        $candidate1 = Join-Path $javaHome "lib\security\cacerts"
+                        $candidate2 = Join-Path $javaHome "jre\lib\security\cacerts"
+                        $srcCacerts = if (Test-Path $candidate1) { $candidate1 } elseif (Test-Path $candidate2) { $candidate2 } else { $null }
+                        
+                        if ($srcCacerts) {
+                            Copy-Item -Path $srcCacerts -Destination $truststorePath -Force
+                            Write-Ok "Copied JDK system cacerts to $truststorePath (includes public CAs)"
+                            $cacertsCopied = $true
+                        }
+                    } catch {
+                        Write-Warn "Could not copy JDK cacerts: $_"
+                    }
+                }
+                
+                if (-not $cacertsCopied) {
+                    Write-Info "No JDK cacerts found; will create a new truststore with MySQL CA only"
+                }
+            }
+
+            # Import MySQL CA certificate into truststore
+            # Use the provided TRUSTSTORE_PASSWORD when available. Do NOT alter or re-password
+            # any copied JDK cacerts. If we copied cacerts and no password was provided, fall
+            # back to the cacerts default password so the import can proceed non-interactively.
+            $effectivePassword = $truststorePassword
+            if (-not $effectivePassword -and $cacertsCopied) {
+                $effectivePassword = 'changeit'
+            }
+            
+            $ErrorActionPreference = "Continue"
+            $importOutput = @(& $keytoolPath -import -alias mysql-ca -file $caCert `
+                -keystore $truststorePath -storepass $effectivePassword -noprompt 2>&1)
+            $importExitCode = $LASTEXITCODE
+            $ErrorActionPreference = "Stop"
+
+            if ($importExitCode -ne 0) {
+                Write-Err "keytool import failed (exit code $importExitCode)"
+                if ($importOutput.Count -gt 0) {
+                    Write-Err "Output: $($importOutput -join ' | ')"
+                }
+                exit 1
+            }
+
+            if (Test-Path $truststorePath) {
+                # Verify the truststore contains both MySQL CA and public CAs
+                $listOutput = @(& $keytoolPath -list -keystore $truststorePath -storepass $effectivePassword 2>&1)
+                $certCount = @($listOutput | Where-Object { $_ -match 'Alias name:' }).Count
+                Write-Ok "Java truststore created with $certCount certificate(s) (password: $effectivePassword)"
+                
+                # Emit note about which password will be used by the container
+                if ($effectivePassword -eq $truststorePassword) {
+                    Write-Info "Using provided TRUSTSTORE_PASSWORD for container"
+                } else {
+                    Write-Info "Using existing keystore password for container (unchanged)"
+                }
+            } else {
+                Write-Err "Truststore creation failed - file not created"
+                exit 1
+            }
+        } catch {
+            Write-Err "Truststore creation failed: $_"
+            exit 1
+        }
+    }
+
     # ── Step 8: Install CLI on PATH ───────────────────────────────────────────
 
     Write-Step "Installing CLI..."
