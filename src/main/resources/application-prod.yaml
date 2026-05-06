@@ -1,0 +1,50 @@
+spring:
+  jpa:
+    hibernate:
+      ddl-auto: validate
+
+  datasource:
+    url: jdbc:mysql://${DB_HOST:localhost:3306}/unievent?useSSL=true&serverSslVerification=true&allowPublicKeyRetriever=false&serverTimezone=UTC
+
+logging:
+  level:
+    root: WARN
+    dk.unievent.app: INFO
+    dk.unievent.app.infrastructure.client: WARN
+
+unievent:
+  media:
+    ssrf:
+      extra-allowed-hosts: ""
+
+    seaweedfs:
+      master-url: ${UNIEVENT_MEDIA_SEAWEEDFS_MASTER_URL:https://seaweedfs-master:9443}
+      volume-url: ${UNIEVENT_MEDIA_SEAWEEDFS_VOLUME_URL:https://seaweedfs-volume:8443}
+
+  security:
+    cookies:
+      secure: true
+      same-site: Strict
+      domain: unievent.dk
+
+    csrf:
+      secret: ${UNIEVENT_SECURITY_CSRF_SECRET}
+
+    jwt:
+      secret: ${UNIEVENT_SECURITY_JWT_SECRET}
+      refresh-secret: ${UNIEVENT_SECURITY_JWT_REFRESH_SECRET}
+
+    organizer-key:
+      confirmation-secret: ${UNIEVENT_ORGANIZER_KEY_CONFIRMATION_SECRET}
+
+    cors:
+      allowed-origins: ${UNIEVENT_SECURITY_CORS_ALLOWED_ORIGINS:https://unievent.dk}
+
+    cookie-domain: ${UNIEVENT_COOKIE_DOMAIN:unievent.dk}
+
+  integrations:
+    facebook:
+      redirect-uri: ${UNIEVENT_FACEBOOK_REDIRECT_URI:https://unievent.dk/auth/facebook/callback}
+
+vault:
+  ca-cert-path: ${VAULT_CA_CERT_PATH:/etc/ssl/certs/vault-ca.pem}

@@ -265,6 +265,7 @@ Infrastructure Layer:
 
 Backend
 
+**Feature & Refactor:**
 - [x] JWT auth - signed token, expiry, validation filter
 - [x] Pin Docker image versions
 - [in progress] Auto Facebook token refresh
@@ -276,8 +277,23 @@ Backend
 - [ ] PicoCLI for proper tool CLI
 - [ ] DB: Quartz scheduler
 
-### Frontend
+**Security**
+- [ ] Remove insecure JDBC SSL overrides from `db.yaml`; require `serverSslVerification=true` in production
+- [ ] Make Vault CA validation mandatory in `vault.yaml`; fail startup if CA cert missing
+- [ ] Replace localhost Facebook redirect default in `application.yaml`; require explicit production setting
+- [ ] Make CORS validation strict in production; convert warning to startup failure for localhost origins with credentials
+- [ ] Force SeaweedFS URLs to HTTPS in `media.yaml`; update `SeaweedFsClient.java` to preserve configured scheme
+- [ ] Stop sending organizer confirmation keys in email URLs; use safer delivery path in `EmailService.java`
+- [ ] Make email send failures visible in `EmailService.java`; propagate or alert on delivery failures
+- [ ] Reduce `SecretController` exposure; disable or restrict metadata endpoints in production
+- [ ] Reduce refresh token compromise window in `RefreshTokenService.java`; add immediate access-token revocation
+- [ ] Enforce minimum 256-bit entropy for `organizer-key.confirmation-secret` in `ProductionSecretValidator`
+- [ ] Add production-profile integration tests for insecure defaults (DB without SSL, Vault without CA, etc.)
+- [ ] Harden CLI secret redaction; avoid printing raw JSON responses in CI logs
 
+Frontend
+
+**Feature & Refactor:**
 - [in progress] Facebook Page Organizer onboarding flow
 - [in progress] Mobile layout improvements
 - [ ] Facebook OAuth login
@@ -286,3 +302,15 @@ Backend
 - [ ] Business Manager integration for stable API access
 - [ ] Admin Dashboard/Tool for using ADMIN endpoints
 - [ ] Zod + React Hook Form
+
+**Security**
+- [ ] Validate image/media URLs for unsafe schemes; reject `javascript:` and `data:`, allow only `https:` and relative paths
+- [ ] Enforce HTTPS backend in production; call `enforceHttpsBackend(BACKEND_URL)` at app bootstrap
+- [ ] Replace brittle cookie parsing in `csrf.ts` and tests; use robust parser (e.g., `HttpCookie.parse`)
+- [ ] Centralize cookie lifecycle; ensure logout operations use same domain/path/sameSite as creation
+- [ ] Audit all error message display paths; ensure backend `message` fields use `sanitizeErrorMessage` before DOM insertion
+- [ ] Fix Content-Type auto-injection for file uploads; ensure callers set `headers: {}` or use `FormData`
+- [ ] Filter Vite `envDir` to avoid `.env` exposure; document allowed `VITE_*` variables
+- [ ] Tighten CSP in nginx config; remove `unsafe-inline` from `style-src`, remove `data:` from `img-src`, limit `connect-src` to API origin
+- [ ] Add production-profile integration tests for secure cookie attributes and HTTPS backend
+- [ ] Harden `Set-Cookie` parsing in tests; use robust cookie parser instead of substring extraction

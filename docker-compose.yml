@@ -76,10 +76,10 @@ services:
       weed-volume:
         condition: service_healthy
     environment:
-      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-dev}
-      SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL:-jdbc:mysql://mysql:3306/unievent?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true}
-      SPRING_DATASOURCE_USERNAME: ${MYSQL_USER}
-      SPRING_DATASOURCE_PASSWORD: ${MYSQL_PASSWORD}
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-prod}
+      SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL:-jdbc:mysql://mysql:3306/unievent?useSSL=true&serverTimezone=UTC&allowPublicKeyRetrieval=true}
+      SPRING_DATASOURCE_USERNAME: ${MYSQL_USER:-unievent_app}
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_PASSWORD:-}
       UNIEVENT_MEDIA_SEAWEEDFS_MASTER_URL: ${SEAWEEDFS_MASTER_URL:-weed-master:9333}
       UNIEVENT_MEDIA_SEAWEEDFS_VOLUME_URL: ${SEAWEEDFS_VOLUME_URL:-http://weed-volume:8080}
       UNIEVENT_SECURITY_JWT_SECRET: ${UNIEVENT_SECURITY_JWT_SECRET}
@@ -172,7 +172,7 @@ services:
       context: ./web
       dockerfile: Dockerfile
       args:
-        VITE_BACKEND_URL: ${VITE_BACKEND_URL:-}
+        VITE_BACKEND_URL: ${VITE_BACKEND_URL:-https://unievent.dk/api}
         VITE_FACEBOOK_APP_ID: ${VITE_FACEBOOK_APP_ID:-}
     container_name: unievent-frontend
     restart: unless-stopped
