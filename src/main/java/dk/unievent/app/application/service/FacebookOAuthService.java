@@ -13,14 +13,9 @@ import org.springframework.stereotype.Service;
 import java.util.List;
 import java.util.stream.Collectors;
 
-/**
- * Orchestrates Facebook OAuth workflow:
- * 1. Exchange authorization code for short-lived token
- * 2. Exchange short-lived token for long-lived token (60+ days)
- * 3. Fetch user's admin-controlled pages
- * 4. Store page tokens in Vault
- * 5. Create/update PageEntities
- */
+// orchestrates the Facebook OAuth flow after the user grants access: 1) exchange the auth code
+// for a short-lived token; 2) upgrade to a long-lived token (60+ days); 3) get the user's pages;
+// 4) store each page token in Vault and upsert the PageEntity.
 @Slf4j
 @Service
 public class FacebookOAuthService {
@@ -39,39 +34,27 @@ public class FacebookOAuthService {
         this.vaultService = vaultService;
     }
 
-    /**
-     * Process OAuth callback with authorization code.
-     * Exchanges code for tokens and stores Facebook pages.
-     * @param code Authorization code from Facebook callback
-     * @return List of PageEntities created/updated
-     * @throws FacebookApiException if any step of the OAuth flow fails
-     */
     public List<PageEntity> processOAuthCallback(String code) {
         log.info("Processing OAuth callback with authorization code");
 
         try {
-            // Step 1: Exchange authorization code for short-lived token
-            log.debug("Step 1: Exchanging authorization code for short-lived token");
+            // 1. exchange the auth code for a short-lived user token (expires in ~1 hour)
             FbShortLivedTokenResponse shortLivedResponse = facebookGraphApiService.getShortLivedToken(code);
             String shortLivedToken = shortLivedResponse.getAccessToken();
             log.debug("Short-lived token obtained, expires in {} seconds", shortLivedResponse.getExpiresIn());
 
-            // Step 2: Exchange short-lived token for long-lived token (60+ days)
-            log.debug("Step 2: Exchanging short-lived token for long-lived token");
+            // 2. upgrade to a long-lived token so we're not re-authing every hour
             FbLongLivedTokenResponse longLivedResponse = facebookGraphApiService.getLongLivedToken(shortLivedToken);
             String longLivedToken = longLivedResponse.getAccessToken();
             Integer expiresInObj = longLivedResponse.getExpiresIn();
             int expiresIn = expiresInObj != null ? expiresInObj : FacebookApiConstants.DEFAULT_TOKEN_EXPIRY_SECONDS;
-            log.debug("Long-lived token obtained, expires in {} seconds (~{} days)",
-                expiresIn, (expiresIn / 86400));
+            log.debug("Long-lived token obtained, expires in {} seconds (~{} days)", expiresIn, (expiresIn / 86400));
 
-            // Step 3: Fetch user's admin-controlled pages
-            log.debug("Step 3: Fetching admin-controlled pages for user");
+            // 3. get the pages this user administers
             List<FbPageResponse> fbPages = facebookGraphApiService.getPagesFromUser(longLivedToken);
             log.info("Retrieved {} Facebook pages from user", fbPages.size());
 
-            // Step 4 & 5: Store tokens and create/update PageEntities
-            log.debug("Step 4-5: Processing and storing Facebook pages");
+            // 4. for each page: store its token in Vault and upsert the PageEntity
             List<PageEntity> processedPages = fbPages.stream()
                 .map(fbPage -> processFacebookPage(fbPage, longLivedToken))
                 .collect(Collectors.toList());
@@ -80,8 +63,7 @@ public class FacebookOAuthService {
             return processedPages;
 
         } catch (FacebookApiException e) {
-            log.error("Facebook API error during OAuth flow: {} - {}",
-                e.getStatusCode(), e.getErrorType(), e);
+            log.error("Facebook API error during OAuth flow: {}, {}", e.getStatusCode(), e.getErrorType(), e);
             throw e;
         } catch (Exception e) {
             log.error("Unexpected error during OAuth flow", e);
@@ -89,13 +71,6 @@ public class FacebookOAuthService {
         }
     }
 
-    /**
-     * Process a single Facebook page response from the OAuth process.
-     * Stores token in Vault and creates/updates PageEntity.
-     * @param fbPage Facebook page response from Graph API
-     * @param userToken User's long-lived access token
-     * @return Stored PageEntity
-     */
     private PageEntity processFacebookPage(FbPageResponse fbPage, String userToken) {
         log.debug("Processing Facebook page: {} ({})", fbPage.getName(), fbPage.getId());
 
@@ -103,23 +78,21 @@ public class FacebookOAuthService {
             log.warn("Processing page {} without a valid user token from the OAuth flow", fbPage.getId());
         }
         try {
-            // Store page token in Vault (registry gets status=active, expiresAt set below)
+            // 1. store the page token in Vault (registry row gets status=active, expiresAt filled in below)
             String pageToken = fbPage.getAccessToken();
             vaultService.storePageToken(fbPage.getId(), pageToken);
-            log.debug("Page token stored in Vault for page: {}", fbPage.getId());
 
-            // Create or update PageEntity - this computes the token expiration date
+            // 2. upsert the PageEntity, which computes the token expiration date
             PageEntity pageEntity = pageService.createOrUpdatePageFromFacebook(fbPage);
             log.info("Page entity created/updated: {} ({})", pageEntity.getName(), pageEntity.getId());
 
-            // Now that we know the expiry, sync it to the secrets registry
+            // 3. now that we know the expiry, sync it back to the secrets registry row
             vaultService.setPageTokenExpiry(fbPage.getId(), pageEntity.getTokenExpiresAt());
 
             return pageEntity;
 
         } catch (Exception e) {
             log.error("Error processing Facebook page: {}", fbPage.getId(), e);
-            // Continue processing other pages even if one fails
             throw new FacebookApiException(
                 String.format("Failed to process Facebook page %s: %s", fbPage.getId(), e.getMessage()),
                 0,
@@ -128,12 +101,7 @@ public class FacebookOAuthService {
         }
     }
 
-    /**
-     * Validate that a stored Facebook page token is still valid.
-     * Optionally refresh if expired.
-     * @param pageId Facebook page ID
-     * @return true if token is valid or successfully refreshed
-     */
+    // checks whether the stored token for a page is still accepted by Facebook
     public boolean validatePageToken(String pageId) {
         log.debug("Validating token for page: {}", pageId);
 

@@ -28,6 +28,8 @@ import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+// CRUD and Facebook ingestion for events. Ingestion pulls from the Graph API, downloads cover
+// images into SeaweedFS, and upserts the EventEntity so re-ingesting the same event is safe.
 @Slf4j
 @Service
 public class EventService {
@@ -228,19 +230,13 @@ public class EventService {
                 .orElseThrow(() -> new NoSuchElementException("Page not found: " + pageId));
     }
 
-    /**
-     * Ingest Facebook events for a given page.
-     * Fetches upcoming events from Facebook Graph API and creates/updates local EventEntities.
-     * Continues processing even if individual events fail.
-     * @param pageId Facebook page ID
-     * @return List of created/updated EventEntities
-     * @throws FacebookApiException if unable to fetch events from Facebook
-     */
+    // pulls events from the Facebook Graph API for a given page and upserts them locally.
+    // individual event failures are swallowed so one bad event doesn't stop the rest.
     public List<EventEntity> ingestFacebookEvents(String pageId) {
         log.info("Starting Facebook event ingestion for page: {}", pageId);
 
         try {
-            // Retrieve page token from Vault
+            // 1. get the page token from Vault. TOKEN_NOT_FOUND means the page hasn't been connected yet
             Optional<String> pageTokenOpt = vaultService.getPageToken(pageId);
             if (pageTokenOpt.isEmpty()) {
                 log.warn("No token found in Vault for page: {}", pageId);
@@ -253,19 +249,18 @@ public class EventService {
 
             String pageToken = pageTokenOpt.get();
 
-            // Fetch events from Facebook Graph API
+            // 2. pull the event list from the Graph API
             log.debug("Fetching events from Facebook for page: {}", pageId);
             List<FbEventResponse> fbEvents = facebookGraphApiService.getPageEvents(pageId, pageToken);
             log.info("Retrieved {} events from Facebook for page: {}", fbEvents.size(), pageId);
 
-            // Process and create/update local events
+            // 3. upsert each event locally, skipping any that fail individually
             List<EventEntity> processedEvents = fbEvents.stream()
                 .map(fbEvent -> {
                     try {
                         return createOrUpdateFacebookEvent(pageId, fbEvent);
                     } catch (Exception e) {
                         log.error("Error creating/updating event from Facebook: {}", fbEvent.getId(), e);
-                        // Continue processing other events even if one fails
                         return null;
                     }
                 })
@@ -295,29 +290,17 @@ public class EventService {
         }
     }
 
-    /**
-     * Create or update an EventEntity from a Facebook event response.
-     * Maps schema using FacebookEventMapper, downloads cover image, and persists to database.
-     * @param pageId Facebook page ID
-     * @param fbEvent Facebook event response from Graph API
-     * @return Persisted EventEntity
-     */
     @Transactional
     public EventEntity createOrUpdateFacebookEvent(String pageId, FbEventResponse fbEvent) {
         log.debug("Processing Facebook event: {} ({})", fbEvent.getName(), fbEvent.getId());
 
         try {
-            // Check if event already exists
+            // 1. map the Graph API response to an EventEntity and wire up the page reference
             Optional<EventEntity> existing = eventRepository.findById(fbEvent.getId());
-
-            // Map Facebook event to application schema
             EventEntity eventEntity = facebookEventMapper.mapToEventEntity(pageId, fbEvent);
+            eventEntity.setPage(getPageOrThrow(pageId));
 
-            // Set page reference
-            PageEntity page = getPageOrThrow(pageId);
-            eventEntity.setPage(page);
-
-            // Download and store cover image if present (skip if URL is unchanged)
+            // 2. download the cover image if the URL changed (reuse the existing MediaEntity if it's the same URL)
             MediaEntity oldCoverImage = existing.map(EventEntity::getCoverImage).orElse(null);
             if (fbEvent.getCover() != null && fbEvent.getCover().getSource() != null) {
                 String imageUrl = fbEvent.getCover().getSource();
@@ -339,10 +322,8 @@ public class EventService {
                 }
             }
 
-            // Persist or update event
+            // 3. persist, then delete the old cover image from SeaweedFS after the new one is committed
             EventEntity saved = eventRepository.save(eventEntity);
-
-            // Delete the old cover image from SeaweedFS after the new one is committed
             if (oldCoverImage != null && (eventEntity.getCoverImage() == null
                     || !oldCoverImage.getId().equals(eventEntity.getCoverImage().getId()))) {
                 try {
@@ -367,12 +348,7 @@ public class EventService {
         }
     }
 
-    /**
-     * Download and store a cover image from a URL via SeaweedFS.
-     * @param imageUrl URL of the cover image
-     * @param filename Filename for storage
-     * @return MediaEntity if successfully downloaded and stored, null if download fails
-     */
+    // downloads a cover image from a URL and stores it in SeaweedFS. returns null on failure so callers can skip gracefully.
     private MediaEntity downloadAndStoreCoverImage(String imageUrl, String filename) {
         try {
             log.debug("Downloading cover image from URL: {}", imageUrl);

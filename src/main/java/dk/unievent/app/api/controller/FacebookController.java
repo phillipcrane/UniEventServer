@@ -111,8 +111,6 @@ public class FacebookController {
         return ResponseEntity.ok(Map.of("status", "ok", "message", "Facebook integration service is running"));
     }
 
-    // ── State helpers ─────────────────────────────────────────────────────────
-
     private String generateSignedState() {
         String appSecret = facebookConfig.getAppSecret();
         if (appSecret == null || appSecret.isEmpty()) {

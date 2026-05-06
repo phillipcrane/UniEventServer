@@ -16,6 +16,8 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+// implements UserDetailsService for Spring Security and ApplicationRunner to provision the
+// CLI admin account on startup if ADMIN_PASSWORD is set.
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -73,8 +75,7 @@ public class UserService implements UserDetailsService, ApplicationRunner {
         if (userRepository.existsByUsername(user.getUsername())) {
             throw new IllegalArgumentException("Username is already taken.");
         }
-        // Validate role against allowlist - only 'user' and 'organizer' are permitted for self-registration.
-        // 'admin' role elevation requires an authorized admin-only flow.
+        // validate the role; only 'user' is permitted for self-registration.
         String requestedRole = user.getRole();
         if (requestedRole == null || requestedRole.isBlank()) {
             requestedRole = RoleConstants.USER;
@@ -89,12 +90,8 @@ public class UserService implements UserDetailsService, ApplicationRunner {
         return userRepository.save(account);
     }
 
-    /**
-     * Validates and returns a role for self-registration.
-     * Only 'user' is allowed for self-registration. 'organizer' role requires an admin-issued invitation key.
-     * 'admin' role requires authorized admin-only action.
-     * This prevents privilege escalation attacks during registration.
-     */
+    // only 'user' is allowed for self-registration. 'organizer' requires an invitation key, 'admin'
+    // requires a separate admin-only flow. prevents privilege escalation via the public endpoint.
     private String validateRegistrationRole(String role) {
         if (role == null || role.isBlank() || RoleConstants.USER.equalsIgnoreCase(role)) {
             return RoleConstants.USER;

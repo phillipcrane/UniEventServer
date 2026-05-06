@@ -462,9 +462,10 @@ sequenceDiagram
 
 Backend
 
-**Feature & Refactor:**
-- [ ] Clean out controllers to just handle endpoints, put the rest into services
-- [ ] Migrate schema to Flyway - `ddl-auto` is now `validate`; any schema change needs a Flyway migration file before deploy
+**Features & Refactor**
+- [ ] Rename TokenRefreshService to FacebookTokenRefreshService (also test)
+- [ ] JDoc everywhere.
+- [ ] Move to OpenAPI 
 - [ ] PicoCLI for proper tool CLI
 - [ ] DB: Quartz scheduler
 
@@ -485,14 +486,9 @@ Backend
 Frontend
 
 **Feature & Refactor:**
-- [ ] Facebook Page Organizer onboarding flow
-- [ ] Mobile layout improvements
-- [ ] Facebook OAuth login
-- [ ] Organizer dashboard (event sync status, token expiry)
-- [ ] Create Event page
-- [ ] Business Manager integration for stable API access
-- [ ] Admin Dashboard/Tool for using ADMIN endpoints
-- [ ] Zod + React Hook Form
+- [ ] Remove /admin/ directory in /web/src/pages; just flatten the folder with no subfolders.
+- [ ] AdminHeader, Calendar, HeaderLogoLink, adminTools.ts  should have types in types.ts, consts in constants.ts and functions in a util or 
+- [ ] Consolidate styles in /styles into one or two files, and not per page.
 
 **Security**
 - [ ] Validate image/media URLs for unsafe schemes; reject `javascript:` and `data:`, allow only `https:` and relative paths

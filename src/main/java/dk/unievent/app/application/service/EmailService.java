@@ -13,10 +13,8 @@ import org.thymeleaf.TemplateEngine;
 import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
 
-/**
- * Email service for sending transactional emails using Spring Mail.
- * Supports HTML templates with Thymeleaf and async sending.
- */
+// sends transactional emails via Spring Mail with Thymeleaf HTML templates.
+// async variants fire and forget so callers don't wait on SMTP.
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -34,13 +32,7 @@ public class EmailService {
     @Value("${unievent.security.organizer-key.expiration-hours:24}")
     private long organizerKeyExpirationHours;
 
-    /**
-     * Sends organizer invitation email asynchronously.
-     * Does not throw exceptions - logs errors instead to prevent async task failures.
-     *
-     * @param to Email address of the organizer
-     * @param key Single-use invitation key (32 characters)
-     */
+    // fire and forget: logs errors rather than propagating them so the caller doesn't have to handle async failures
     @Async
     public void sendOrganizerInvitationEmailAsync(String to, String key) {
         try {
@@ -50,55 +42,34 @@ public class EmailService {
         }
     }
 
-    /**
-     * Sends organizer invitation email synchronously.
-     *
-     * @param to Email address of the organizer
-     * @param key Single-use invitation key (32 characters)
-     * @throws MessagingException if email sending fails
-     */
     public void sendOrganizerInvitationEmail(String to, String key) throws MessagingException {
-        // Prepare template context with variables
+        // 1. build the Thymeleaf context with the key, expiry hours, and pre-filled registration URL
         Context context = new Context();
         context.setVariable("key", key);
         context.setVariable("expirationHours", organizerKeyExpirationHours);
         context.setVariable("registerUrl", frontendUrl + "/signup-organizer?key=" + key);
 
-        // Render HTML template with context
+        // 2. render the HTML template
         String htmlContent = templateEngine.process("emails/organizer-invitation", context);
 
-        // Create and configure MIME message
+        // 3. build and send the MIME message
         MimeMessage message = mailSender.createMimeMessage();
         MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
-
         helper.setTo(to);
         helper.setFrom(fromEmail);
         helper.setSubject("You're Invited to Organize Events on UniEvent!");
-        helper.setText(htmlContent, true);  // true = isHtml
-
-        // Send email
+        helper.setText(htmlContent, true); // true = HTML
         mailSender.send(message);
         log.info("Organizer invitation sent from {} to {}", fromEmail, to);
     }
 
-    /**
-     * Generic method for sending simple text emails.
-     * Useful for other transactional emails in the future.
-     *
-     * @param to Email address of the recipient
-     * @param subject Email subject
-     * @param textContent Plain text content
-     * @throws MessagingException if email sending fails
-     */
     public void sendSimpleEmail(String to, String subject, String textContent) throws MessagingException {
         MimeMessage message = mailSender.createMimeMessage();
         MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
-
         helper.setTo(to);
         helper.setFrom(fromEmail);
         helper.setSubject(subject);
-        helper.setText(textContent, false);  // false = plain text
-
+        helper.setText(textContent, false); // false = plain text
         mailSender.send(message);
         log.info("Simple email sent from {} to {} with subject: {}", fromEmail, to, subject);
     }

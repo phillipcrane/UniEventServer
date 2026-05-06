@@ -30,6 +30,9 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+// stores and retrieves media files in SeaweedFS. Handles upload from multipart forms and
+// download-and-store from remote URLs (Facebook CDN cover images). MIME type is detected from
+// file bytes rather than trusting the client, and remote downloads are restricted to an allowlist.
 @Slf4j
 @Service
 public class MediaService {
@@ -104,14 +107,6 @@ public class MediaService {
         }
     }
 
-    /**
-     * Store a file in SeaweedFS and return its file ID (fid)
-     * 
-     * Process:
-     * 1. Get assignment from master server
-     * 2. Upload file to volume server
-     * 3. Return the file ID
-     */
     public String store(MultipartFile file) throws IOException {
         String filename = StringUtils.cleanPath(file.getOriginalFilename());
         log.info("Storing file: {}, size: {} bytes", filename, file.getSize());
@@ -144,16 +139,11 @@ public class MediaService {
         }
     }
 
-    /**
-     * Compatibility helper retained for existing service/integration tests.
-     */
+    // kept for compatibility with existing service/integration tests
     public Path load(String filename) {
         return Path.of(filename);
     }
 
-    /**
-     * Load and return file as a Resource for download
-     */
     public Resource loadAsResource(String fileId) throws IOException {
         if (fileId == null || fileId.isEmpty()) {
             log.warn("Invalid file ID for download");
@@ -174,9 +164,6 @@ public class MediaService {
         }
     }
 
-    /**
-     * Delete a file from SeaweedFS
-     */
     public void delete(String fileId) throws IOException {
         if (fileId == null || fileId.isEmpty()) {
             log.warn("Invalid file ID for deletion");
@@ -188,19 +175,11 @@ public class MediaService {
             seaweedClient.deleteFile(fileId);
             log.info("File deleted successfully: {}", fileId);
         } catch (Exception e) {
-            log.warn("Could not delete file from SeaweedFS: {}", fileId, e);
-            // Don't fail hard-file might already be deleted
+            log.warn("Could not delete file from SeaweedFS: {}", fileId, e); // swallow, file may already be gone
         }
     }
 
-    /**
-     * Download an image from a URL and store it in SeaweedFS.
-     * Used for Facebook event cover images and other remote media.
-     * @param imageUrl URL of the image to download
-     * @param filename Filename for storage
-     * @return File ID (fid) of the stored image
-     * @throws IOException if download or upload fails
-     */
+    // downloads a cover image from a remote URL and stores it in SeaweedFS. used for Facebook event covers.
     public String downloadAndStoreImage(String imageUrl, String filename) throws IOException {
         log.debug("Downloading image from URL: {}", imageUrl);
 
@@ -218,16 +197,12 @@ public class MediaService {
         }
 
         try {
-            // Step 1: Download image from URL
-            log.debug("Downloading image from URL: {}", imageUrl);
+            // 1. download image bytes (SSRF checks, HTTPS-only, allowlist, and 10 MB cap are in downloadImageBytes)
             byte[] imageData = downloadImageBytes(imageUrl);
             log.debug("Downloaded {} bytes from URL: {}", imageData.length, imageUrl);
 
-            // Step 2: Get assignment from SeaweedFS master server
+            // 2. get a slot from the SeaweedFS master, then upload to the assigned volume
             SeaweedFsClient.FileAssignment assignment = seaweedClient.assignFile();
-            log.debug("File assignment obtained: {}", assignment.fid());
-
-            // Step 3: Upload to SeaweedFS volume server
             seaweedClient.uploadFile(assignment.publicUrl(), assignment.fid(), filename, imageData);
             log.info("Image stored successfully in SeaweedFS with ID: {}", assignment.fid());
 
@@ -257,12 +232,7 @@ public class MediaService {
         }
     }
 
-    /**
-     * Download image bytes from a URL with timeout.
-     * @param imageUrl URL to download from
-     * @return Byte array of image data
-     * @throws IOException if download fails
-     */
+    // downloads image bytes from a URL. SSRF protection: HTTPS-only, host allowlist, 10 MB cap.
     private byte[] downloadImageBytes(String imageUrl) throws IOException {
         URI uri;
         try {

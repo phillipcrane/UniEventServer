@@ -79,19 +79,19 @@ if (-not (Get-Variable -Name IsWindows -Scope Global -ErrorAction SilentlyContin
     $IsMacOS   = $false
 }
 
-# ── Load shared helpers ───────────────────────────────────────────────────────
+# Load shared helpers
 
 $cliDir = Join-Path $PSScriptRoot "cli"
 . (Join-Path $cliDir "shared.ps1")
 
-# ── Help / no-command ─────────────────────────────────────────────────────────
+# Help / no-command
 
 if ($Help -or $Command -eq "" -or $Command -eq "-h" -or $Command -eq "--help") {
     Show-Help
     exit 0
 }
 
-# ── Dispatch: commands that don't need a live server first ────────────────────
+# Dispatch: commands that don't need a live server first 
 
 $cmdLower = $Command.ToLower()
 $allCommands = @("setup", "docker", "vault", "unseal", "status", "seed", "refresh", "ingest", "invite")
@@ -138,7 +138,7 @@ switch ($cmdLower) {
     }
 }
 
-# ── Server-backed commands: require the server to be reachable ────────────────
+# Server-backed commands:
 
 $baseUrl = if ($Remote) {
     Assert-ValidBaseUrl -BaseUrl $Remote

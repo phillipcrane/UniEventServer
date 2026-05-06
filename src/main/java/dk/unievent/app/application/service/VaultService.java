@@ -29,6 +29,9 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+// wraps Vault KV v2 for Facebook page token storage. tokens are written at
+// secret/data/unievent/facebook/page_{pageId} and mirrored into a local SecretEntity registry
+// so the admin dashboard can show token status without hitting Vault on every request.
 @Slf4j
 @Service
 @ConditionalOnProperty(prefix = "unievent.vault", name = "enabled", havingValue = "true")
@@ -89,8 +92,6 @@ public class VaultService {
         }
     }
 
-    // ── Vault raw read ────────────────────────────────────────────────────────
-
     public Map<String, String> readVaultSecretData() {
         log.debug("Reading all secret data from Vault");
         return vaultClient.readSecretData();
@@ -100,8 +101,6 @@ public class VaultService {
         log.debug("Reading secret value from Vault");
         return vaultClient.readSecretValue(key);
     }
-
-    // ── Secrets registry CRUD ─────────────────────────────────────────────────
 
     public List<SecretDTO> getAllSecrets() {
         log.debug("Fetching all secrets from repository");
@@ -151,12 +150,6 @@ public class VaultService {
         return true;
     }
 
-    // ── Facebook page token operations ────────────────────────────────────────
-
-    /**
-     * Store a Facebook page access token in Vault and register it in the secrets registry.
-     * Token stored at: secret/data/unievent/facebook/page_{pageId}
-     */
     public void storePageToken(String pageId, String token) {
         try {
             log.debug("Storing Facebook page token for page: {} (token: {})", pageId, maskToken(token));
@@ -193,9 +186,6 @@ public class VaultService {
         }
     }
 
-    /**
-     * Retrieve a Facebook page access token from Vault.
-     */
     @SuppressWarnings("unchecked")
     public Optional<String> getPageToken(String pageId) {
         try {
@@ -245,9 +235,6 @@ public class VaultService {
         }
     }
 
-    /**
-     * Update a Facebook page access token in Vault and sync the secrets registry record.
-     */
     public void updatePageToken(String pageId, String newToken) {
         try {
             log.debug("Updating Facebook page token for page: {} (token: {})", pageId, maskToken(newToken));
@@ -284,45 +271,27 @@ public class VaultService {
         }
     }
 
-    // ── Private helpers ───────────────────────────────────────────────────────
-
-    /**
-     * Set the expiry on an existing registry record (call after storePageToken once the
-     * PageEntity expiration is known). Never throws.
-     */
+    // call after storePageToken once the PageEntity expiration is known. never throws.
     public void setPageTokenExpiry(String pageId, LocalDateTime expiresAt) {
         upsertPageTokenRecord(pageId, "active", expiresAt);
     }
 
-    /**
-     * Mark a page token as errored in the registry (e.g. after a failed refresh).
-     * Never throws - registry sync must never break the caller's flow.
-     */
+    // never throws, registry sync must never break the caller's flow.
     public void markPageTokenError(String pageId) {
         upsertPageTokenRecord(pageId, "error", null);
     }
 
-    /**
-     * Mark a page token as inactive in the registry (e.g. when a page is deleted).
-     * Never throws - registry sync must never break the caller's flow.
-     */
+    // never throws, registry sync must never break the caller's flow.
     public void markPageTokenInactive(String pageId) {
         upsertPageTokenRecord(pageId, "inactive", null);
     }
 
-    /**
-     * Mark a page token as invalid in the registry (e.g. Facebook rejected it during ingestion).
-     * Never throws - registry sync must never break the caller's flow.
-     */
+    // never throws, registry sync must never break the caller's flow.
     public void markPageTokenInvalid(String pageId) {
         upsertPageTokenRecord(pageId, "invalid", null);
     }
 
-    /**
-     * Creates or updates the secrets registry row for a Facebook page token.
-     * The name "facebook_page_{pageId}" is the stable unique key for lookups.
-     * expiresAt may be null when not yet known.
-     */
+    // "facebook_page_{pageId}" is the stable unique key; expiresAt may be null when not yet known.
     private void upsertPageTokenRecord(String pageId, String status, LocalDateTime expiresAt) {
         try {
             String name = "facebook_page_" + pageId;
@@ -344,7 +313,7 @@ public class VaultService {
             secretRepository.save(record);
             log.debug("Secrets registry updated for page: {} (status: {}, expiresAt: {})", pageId, status, expiresAt);
         } catch (Exception e) {
-            // Registry sync failure must never break the Vault operation that already succeeded.
+            // registry sync failure must never break the Vault operation that already succeeded.
             log.warn("Failed to update secrets registry for page: {} - {}", pageId, e.getMessage());
         }
     }

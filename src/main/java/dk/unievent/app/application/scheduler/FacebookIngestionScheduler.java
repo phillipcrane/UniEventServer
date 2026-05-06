@@ -16,6 +16,8 @@ import org.springframework.stereotype.Component;
 
 import java.util.Optional;
 
+// scheduled job that pulls events from the Facebook Graph API for every active page.
+// runs on a fixed delay (not a fixed rate) so each run waits for the previous one to finish before starting.
 @Slf4j
 @Component
 public class FacebookIngestionScheduler {
@@ -46,8 +48,7 @@ public class FacebookIngestionScheduler {
             int successCount = 0;
             int failureCount = 0;
 
-            // Process all active pages that have Facebook tokens
-            // Pageable with page = 0, size = PAGE_SIZE for first batch
+            // 1. walk through all active pages in batches of pageSize so we don't load the whole table at once
             int pageNumber = 0;
             boolean hasMorePages = true;
 
@@ -65,34 +66,32 @@ public class FacebookIngestionScheduler {
                         failureCount++;
                         if ("TOKEN_NOT_FOUND".equals(e.getErrorType())) {
                             log.warn("Skipping Facebook ingestion for page {} because no token exists in Vault ({})",
-                                page.getId(), e.getStatusCode());
+                                page.getId(), e.getStatusCode()); // page just hasn't been connected yet
                         } else {
                             log.error("Facebook API error ingesting events for page: {} - {} ({})",
                                 page.getId(), e.getErrorType(), e.getStatusCode());
                         }
-                        // An OAuthException means the token is dead - mark it invalid in the registry
+                        // OAuthException means Facebook rejected the token entirely. Mark it dead so the refresher stops retrying it
                         if ("OAuthException".equals(e.getErrorType())) {
                             vaultService.ifPresent(v -> v.markPageTokenInvalid(page.getId()));
                         }
                     } catch (Exception e) {
                         failureCount++;
-                        log.error("Error ingesting events for page: {}", page.getId(), e);
-                        // Continue with next page even if this one fails
+                        log.error("Error ingesting events for page: {}", page.getId(), e); // one bad page shouldn't stop the whole run
                     }
                 }
 
-                // Check if there are more pages
                 hasMorePages = activePagesPage.hasNext();
                 pageNumber++;
             }
 
+            // 2. log a summary with counts and duration so the scheduled run is easy to audit in logs
             long duration = System.currentTimeMillis() - startTime;
             log.info("Facebook event ingestion completed. Success: {}, Failure: {}, Duration: {}ms",
                 successCount, failureCount, duration);
 
         } catch (Exception e) {
-            log.error("Unexpected error in Facebook event ingestion scheduler", e);
-            // Log but don't rethrow - scheduler should continue running even after errors
+            log.error("Unexpected error in Facebook event ingestion scheduler", e); // log but don't rethrow, Spring reschedules the next run regardless
         }
     }
 }

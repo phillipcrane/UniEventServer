@@ -6,6 +6,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
+// thin scheduler wrapper around TokenRefreshService. The real logic lives there so both this
+// scheduled job and the manual admin endpoint share the same code path.
 @Slf4j
 @Component
 public class FacebookTokenRefresher {
@@ -21,7 +23,7 @@ public class FacebookTokenRefresher {
         try {
             tokenRefreshService.refreshAll();
         } catch (Exception e) {
-            log.error("Unexpected error in Facebook token refresh scheduler", e);
+            log.error("Unexpected error in Facebook token refresh scheduler", e); // log but don't rethrow, Spring reschedules the next run regardless
         }
     }
 }

@@ -110,6 +110,7 @@ public class TokenRefreshService {
     public RefreshResult refreshOne(String pageId) {
         log.debug("Refreshing token for page: {}", pageId);
 
+        // 1. Vault must be enabled; without it there's nowhere to read or write the token
         if (vaultService.isEmpty()) {
             String msg = "Vault is disabled - token refresh unavailable";
             log.warn("{} for page: {}", msg, pageId);
@@ -119,6 +120,7 @@ public class TokenRefreshService {
         VaultService vault = vaultService.get();
 
         try {
+            // 2. read the current token from Vault; nothing to refresh if it's missing
             Optional<String> currentTokenOpt = vault.getPageToken(pageId);
             if (currentTokenOpt.isEmpty()) {
                 String msg = "No token found in Vault";
@@ -130,15 +132,18 @@ public class TokenRefreshService {
             String currentToken = currentTokenOpt.get();
 
             try {
+                // 3. exchange the current token for a refreshed one via the Graph API
                 var tokenResponse = facebookGraphApiService.refreshPageToken(currentToken);
                 String newToken = tokenResponse.getAccessToken();
 
+                // 4. persist the new token in Vault and update DB metadata
                 vault.updatePageToken(pageId, newToken);
                 pageService.updateTokenMetadata(pageId);
                 log.info("Successfully refreshed token for page: {}", pageId);
                 return new RefreshResult(pageId, true, "Token refreshed");
 
             } catch (FacebookApiException e) {
+                // 401/403 from Facebook means the token is definitively dead, not a transient error
                 String msg = String.format("Facebook API error: %s (status %d)", e.getErrorType(), e.getStatusCode());
                 log.error("Facebook API error refreshing token for page: {} - {}", pageId, msg);
                 pageService.logRefreshFailure(pageId, msg);

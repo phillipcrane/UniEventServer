@@ -18,6 +18,9 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 import javax.crypto.SecretKey;
 
+// issues and validates JWTs. Access tokens and refresh tokens use separate signing keys so a
+// compromised access token can't be used to forge a refresh token. Refresh tokens also carry a
+// family ID so the server can detect reuse and invalidate the whole family on rotation.
 @Service
 @RequiredArgsConstructor
 public class JwtService {
@@ -57,7 +60,7 @@ public class JwtService {
                 .issuedAt(issuedAt)
                 .expiration(expiration)
                 .claim("type", "refresh")
-                .claim("family", familyId)
+                .claim("family", familyId) // groups tokens from the same refresh chain so the whole family can be revoked on reuse
                 .signWith(getRefreshSigningKey())
                 .compact();
     }
@@ -112,7 +115,7 @@ public class JwtService {
             Claims claims = extractAllClaims(token);
             return expectedSubject.equals(claims.getSubject())
                     && claims.getExpiration().after(new Date())
-                    && "access".equals(claims.get("type"));
+                    && "access".equals(claims.get("type")); // type check rejects refresh tokens used as access tokens
         } catch (Exception ex) {
             return false;
         }
@@ -159,7 +162,7 @@ public class JwtService {
 
     private Claims extractAllClaims(String token, boolean refreshToken) {
         return Jwts.parser()
-                .verifyWith(refreshToken ? getRefreshSigningKey() : getSigningKey())
+                .verifyWith(refreshToken ? getRefreshSigningKey() : getSigningKey()) // each token type has its own key
                 .build()
                 .parseSignedClaims(token)
                 .getPayload();

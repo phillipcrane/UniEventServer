@@ -24,6 +24,10 @@ import java.util.UUID;
 
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 
+// manages refresh token rotation with family-based reuse detection. tokens are stored as SHA-256
+// hashes (never raw). each token belongs to a family; if a revoked token is presented, the whole
+// family is revoked immediately — this detects theft where the attacker rotated before the real user.
+// a 10-second grace window handles the case where the client retries a rotation that already succeeded.
 @Service
 @RequiredArgsConstructor
 public class RefreshTokenService {
@@ -56,6 +60,7 @@ public class RefreshTokenService {
 
     @Transactional(isolation = Isolation.SERIALIZABLE)
     public synchronized TokenPair rotate(String refreshToken, String userAgent, String ipAddress) {
+        // 1. extract claims from the JWT (no DB hit yet)
         String userEmail = jwtService.extractRefreshUsername(refreshToken);
         String tokenId = jwtService.extractRefreshTokenId(refreshToken);
         String familyId = jwtService.extractRefreshFamilyId(refreshToken);
@@ -64,8 +69,8 @@ public class RefreshTokenService {
             throw new UnauthorizedTokenException("Session expired. Please login again.");
         }
 
-        // Token not found: likely a security issue (token was already used/rotated,
-        // or the token family was compromised). Throw 403 to indicate compromise detection.
+        // 2. look up the stored token. not found means it was already rotated or the family was
+        // compromised, so revoke the whole family and signal compromise to the client.
         RefreshTokenEntity stored = refreshTokenRepository.findByTokenId(tokenId)
                 .orElseThrow(() -> {
                     revokeFamily(familyId);
@@ -78,6 +83,8 @@ public class RefreshTokenService {
 
         String incomingHash = hashToken(refreshToken);
 
+        // 3. if the token is already revoked, check the grace window: a client retry within 10s
+        // of the previous rotation is allowed (network retry case). anything else is compromise.
         if (stored.getRevokedAt() != null) {
             if (isRecentlyReplacedToken(stored)
                     && MessageDigest.isEqual(stored.getTokenHash().getBytes(StandardCharsets.UTF_8),
@@ -88,12 +95,14 @@ public class RefreshTokenService {
             throw new TokenCompromisedException();
         }
 
+        // 4. verify the token hash matches what we stored (constant-time to prevent timing attacks)
         if (!MessageDigest.isEqual(stored.getTokenHash().getBytes(StandardCharsets.UTF_8),
                         incomingHash.getBytes(StandardCharsets.UTF_8))) {
             revokeFamily(familyId);
             throw new TokenCompromisedException();
         }
 
+        // 5. issue a new token pair, revoke the old token, and persist the replacement
         UserEntity user;
         UserDetails userDetails;
         try {

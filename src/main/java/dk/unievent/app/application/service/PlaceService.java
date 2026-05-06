@@ -16,6 +16,8 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.util.Optional;
 
+// CRUD for venues. ingestion uses createOrFindPlace to resolve Facebook location data to a local
+// PlaceEntity, creating one if it doesn't exist yet. concurrent inserts are handled gracefully.
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -25,9 +27,6 @@ public class PlaceService {
     private final PlaceMapper placeMapper;
     private final EventRepository eventRepository;
     
-    /**
-     * Get a place by ID
-     */
     public Optional<PlaceDTO> getPlaceById(String id) {
         log.debug("Fetching place with id: {}", id);
         Optional<PlaceEntity> entity = placeRepository.findById(id);
@@ -39,9 +38,6 @@ public class PlaceService {
         return entity.map(placeMapper::toDTO);
     }
     
-    /**
-     * Find places by city
-     */
     public Page<PlaceDTO> getPlacesByCity(String city, Pageable pageable) {
         log.debug("Fetching places for city: {}", city);
         Page<PlaceDTO> result = placeRepository.findByCity(city, pageable)
@@ -50,9 +46,6 @@ public class PlaceService {
         return result;
     }
     
-    /**
-     * Find places by country
-     */
     public Page<PlaceDTO> getPlacesByCountry(String country, Pageable pageable) {
         log.debug("Fetching places for country: {}", country);
         Page<PlaceDTO> result = placeRepository.findByCountry(country, pageable)
@@ -61,9 +54,6 @@ public class PlaceService {
         return result;
     }
     
-    /**
-     * Find places by city and country
-     */
     public Page<PlaceDTO> getPlacesByCityAndCountry(String city, String country, Pageable pageable) {
         log.debug("Fetching places for city: {}, country: {}", city, country);
         Page<PlaceDTO> result = placeRepository.findByCityAndCountry(city, country, pageable)
@@ -72,9 +62,6 @@ public class PlaceService {
         return result;
     }
     
-    /**
-     * Search places by name
-     */
     public Page<PlaceDTO> searchByName(String name, Pageable pageable) {
         log.debug("Searching places by name: {}", name);
         Page<PlaceDTO> result = placeRepository.findByNameIgnoreCase(name, pageable)
@@ -83,9 +70,6 @@ public class PlaceService {
         return result;
     }
     
-    /**
-     * Create a new place
-     */
     public PlaceDTO createPlace(PlaceDTO placeDTO) {
         log.info("Creating new place: {}", placeDTO.getName());
         PlaceEntity entity = placeMapper.toEntity(placeDTO);
@@ -94,9 +78,6 @@ public class PlaceService {
         return placeMapper.toDTO(saved);
     }
     
-    /**
-     * Update an existing place
-     */
     public Optional<PlaceDTO> updatePlace(String id, PlaceDTO placeDTO) {
         log.info("Updating place with id: {}", id);
         Optional<PlaceEntity> existing = placeRepository.findById(id);
@@ -121,13 +102,8 @@ public class PlaceService {
         return Optional.of(placeMapper.toDTO(updated));
     }
     
-    /**
-     * Delete a place
-     * 
-     * This operation is wrapped in a transaction to ensure atomicity. If any step fails,
-     * the entire operation is rolled back to prevent partial updates and FK constraint failures.
-     * Uses a bulk update query to avoid loading all events into memory.
-     */
+    // bulk-nullifies the place reference on all associated events before deleting, so we don't
+    // leave dangling FKs. done in one transaction so a partial failure rolls back cleanly.
     @Transactional
     public boolean deletePlace(String id) {
         log.info("Deleting place with id: {}", id);
@@ -135,28 +111,16 @@ public class PlaceService {
             log.warn("Place not found for deletion with id: {}", id);
             return false;
         }
-        
-        // Bulk update to nullify place reference for all associated events
-        int affectedCount = eventRepository.nullifyEventsByPlaceId(id);
-        
-        // Delete the place
+
+        int affectedCount = eventRepository.nullifyEventsByPlaceId(id); // bulk update, avoids loading all events into memory
         placeRepository.deleteById(id);
         
         log.info("Place deleted, nullified place on {} event(s): {}", affectedCount, id);
         return true;
     }
 
-    /**
-     * Create or find a place by name, city, and country.
-     * Used by Facebook event ingestion to resolve or create venues.
-     * 
-     * @param name Place venue name
-     * @param street Street address (optional)
-     * @param city City name
-     * @param zip Postal code (optional)
-     * @param country Country name
-     * @return Existing or newly created PlaceEntity
-     */
+    // looks up a place by name, city, and country. creates one if it doesn't exist.
+    // used by ingestion to resolve Facebook location data to a local PlaceEntity.
     public PlaceEntity createOrFindPlace(String name, String street, String city, String zip, String country) {
         log.debug("Searching for place: {} in {}, {}", name, city, country);
 
@@ -166,7 +130,6 @@ public class PlaceService {
             return found.get();
         }
 
-        // Place not found, create new one
         log.debug("Place not found, creating new: {} in {}, {}", name, city, country);
         PlaceEntity newPlace = PlaceEntity.builder()
                 .id(java.util.UUID.randomUUID().toString())

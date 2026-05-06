@@ -9,8 +9,6 @@ import org.springframework.stereotype.Component;
 
 import java.time.ZoneId;
 
-
-
 /**
  * Transforms Facebook event schema to app EventEntity schema
  * Handles normalization of event data and location creation
