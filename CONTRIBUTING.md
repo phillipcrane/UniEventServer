@@ -50,17 +50,17 @@ After setup the `tools` CLI is available - see `cli/` in the project structure b
 UniEventServer/
 ├── .github/
 │   └── workflows/
-│       └── deploy.yml      # CI/CD: build gates + SSH deploy + docker compose up
+│       └── deploy.yml            # CI/CD: build gates + SSH deploy + docker compose up
 ├── cli/
-│   ├── setup.ps1      # tools setup
-│   ├── docker.ps1     # tools docker / tools docker -d (stop) / tools docker --wipe
-│   ├── vault.ps1      # tools vault, tools unseal
-│   ├── seed.ps1       # tools seed, tools seed --wipe
-│   ├── ingest.ps1     # tools ingest [-p <pageId>]
-│   ├── refresh.ps1    # tools refresh [-p <pageId>]
-│   ├── invite.ps1     # tools invite [-e <email>] [-n <orgname>]
-│   ├── status.ps1     # tools status (read-only Docker/Vault summary)
-│   └── shared.ps1     # (shared helpers)
+│   ├── setup.ps1                 # tools setup
+│   ├── docker.ps1                # tools docker / tools docker -d (stop) / tools docker --wipe
+│   ├── vault.ps1                 # tools vault, tools unseal
+│   ├── seed.ps1                  # tools seed, tools seed --wipe
+│   ├── ingest.ps1                # tools ingest [-p <pageId>]
+│   ├── refresh.ps1               # tools refresh [-p <pageId>]
+│   ├── invite.ps1                # tools invite [-e <email>] [-n <orgname>]
+│   ├── status.ps1                # tools status (read-only Docker/Vault summary)
+│   └── shared.ps1                # (shared helpers)
 ├── deploy/
 │   ├── nginx-dev.conf            # Local dev
 │   └── nginx-https.conf          # Production HTTPS + reverse proxy
@@ -68,28 +68,31 @@ UniEventServer/
 │   ├── main/
 │   │   ├── java/dk/unievent/app/
 │   │   │   ├── api/
-│   │   │   │   ├── controller/
-│   │   │   │   ├── dto/
-│   │   │   │   └── handler/
+│   │   │   │   ├── controller/   # HTTP endpoints - routing and status codes only
+│   │   │   │   ├── dto/          # Request/Response bodies
+│   │   │   │   └── handler/      # Business actions triggered by a request
 │   │   │   ├── application/
-│   │   │   │   ├── dto/
-│   │   │   │   ├── mapper/
-│   │   │   │   ├── scheduler/
-│   │   │   │   └── service/
+│   │   │   │   ├── dto/          # Internal data shapes passed between layers
+│   │   │   │   ├── mapper/       # @Component beans with toDTO / toEntity
+│   │   │   │   ├── scheduler/    # Scheduled tasks (Facebook ingestion, token refresh)
+│   │   │   │   └── service/      # Business logic; often getters/setters to an external service
 │   │   │   ├── db/
-│   │   │   │   ├── model/
-│   │   │   │   └── repository/
+│   │   │   │   ├── model/        # JPA entities
+│   │   │   │   └── repository/   # Spring Data interfaces - queries only, no logic
 │   │   │   ├── infrastructure/
-│   │   │   │   ├── client/
-│   │   │   │   ├── config/
-│   │   │   │   ├── exception/
-│   │   │   │   ├── filter/
-│   │   │   │   └── security/
-│   │   │   └── tools/            # Admin CLI endpoints (@Profile("dev"))
+│   │   │   │   ├── client/       # External HTTP clients (Facebook Graph API, SeaweedFS)
+│   │   │   │   ├── config/       # Spring @Configuration beans
+│   │   │   │   ├── constants/    # Shared string/numeric constants
+│   │   │   │   ├── exception/    # One RuntimeException subclass per failure case
+│   │   │   │   ├── filter/       # Servlet filters (auth, CSRF)
+│   │   │   │   └── security/     # Spring Security config and JWT
+│   │   │   └── tools/            # @Profile("dev") admin endpoints only - never ships to prod
 │   │   │       ├── controller/
 │   │   │       ├── models/
 │   │   │       └── services/
 │   │   └── resources/
+│   │       ├── db/
+│   │       │   └── migration/    # Flyway SQL migrations
 │   │       ├── templates/
 │   │       │   └── emails/       # Thymeleaf email templates
 │   │       ├── api.yaml
@@ -98,59 +101,32 @@ UniEventServer/
 │   │       ├── db.yaml
 │   │       ├── media.yaml
 │   │       └── vault.yaml
-│   └── test/
-│       ├── java/dk/unievent/app/
-│       │   ├── api/
-│       │   │   ├── controller/
-│       │   │   └── handler/
-│       │   ├── application/
-│       │   │   ├── dto/
-│       │   │   ├── mapper/
-│       │   │   └── service/
-│       │   ├── db/
-│       │   │   ├── model/
-│       │   │   └── repository/
-│       │   ├── infrastructure/
-│       │   │   ├── client/
-│       │   │   ├── config/
-│       │   │   ├── exception/
-│       │   │   ├── filter/
-│       │   │   └── util/
-│       │   └── tools/
-│       │       ├── controller/
-│       │       └── services/
-│       └── resources/
-│           ├── application-test.yaml
-│           ├── db-test.yaml
-│           ├── logback-test.xml
-│           └── vault-test.yaml
-├── vault/
-│   └── config/
-│       └── policies/
+│   └── test/                    # java tests, mirrors backend structure
 ├── web/
 │   ├── public/
 │   ├── src/
-│   │   ├── components/          # Isolated UI pieces (no data fetching)
-│   │   ├── context/             # React context providers (AuthContext, LikesContext, PagesContext)
-│   │   ├── hooks/               # Stateful logic extracted from components (prefixed use*)
-│   │   ├── pages/               # Full page views (delegate state to hooks, near-pure JSX)
-│   │   ├── services/            # Pure data access: getters, setters, listeners, API calls
+│   │   ├── components/          # Purely presentational; no fetch calls, delegate state to hooks
+│   │   │   └── admin/
+│   │   ├── context/             # App-wide shared state 
+│   │   ├── hooks/               # Stateful logic from components (prefixed use*, use[pagename])
+│   │   ├── pages/               # Compose components, delegate all state to a useXxxPage hook; near-pure JSX
+│   │   │   └── admin/
+│   │   ├── services/            # Pure data access: in-memory state, getters/setters, listeners, API calls
 │   │   │   ├── http.ts          # Fetch wrapper (auth headers, CSRF, error handling)
 │   │   │   ├── csrf.ts          # CSRF token management
 │   │   │   ├── dal.ts           # Data Access Layer - all REST API calls
 │   │   │   ├── auth.ts          # Cookie-based auth state (in-memory store + session helpers)
 │   │   │   ├── facebook.ts      # Facebook OAuth URL builders
 │   │   │   └── likes.ts         # Likes persistence (localStorage + in-memory cache)
-│   │   ├── styles/
-│   │   ├── test/
-│   │   │   ├── pages/
-│   │   │   └── services/
-│   │   ├── utils/               # Pure helpers used across multiple files
-│   │   ├── constants.ts         # All magic values (timeouts, API paths, thresholds)
+│   │   ├── styles/              # Tailwind styles
+│   │   ├── test/                # Vitest framework, mirrors backend file tree structure
+│   │   ├── theme/               # Tailwind design tokens
+│   │   ├── utils/               # Pure helpers (no React, no side-effects) used across multiple files
+│   │   ├── constants.ts         # All magic values (timeouts, API paths, thresholds, feature flags)
 │   │   ├── main.tsx             # Entry point
 │   │   ├── App.tsx
 │   │   ├── router.tsx           # React Router config
-│   │   └── types.ts             # Shared TypeScript interfaces and domain types
+│   │   └── types.ts             # Shared TS types (note: don't exist at runtime, unlike Java/C#)
 │   ├── Dockerfile               # Frontend nginx image
 │   ├── nginx.conf               # SPA routing (all routes → index.html)
 │   ├── package.json
@@ -162,65 +138,39 @@ UniEventServer/
 └── tools.ps1                    # Entry point for the tools CLI
 ```
 
-## Conventions
-
-### Backend
-
-Api Layer:
-- **`/controller/`** - stage endpoints/routes, handle HTTP
-- **`/dto/`** - HTTP Request/Response
-- **`/handler/`** - do something
-
-Application Layer:
-- **`/service/`** - business logic, tho often getters and setters to some external service
-- **`/dto/`** - internal data shapes passed between services or into mappers
-- **`/mapper/`** - `@Component` beans with `toDTO` / `toEntity`. 
-
-Data Layer:
-- **`/model/`** - JPA entities only. 
-- **`/repository/`** - Spring Data interfaces. Queries only, no logic
-
-Infrastructure Layer:
-- **`/config/`** - Spring config beans
-- **`/exception/`** - one `RuntimeException` subclass per failure case
-- **`/tools/`** - `@Profile("dev")` admin endpoints only; never ships to production
-
----
-
-### Frontend
-
-- **`context/`** - app-wide shared state (AuthContext, LikesContext, PagesContext). Use a context when multiple unrelated hooks need the same data and prop-drilling would be awkward
-- **`components/`** - purely presentational, no fetch calls. Delegate state to `useXxx` hooks
-- **`pages/`** - compose components, delegate all state to a `useXxxPage` hook; near-pure JSX
-- **`hooks/`** - stateful logic extracted from REACT components; always prefix `use*`; page-level hooks named after their page (`useMainPage`, `useEventPage`, etc.)
-- **`services/`** - pure data access: in-memory state, getters/setters, listeners, raw API fetches
-- **`utils/`** - pure helpers used in more than one file; no React, no side-effects
-- **`types.ts`** - all TS types (remember - TS types don't exist when the program is running, unlike in Java/C#)
-- **`constants.ts`** - all magic values: timeouts, thresholds, API paths, feature flags
-
-
 ## Diagrams 
 
 ### Infrastructure
 
 ```mermaid
 flowchart LR
-    Student((Student))
-    Organizer((Organizer))
-    Admin((Admin))
-    CLI[CLI Tools]
-    FB[Facebook\nGraph API]
-    Email[Email / SMTP]
+    subgraph Actors
+      Student((Student))
+      Organizer((Organizer))
+      Admin((Admin))
+    end
+    
+    subgraph Dev
+      CLI[CLI Tools]
+    end
+
+    subgraph External
+      FB[Facebook\nGraph API]
+      Email[Email / SMTP]
+    end
 
     subgraph Docker Compose
         Nginx[Nginx\nReverse Proxy]
         Certbot[Certbot\nSSL]
         Web[React/Vite\nFrontend]
         Spring[Spring Boot\nAPI]
-        DB[(MySQL)]
-        Vault[HashiCorp\nVault]
-        SeaweedM[SeaweedFS\nMaster]
-        SeaweedV[(SeaweedFS\nVolume)]
+    
+        subgraph Data Persistence
+          DB[(MySQL)]
+          Vault[HashiCorp\nVault]
+          SeaweedM[SeaweedFS\nMaster]
+          SeaweedV[(SeaweedFS\nVolume)]
+        end
     end
 
     Student --> Web
@@ -230,7 +180,7 @@ flowchart LR
     Web --> Nginx
     Nginx --> Spring
     Certbot -.->|renew certs| Nginx
-    CLI --> Spring
+    CLI -->|calls endpoints| Spring
     Spring --> DB
     Spring --> Vault
     Spring --> FB
@@ -351,7 +301,7 @@ sequenceDiagram
 sequenceDiagram
     autonumber
     actor User
-    participant Web as Web UI
+    participant Web as [Web UI]
     participant Auth as AuthController
     participant KeySvc as OrganizerKeyService
     participant Keys as OrganizerKeyRepository
@@ -447,16 +397,16 @@ sequenceDiagram
 | `GET` | `/api/admin/secrets/by-type/{type}` | Get secrets by type |
 | `GET` | `/api/admin/secrets/by-status/{status}` | Get secrets by status |
 | `DELETE` | `/api/admin/secrets/{id}` | Delete secret |
+| `GET` | `/admin/tools/pages` | List all tracked pages with token status |
+| `POST` | `/admin/tools/ingest/{pageId}` | Manually ingest Facebook events for a page |
+| `POST` | `/admin/tools/refresh-tokens` | Refresh tokens for all pages |
+| `POST` | `/admin/tools/refresh-tokens/{pageId}` | Refresh token for one page |
 
 **Dev profile only (`@Profile("dev")`) - not available in production:**
 | Method | Path | Purpose |
 |--------|------|---------|
-| `POST` | `/admin/tools/ingest/{pageId}` | Manually ingest Facebook events for a page |
-| `GET` | `/admin/tools/pages` | List all tracked pages with token status |
 | `POST` | `/admin/tools/seed` | Seed test data |
 | `DELETE` | `/admin/tools/seed` | Clear seeded test data |
-| `POST` | `/admin/tools/refresh-tokens` | Refresh tokens for all pages |
-| `POST` | `/admin/tools/refresh-tokens/{pageId}` | Refresh token for one page |
 
 ## TODO
 
