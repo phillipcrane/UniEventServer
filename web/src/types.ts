@@ -51,7 +51,7 @@ export type AccountRole = 'user' | 'organizer' | 'admin';
 export type User = {
   username: string;
   email: string;
-  uid?: string;
+  uid: string;
   displayName?: string;
   photoURL?: string | null;
   role?: AccountRole;
