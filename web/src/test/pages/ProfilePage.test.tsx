@@ -109,12 +109,12 @@ describe('ProfilePage', () => {
         expect(screen.getByRole('button', { name: 'Connect Facebook Page' })).toBeInTheDocument();
     });
 
-    it('shows admin organizer key link for admin accounts', () => {
+    it('shows admin dashboard link for admin accounts', () => {
         mockUseProfilePage.mockReturnValue(defaultHookReturn({ accountRole: 'admin' }));
         renderPage();
 
-        expect(screen.getByRole('link', { name: 'Admin: Generate Organizer Key' }))
-            .toHaveAttribute('href', '/admin/generate-organizer-key');
+        expect(screen.getByRole('link', { name: 'Admin Dashboard' }))
+            .toHaveAttribute('href', '/admin');
     });
 
     it('hides Facebook connect section for regular user', () => {

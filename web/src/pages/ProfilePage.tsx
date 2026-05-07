@@ -137,10 +137,10 @@ export function ProfilePage() {
                 </span>
                 {accountRole === 'admin' && (
                     <Link
-                    to="/admin/generate-organizer-key"
+                    to="/admin"
                         className="inline-flex items-center gap-2 rounded-full border border-[var(--admin-role-border)] bg-[var(--admin-role-bg)] px-3 py-1 text-xs font-semibold uppercase tracking-[0.08em] text-[var(--admin-role-text)] transition-colors duration-200 hover:bg-[var(--admin-role-bg-hover)]"
                     >
-                    Admin: Generate Organizer Key
+                    Admin Dashboard
                     </Link>
                 )}
               </div>
