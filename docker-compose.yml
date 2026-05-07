@@ -176,7 +176,7 @@ services:
       context: ./web
       dockerfile: Dockerfile
       args:
-        VITE_BACKEND_URL: ${VITE_BACKEND_URL:-}
+        VITE_BACKEND_URL: ${VITE_BACKEND_URL:-https://localhost}
         VITE_FACEBOOK_APP_ID: ${VITE_FACEBOOK_APP_ID:-}
     container_name: unievent-frontend
     restart: unless-stopped
