@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { HeaderLogoLink } from '../HeaderLogoLink';
+import { HeaderLogoLink } from './HeaderLogoLink';
 
 type AdminHeaderProps = {
     title: string;

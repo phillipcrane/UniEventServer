@@ -1,7 +1,7 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { GenerateOrganizerKeyPage } from '../../../pages/admin/GenerateOrganizerKeyPage';
+import { GenerateOrganizerKeyPage } from '../../../pages/GenerateOrganizerKeyPage';
 import type { AuthUser } from '../../../services/auth';
 
 const mockNavigate = vi.fn();

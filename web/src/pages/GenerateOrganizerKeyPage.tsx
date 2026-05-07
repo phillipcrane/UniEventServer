@@ -1,15 +1,15 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Footer } from '../../components/Footer';
-import { AdminHeader } from '../../components/admin/AdminHeader';
-import { useAuth } from '../../context/AuthContext';
+import { Footer } from '../components/Footer';
+import { AdminHeader } from '../components/AdminHeader';
+import { useAuth } from '../context/AuthContext';
 import {
     generateOrganizerKey,
     mapAdminKeyError,
-} from '../../services/auth';
-import { sanitizeErrorMessage } from '../../utils/securityUtils';
-import { isValidEmail, isValidEmailLength } from '../../utils/validationUtils';
+} from '../services/auth';
+import { sanitizeErrorMessage } from '../utils/securityUtils';
+import { isValidEmail, isValidEmailLength } from '../utils/validationUtils';
 
 function formatExpiryHours(expiresIn: number | null): string {
     if (!expiresIn || expiresIn <= 0) {

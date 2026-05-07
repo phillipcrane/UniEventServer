@@ -2,7 +2,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { AdminToolsDashboardPage } from '../../pages/admin/AdminToolsDashboardPage';
+import { AdminToolsDashboardPage } from '../../pages/AdminToolsDashboardPage';
 
 const mockUseAuth = vi.fn();
 const mockLoadAdminPages = vi.fn();

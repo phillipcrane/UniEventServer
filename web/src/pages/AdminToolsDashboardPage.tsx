@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Database, RefreshCw, Send, ShieldCheck, Trash2 } from 'lucide-react';
-import { Footer } from '../../components/Footer';
-import { AdminHeader } from '../../components/admin/AdminHeader';
-import { useAuth } from '../../context/AuthContext';
+import { Footer } from '../components/Footer';
+import { AdminHeader } from '../components/AdminHeader';
+import { useAuth } from '../context/AuthContext';
 import {
     clearAdminData,
     ingestAdminPage,
@@ -13,7 +13,7 @@ import {
     refreshAllAdminTokens,
     seedAdminData,
     type AdminPageSummary,
-} from '../../services/adminTools';
+} from '../services/adminTools';
 
 type ToolMessage = {
     kind: 'success' | 'error';
