@@ -1,4 +1,4 @@
-# UniEventServer
+# UniEvent
 
 This document is the **non-technical** part of DTU Event documentation, for general users. For developer and contributor documentation, see [CONTRIBUTING.md](./CONTRIBUTING.md).
 
