@@ -4,7 +4,7 @@ export function createHttpError(status: number, message: string): HttpError {
   return Object.assign(new Error(message), { status });
 }
 
-// isValidEmail uses a simple structural check: something@something.something.
+// isValidEmail uses a simple check: something@something.something.
 // A full RFC-5322 regex would be hundreds of characters long and still not perfect;
 // this is intentionally lightweight because the backend re-validates anyway.
 export function isValidEmail(value: string): boolean {

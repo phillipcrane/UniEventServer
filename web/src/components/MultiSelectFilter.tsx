@@ -2,6 +2,7 @@ import { useState, useRef } from 'react';
 import type { Page } from '../types';
 import { useClickOutside } from '../hooks/useClickOutside';
 
+// dropdown that lets users pick multiple organizers. shows selected ones as removable tags above a checkbox list.
 export function MultiSelectFilter({
   pages,
   selectedIds,
@@ -14,9 +15,10 @@ export function MultiSelectFilter({
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  useClickOutside(containerRef, isOpen, () => setIsOpen(false));
+  useClickOutside(containerRef, isOpen, () => setIsOpen(false)); // close dropdown when clicking anywhere outside it
 
   const handleToggle = (pageId: string) => {
+    // if already selected, remove it. if not, add it. [...array, item] spreads existing items and appends the new one.
     const updated = selectedIds.includes(pageId)
       ? selectedIds.filter(id => id !== pageId)
       : [...selectedIds, pageId];
@@ -24,7 +26,7 @@ export function MultiSelectFilter({
   };
 
   const handleRemoveTag = (pageId: string, e: React.MouseEvent) => {
-    e.stopPropagation();
+    e.stopPropagation(); // stop the click from bubbling up to the parent div and toggling the dropdown
     handleToggle(pageId);
   };
 
@@ -32,7 +34,8 @@ export function MultiSelectFilter({
 
   return (
     <div ref={containerRef} className="relative w-full">
-      {/* Input/Display Area */}
+      {/* selected-tags display area. role="button" makes it keyboard-accessible,
+           and the onKeyDown below lets users open/close it with Enter or Space */}
       <div
         role="button"
         tabIndex={0}
@@ -40,7 +43,7 @@ export function MultiSelectFilter({
         onClick={() => setIsOpen(!isOpen)}
         onKeyDown={(event) => {
           if (event.key !== 'Enter' && event.key !== ' ') {
-            return;
+            return; // only respond to Enter and Space, like a native button would
           }
           event.preventDefault();
           setIsOpen(!isOpen);

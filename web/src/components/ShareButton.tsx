@@ -9,6 +9,7 @@ type ShareButtonProps = {
   className?: string;
 };
 
+// share button with a fallback chain: native share sheet (mobile), then clipboard copy, then open in new tab.
 export function ShareButton({ event, className = '' }: ShareButtonProps) {
   const [copied, setCopied] = useState(false);
   const handleCopied = () => { setCopied(true); window.setTimeout(() => setCopied(false), SHARE_FEEDBACK_MS); };
@@ -26,16 +27,19 @@ export function ShareButton({ event, className = '' }: ShareButtonProps) {
 
     try {
       if (typeof navigator !== 'undefined' && typeof navigator.share === 'function') {
+        // navigator.share opens the native OS share sheet (works on mobile + some desktop browsers)
         await navigator.share(sharePayload);
         return;
       }
 
       if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+        // native share not available, fall back to copying the link to clipboard
         await navigator.clipboard.writeText(eventUrl);
         handleCopied();
         return;
       }
 
+      // last resort: just open the link directly in a new tab
       window.open(eventUrl, '_blank', 'noopener,noreferrer');
     } catch {
       // Ignore aborted shares and clipboard errors to avoid noisy UX.

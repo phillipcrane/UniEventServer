@@ -4,10 +4,13 @@ import '../styles/ThemeToggle.css';
 
 const THEME_STORAGE_KEY = 'ui-theme';
 
+// toggle between dark and light mode. persists the choice to localStorage so it survives a page reload.
 export function ThemeToggle() {
+  // useState with a function ("lazy initializer") runs it once on first render to set the initial value.
+  // used here so we read localStorage once at startup rather than on every re-render.
   const [dark, setDark] = useState<boolean>(() => {
     if (typeof window === 'undefined') {
-      return true;
+      return true; // server-side rendering guard, default to dark
     }
 
     try {
@@ -26,6 +29,8 @@ export function ThemeToggle() {
   });
 
   useEffect(() => {
+    // document.documentElement is the <html> element. toggling "dark" on it switches all the
+    // CSS variables defined in index.css between their dark and light values.
     const root = document.documentElement;
     if (dark) root.classList.add('dark');
     else root.classList.remove('dark');

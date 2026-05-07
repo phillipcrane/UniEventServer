@@ -22,6 +22,7 @@ function startOfWeek(date: Date) {
   return result;
 }
 
+// build a 6x7 grid of Date objects for the month of viewDate. starts from the Monday of the first week that overlaps day 1.
 function buildMonthGrid(viewDate: Date) {
   const firstOfMonth = new Date(viewDate.getFullYear(), viewDate.getMonth(), 1);
   const startWeekDay = (firstOfMonth.getDay() + 6) % 7; // shift so Monday=0
@@ -42,6 +43,7 @@ function buildMonthGrid(viewDate: Date) {
   return grid;
 }
 
+// build a single-row grid of 7 Date objects for the week containing viewDate (Monday first).
 function buildWeekGrid(viewDate: Date) {
   const start = startOfWeek(viewDate);
   const row: Date[] = [];
@@ -53,6 +55,7 @@ function buildWeekGrid(viewDate: Date) {
   return [row];
 }
 
+// calendar that shows events on a month or week grid. clicking an event goes to its detail page.
 export function CalendarView({ events }: { events: Event[] }) {
   const navigate = useNavigate();
   const [viewDate, setViewDate] = useState(() => new Date());
@@ -84,7 +87,8 @@ export function CalendarView({ events }: { events: Event[] }) {
       const endDay = new Date(endDate);
       endDay.setHours(0, 0, 0, 0);
 
-      // Avoid unbounded looping on invalid end dates
+      // multi-day events get one map entry per day so they show up on each day cell in the grid.
+      // e.g. an event Mon-Wed appears on Mon, Tue, and Wed. capped at 30 days to avoid long loops.
       const maxDays = 30;
       const cursor = new Date(startDay);
       let days = 0;
@@ -139,6 +143,7 @@ export function CalendarView({ events }: { events: Event[] }) {
 
   return (
     <div className="space-y-4">
+      {/* nav row: prev/today/next buttons + month-week toggle */}
       <header className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <button
@@ -191,6 +196,7 @@ export function CalendarView({ events }: { events: Event[] }) {
         </div>
       </header>
 
+      {/* day-name header row: Mon Tue Wed Thu Fri Sat Sun */}
       <div className="grid grid-cols-7 gap-1 text-xs text-[var(--text-subtle)] font-semibold">
         {WEEK_DAYS.map(day => (
           <div key={day} className="text-center py-2">
@@ -199,9 +205,10 @@ export function CalendarView({ events }: { events: Event[] }) {
         ))}
       </div>
 
+      {/* calendar cells */}
       <div className="grid grid-cols-7 gap-1">
         {grid.map((week, weekIndex) => (
-          <div key={weekIndex} className="contents">
+          <div key={weekIndex} className="contents"> {/* "contents" removes the div's own box so its 7 day cells go directly into the parent grid columns */}
             {week.map(day => {
               const dayKey = formatYMD(day);
               const isCurrentMonth = day.getMonth() === currentMonth && day.getFullYear() === currentYear;
